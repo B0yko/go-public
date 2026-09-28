@@ -22,6 +22,8 @@ from __future__ import annotations
 import multiprocessing
 import os
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -35,6 +37,7 @@ from go_public.detect.gitleaks_config import GitleaksConfig, load_gitleaks_confi
 from go_public.detect.paths_network import PathsNetworkDetector
 from go_public.detect.pii import PiiDetector
 from go_public.detect.secrets import SecretsEngine
+from go_public.errors import ScanWorkerError
 from go_public.git.inventory import BlobOccurrence, Inventory
 from go_public.git.objects import CatFileBatch
 from go_public.git.runner import GitRunner
@@ -965,11 +968,29 @@ def _pool_task(task: _Task) -> list[dict[str, Any]]:
 def _scan_blobs_with_pool(
     runner: GitRunner, tasks: list[_Task], options: ScanOptions, jobs: int
 ) -> list[dict[str, Any]]:
+    """Scan blobs in `jobs` spawned workers.
+
+    A `ProcessPoolExecutor` marks itself broken when a worker dies (the initializer
+    raised, or the child could not import `__main__`), so a bootstrap failure ends in
+    an error instead of an endless respawn loop.
+    """
     ctx = multiprocessing.get_context("spawn")
+    chunk = max(1, min(64, len(tasks) // (jobs * 8)))
     rows: list[dict[str, Any]] = []
-    with ctx.Pool(processes=jobs, initializer=_pool_init, initargs=(runner, options)) as pool:
-        for result in pool.map(_pool_task, tasks):
-            rows.extend(result)
+    try:
+        with ProcessPoolExecutor(
+            max_workers=jobs,
+            mp_context=ctx,
+            initializer=_pool_init,
+            initargs=(runner, options),
+        ) as pool:
+            for result in pool.map(_pool_task, tasks, chunksize=chunk):
+                rows.extend(result)
+    except BrokenProcessPool as exc:
+        raise ScanWorkerError(
+            "a scan worker process died before finishing (it could not start, or it crashed); "
+            "re-run with --jobs 1 to scan in the main process"
+        ) from exc
     return rows
 
 

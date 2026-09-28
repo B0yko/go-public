@@ -37,6 +37,12 @@ class UnsupportedRepo(GoPublicError):
     exit_code = 3
 
 
+class ScanWorkerError(GoPublicError):
+    """A scan worker process died; ``--jobs 1`` scans in the main process instead."""
+
+    exit_code = 3
+
+
 class ExportError(GoPublicError):
     """An export could not be completed (for example, metadata stripping failed)."""
 
