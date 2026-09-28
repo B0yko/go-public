@@ -421,6 +421,12 @@ def _merge(
             merged_rules[rule_id] = base_rule
             keywords.update(base_rule.keywords)
             continue
+        # `required`/`skip_report` are deliberately *not* taken from `current` here:
+        # gitleaks's own `Config.extend` (config.go) never reads
+        # `currentRule.RequiredRules`/`SkipReport` when merging a rule that exists in
+        # both configs — the merged rule keeps the base's values unconditionally, so
+        # an overlay-only `required`/`skipReport` on a shared rule id is silently
+        # dropped upstream too.
         merged = Rule(
             id=rule_id,
             description=current.description or base_rule.description,
@@ -431,8 +437,8 @@ def _merge(
             path=current.path if current.path is not None else base_rule.path,
             tags=tuple(dict.fromkeys((*base_rule.tags, *current.tags))),
             allowlists=base_rule.allowlists + current.allowlists,
-            required=current.required or base_rule.required,
-            skip_report=current.skip_report or base_rule.skip_report,
+            required=base_rule.required,
+            skip_report=base_rule.skip_report,
         )
         merged_rules[rule_id] = merged
         keywords.update(merged.keywords)

@@ -342,6 +342,51 @@ def test_extend_path_relative_to_extending_file(tmp_path: Path) -> None:
     assert len(config.rules) == 2
 
 
+def test_extend_path_drops_overlay_only_required_and_skip_report(tmp_path: Path) -> None:
+    """Ports `Config.extend` (config.go): for a rule present in both the extending
+    file and the base it extends, `extend()` only ever copies the base rule's
+    `RequiredRules`/`SkipReport` into the merged rule — the *overlay*'s values for
+    those two fields are never even read. An overlay-only `required`/`skipReport` on
+    a rule that also exists in the base is silently dropped, exactly as upstream.
+    """
+    base_dir = tmp_path / "nested"
+    base_dir.mkdir()
+    _write(
+        base_dir,
+        "base.toml",
+        """
+        [[rules]]
+        id = "shared-rule"
+        regex = "basesecret[0-9]{4}"
+        """,
+    )
+    top = _write(
+        base_dir,
+        "top.toml",
+        """
+        [extend]
+        path = "base.toml"
+
+        [[rules]]
+        id = "shared-rule"
+        entropy = 1.5
+        skipReport = true
+
+        [[rules.required]]
+        id = "helper-rule"
+
+        [[rules]]
+        id = "helper-rule"
+        regex = "helpersecret[0-9]{4}"
+        """,
+    )
+    config = load_gitleaks_config(top)
+    rule = config.rules["shared-rule"]
+    assert rule.entropy == 1.5  # scalar override still applies
+    assert rule.skip_report is False  # overlay's skipReport is dropped, matches base
+    assert rule.required == ()  # overlay's required is dropped, matches base
+
+
 def test_min_version_newer_than_pinned_warns(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
