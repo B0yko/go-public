@@ -110,6 +110,38 @@ def collect_trailers(
     return out
 
 
+def strip_trailers(message: str, flagged_keys: list[str]) -> str:
+    """`message` without the trailer lines whose key is on `[trailers] flag`
+    (case-insensitive, folded continuation lines included). Only a real trailer block
+    (`parse_trailers`) is touched; when every trailer goes, so does the blank line that
+    separated the block from the body."""
+    flagged_lower = {k.lower() for k in flagged_keys}
+    if not flagged_lower or not any(
+        t.key.lower() in flagged_lower for t in parse_trailers(message)
+    ):
+        return message
+    ends_with_newline = message.endswith("\n")
+    lines = message.rstrip("\n").split("\n")
+    start = max(i for i, line in enumerate(lines) if not line.strip()) + 1
+    kept: list[str] = []
+    dropping = False
+    for line in lines[start:]:
+        if line.startswith((" ", "\t")):
+            if not dropping:
+                kept.append(line)
+            continue
+        key = line.split(":", 1)[0].strip().lower()
+        dropping = key in flagged_lower
+        if not dropping:
+            kept.append(line)
+    head = lines[:start]
+    if not kept:
+        while head and not head[-1].strip():
+            head.pop()
+    text = "\n".join(head + kept)
+    return text + "\n" if ends_with_newline else text
+
+
 def trailer_severity(value: str) -> str:
     if "@" in value or _NAME_LIKE_RE.search(value):
         return "medium"

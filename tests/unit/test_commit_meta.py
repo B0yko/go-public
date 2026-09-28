@@ -8,6 +8,7 @@ from go_public.detect.commit_meta import (
     collect_trailers,
     group_non_allowed_identities,
     is_identity_allowed,
+    strip_trailers,
     trailer_severity,
 )
 from go_public.git.objects import CommitObj, Ident
@@ -75,3 +76,27 @@ def test_collect_timezone_offsets_skips_utc() -> None:
     assert offsets[0].commit == "c2"
     assert offsets[0].role == "author"
     assert offsets[0].tz == "+0200"
+
+
+def test_strip_trailers_removes_only_the_flagged_keys() -> None:
+    message = "feat: x\n\nbody\n\nChange-Id: I1\nSigned-off-by: A <a@example.com>\nFixes: 3\n"
+    assert (
+        strip_trailers(message, ["change-id", "Signed-off-by"]) == "feat: x\n\nbody\n\nFixes: 3\n"
+    )
+
+
+def test_strip_trailers_drops_the_separator_when_every_trailer_goes() -> None:
+    assert strip_trailers("subject\n\nChange-Id: I1\n", ["Change-Id"]) == "subject\n"
+    assert strip_trailers("subject\n\nbody\n\nCc: a\nCc: b", ["Cc"]) == "subject\n\nbody"
+
+
+def test_strip_trailers_takes_folded_lines_with_their_trailer() -> None:
+    message = "s\n\nCo-authored-by: A\n  more\nFixes: 3\n  wrapped\n"
+    assert strip_trailers(message, ["Co-authored-by"]) == "s\n\nFixes: 3\n  wrapped\n"
+
+
+def test_strip_trailers_leaves_prose_and_lone_paragraphs_alone() -> None:
+    assert strip_trailers("Change-Id: I1\n", ["Change-Id"]) == "Change-Id: I1\n"
+    prose = "subject\n\nsee also: this\nand that\n"
+    assert strip_trailers(prose, ["see also"]) == prose
+    assert strip_trailers("subject\n\nbody\n", []) == "subject\n\nbody\n"
