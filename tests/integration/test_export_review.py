@@ -17,7 +17,9 @@ from .test_export import AUTHOR, _basic_repo, _config, _export
 
 runner = CliRunner()
 
-_REFLOG_LINE = re.compile(r"^[0-9a-f]{40} [0-9a-f]{40} Pub Lic <pub@example\.com> \d+ \+0000(\t.*)?$")
+_REFLOG_LINE = re.compile(
+    r"^[0-9a-f]{40} [0-9a-f]{40} Pub Lic <pub@example\.com> \d+ \+0000(\t.*)?$"
+)
 
 
 def _plain_files_outside_objects(out: Path) -> list[Path]:
