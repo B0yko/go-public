@@ -33,6 +33,11 @@ class BlobOccurrence:
     path: str
     mode: str
     commit: str
+    #: The blob this path held at `commit`'s parent side of the diff, or `""` for an
+    #: addition (stage-3.md "3b": `detect/licence.py`'s transition tracking needs both
+    #: sides of a diff entry to compare old vs. new licence identification, without a
+    #: second full-history `git log` pass).
+    old_blob: str = ""
 
 
 @dataclass(frozen=True)
@@ -191,23 +196,28 @@ def _list_all_commit_and_tag_oids(
     return commit_oids, tag_oids
 
 
-def _parse_raw_log(data: bytes) -> list[tuple[str, list[tuple[str, str, str, str]]]]:
+def _parse_raw_log(data: bytes) -> list[tuple[str, list[tuple[str, str, str, str, str]]]]:
     """Parse `log --all --raw -z --format=%x00%H%x00` output.
 
-    Returns `(commit, [(new_mode, new_blob, status, path), ...])` per commit. A run of
-    diff-entry tokens for a commit is always followed by an empty token that precedes
-    Git's `--format` machinery always appends its own NUL record terminator in `-z`
-    mode, on top of whatever the format string itself already printed, and the
-    hard-coded blank line git prints before a diff survives as a literal `\n` even in
-    `-z` mode. So each commit is `"" HASH "" ("\n:status" PATH)*` when the whole
-    stream is split on NUL: an empty token, the hash, a second empty token (the
-    format's own terminator plus git's), then zero or more (status-line, path) pairs
-    whose status line carries a stray leading newline.
+    Returns `(commit, [(new_mode, old_blob, new_blob, status, path), ...])` per
+    commit. A run of diff-entry tokens for a commit is always followed by an empty
+    token that precedes Git's `--format` machinery always appends its own NUL record
+    terminator in `-z` mode, on top of whatever the format string itself already
+    printed, and the hard-coded blank line git prints before a diff survives as a
+    literal `\n` even in `-z` mode. So each commit is `"" HASH "" ("\n:status" PATH)*`
+    when the whole stream is split on NUL: an empty token, the hash, a second empty
+    token (the format's own terminator plus git's), then zero or more (status-line,
+    path) pairs whose status line carries a stray leading newline.
+
+    `old_blob` (the diff's `:old_mode new_mode old_sha new_sha status` field 3) is
+    kept alongside the new blob so a detector can compare a path's before/after
+    content for one diff entry without a second history pass (stage-3.md 3b:
+    `detect/licence.py`'s transition tracking).
     """
     toks = data.split(b"\x00")
     i = 0
     n = len(toks)
-    result: list[tuple[str, list[tuple[str, str, str, str]]]] = []
+    result: list[tuple[str, list[tuple[str, str, str, str, str]]]] = []
     while i < n:
         if toks[i] != b"":
             break  # malformed / trailing data; stop rather than misparse
@@ -219,7 +229,7 @@ def _parse_raw_log(data: bytes) -> list[tuple[str, list[tuple[str, str, str, str
         if i >= n or toks[i] != b"":
             break  # malformed: expected the format's own record terminator
         i += 1
-        entries: list[tuple[str, str, str, str]] = []
+        entries: list[tuple[str, str, str, str, str]] = []
         while i < n and toks[i] != b"":
             statusline = toks[i].decode().lstrip("\n")
             i += 1
@@ -229,8 +239,8 @@ def _parse_raw_log(data: bytes) -> list[tuple[str, list[tuple[str, str, str, str
             i += 1
             parts = statusline.split(" ")
             if len(parts) >= 5:
-                new_mode, new_sha, status = parts[1], parts[3], parts[4]
-                entries.append((new_mode, new_sha, status, path))
+                new_mode, old_sha, new_sha, status = parts[1], parts[2], parts[3], parts[4]
+                entries.append((new_mode, old_sha, new_sha, status, path))
         result.append((commit_hash, entries))
     return result
 
@@ -255,14 +265,17 @@ def _attribute_blobs(
     occurrences: list[BlobOccurrence] = []
     gitlinks: list[GitlinkOccurrence] = []
     for commit_hash, entries in _parse_raw_log(data):
-        for new_mode, new_sha, status, path in entries:
+        for new_mode, old_sha, new_sha, status, path in entries:
             if status == "D" or new_sha.startswith(_ZERO_OID_PREFIXES):
                 continue
             if new_mode == "160000":
                 gitlinks.append(GitlinkOccurrence(oid=new_sha, path=path, commit=commit_hash))
                 continue
+            old_blob = "" if old_sha.startswith(_ZERO_OID_PREFIXES) else old_sha
             occurrences.append(
-                BlobOccurrence(blob=new_sha, path=path, mode=new_mode, commit=commit_hash)
+                BlobOccurrence(
+                    blob=new_sha, path=path, mode=new_mode, commit=commit_hash, old_blob=old_blob
+                )
             )
     return occurrences, gitlinks
 
