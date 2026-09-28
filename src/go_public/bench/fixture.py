@@ -13,7 +13,7 @@ from pathlib import Path
 
 import tomlkit
 
-from go_public.bench import filler
+from go_public.bench import filler, history, negatives
 from go_public.bench.plants import LOCATION_TYPES, FixtureContext, Identity, Plant, ResolvedPlant
 from go_public.bench.plants import binary_metadata as binary_metadata_plants
 from go_public.bench.plants import identity as identity_plants
@@ -67,6 +67,8 @@ COLLEAGUE_IDENTITIES: tuple[Identity, ...] = (
 )
 
 _SIZES = {"tiny", "small"}
+#: Hard negatives per kind (15 kinds): 30 in `tiny`, 150 in `small` (Data section).
+_NEGATIVES_PER_KIND = {"tiny": 2, "small": 10}
 _EPOCH = 1_700_000_000  # 2023-11-14T22:13:20Z; a fixed, seed-independent base
 
 #: A baseline top-level licence, present regardless of `plants` (unlike every real
@@ -117,7 +119,7 @@ def build(
         colleague_identities=COLLEAGUE_IDENTITIES,
     )
 
-    _build_topology(ctx, rng, plants=plants)
+    _build_topology(ctx, rng, plants=plants, size=size)
     if plants:
         _place_markers(ctx, seed)
         for category_plants in _PLANT_MODULES:
@@ -160,7 +162,7 @@ def build(
     )
 
 
-def _build_topology(ctx: FixtureContext, rng: random.Random, *, plants: bool) -> None:
+def _build_topology(ctx: FixtureContext, rng: random.Random, *, plants: bool, size: str) -> None:
     """Filler history on main, a merged feature branch, an unmerged side branch.
 
     The feature/side branch commits are authored by a colleague identity only when
@@ -218,6 +220,15 @@ def _build_topology(ctx: FixtureContext, rng: random.Random, *, plants: bool) ->
     ctx.request_tag(
         "v0.1.0-lw", ctx.branch_tip["refs/heads/main"], message=None, author=ctx.public_identity
     )
+
+    for path, content in negatives.generate(rng, _NEGATIVES_PER_KIND[size]):
+        ctx.commit(
+            "refs/heads/main",
+            message=f"docs: add {path}",
+            files={path: ctx.blob(content)},
+        )
+    if size == "small":
+        history.small_history(ctx, rng, colleagues=COLLEAGUE_IDENTITIES if plants else ())
 
 
 #: `original` (`refs/original/refs/heads/main`) is a single fixed ref name: `bench/

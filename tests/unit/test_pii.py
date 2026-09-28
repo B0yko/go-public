@@ -55,3 +55,8 @@ def test_order_number_digit_run_is_not_a_phone() -> None:
     # A hard negative from the Data section: an order-number-shaped run of digits
     # must not be mistaken for a phone number.
     assert _rule_ids("order number 48213097", phone_regions=("US", "GB", "DE")) == []
+
+
+def test_dotted_version_numbers_are_not_phone_numbers() -> None:
+    assert _rule_ids("release 3.10.15.13 is out", phone_regions=("US", "GB", "DE")) == []
+    assert _rule_ids("call ***REMOVED*** today", phone_regions=("US",)) == ["pii-phone"]

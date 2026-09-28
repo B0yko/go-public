@@ -109,15 +109,17 @@ def test_recall_and_precision_are_perfect_for_every_implemented_class(
         )
 
 
-@pytest.mark.parametrize("seed", [0, 1])
+@pytest.mark.parametrize(
+    ("size", "seed"), [("tiny", 0), ("tiny", 1), ("tiny", 2), ("tiny", 3), ("small", 0)]
+)
 def test_no_plants_fixture_with_its_own_config_scans_to_zero_findings(
-    tmp_path: Path, seed: int
+    tmp_path: Path, size: str, seed: int
 ) -> None:
     """Data section: "`--no-plants` generates the same filler and hard negatives
     with only the public identity... scans to zero findings for every seed."
     """
-    out = tmp_path / f"fixture-no-plants-{seed}"
-    result = fixture.build(seed, "tiny", plants=False, out=out)
+    out = tmp_path / f"fixture-no-plants-{size}-{seed}"
+    result = fixture.build(seed, size, plants=False, out=out)
     assert read_truth(result.truth_path) == []
     config = load_config(result.config_path)
 

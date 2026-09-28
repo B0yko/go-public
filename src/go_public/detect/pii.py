@@ -40,6 +40,11 @@ _INTERNATIONAL_REGION = "ZZ"
 #: phone-shaped run at all.
 _CANDIDATE_DIGIT_RUN_RE = re2.compile(r"\+?\d[\d\s().-]{5,}\d")
 
+#: Four or more dot-separated groups of 1-3 digits: a version number or an IPv4-shaped
+#: string. `phonenumbers` accepts some of these as valid national numbers, so they are
+#: skipped (a real phone number is not written like this in the supported regions).
+_DOTTED_QUAD_RE = re2.compile(r"\d{1,3}(?:\.\d{1,3}){3,}")
+
 
 def _line_col(text: str, offset: int) -> tuple[int, int]:
     line = text.count("\n", 0, offset) + 1
@@ -129,7 +134,7 @@ class PiiDetector:
             )
             for match in matcher:
                 span = (match.start, match.start + len(match.raw_string))
-                if span in seen:
+                if span in seen or _DOTTED_QUAD_RE.fullmatch(match.raw_string):
                     continue
                 line, col = _line_col(text, span[0])
                 seen[span] = Detection(
