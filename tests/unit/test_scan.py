@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 
 from go_public import scan
+from go_public.config import Config, DenyConfig, IdentityConfig, TrailersConfig
 from go_public.git.inventory import build, build_head_only
 from go_public.git.objects import CatFileBatch
 from go_public.git.runner import GitRunner
@@ -277,4 +278,137 @@ def test_head_only_scan_finds_secrets_at_the_export_tree(tmp_path: Path) -> None
     findings = scan.run(runner, inventory)
     finding = _secret_finding(findings, "sendgrid-api-token")
     assert finding.location.paths == ["config.txt"]
+    assert finding.present_at_export_ref is True
+
+
+# -- stage 3a: pii/deny/paths_network/files/commit_meta units --------------------
+
+
+def _only(findings: list[Finding], rule_id: str) -> Finding:
+    matches = [f for f in findings if f.rule_id == rule_id]
+    assert len(matches) == 1, f"expected exactly one {rule_id} finding, got {matches}"
+    return matches[0]
+
+
+def test_org_identifier_deny_term_in_path_name(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "acme-corp/readme.txt", "hello\n", "feat: add readme")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(deny=DenyConfig(terms=["Acme Corp"]))
+
+    finding = _only(scan.run(runner, inventory, ScanOptions(config=config)), "deny-term")
+    assert finding.category == "org-identifier"
+    assert finding.location.kind == "path"
+    assert finding.location.paths == ["acme-corp/readme.txt"]
+    assert finding.present_at_export_ref is True
+
+
+def test_org_identifier_deny_term_in_ref_name(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hello\n", "feat: a")
+    git(repo, "branch", "acme-corp/experiment")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(deny=DenyConfig(terms=["Acme Corp"]))
+
+    finding = _only(scan.run(runner, inventory, ScanOptions(config=config)), "deny-term")
+    assert finding.category == "org-identifier"
+    assert finding.location.kind == "ref_name"
+    assert finding.location.ref == "refs/heads/acme-corp/experiment"
+    assert finding.refs == ["refs/heads/acme-corp/experiment"]
+    assert finding.present_at_export_ref is False
+
+
+def test_sensitive_file_and_internal_notes_paths(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, ".env", "unused\n", "feat: add env")
+    commit_file(repo, "internal/plan.md", "unused\n", "feat: add plan")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    findings = scan.run(runner, inventory)
+    sensitive = _only(findings, "sensitive-file")
+    assert sensitive.severity == "critical"
+    assert sensitive.location.paths == [".env"]
+    notes = _only(findings, "internal-notes")
+    assert notes.location.paths == ["internal/plan.md"]
+
+
+def test_identity_not_on_allowlist_is_flagged_with_roles(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    other = {"name": "Alex Rivera", "email": "alex@colleague.example"}
+    commit_file(repo, "a.txt", "hello\n", "feat: a", author=other)
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(identity=IdentityConfig(allow=[]))
+
+    finding = _only(scan.run(runner, inventory, ScanOptions(config=config)), "identity")
+    assert finding.category == "identity"
+    assert finding.location.kind == "identity"
+    assert finding.location.identity == "Alex Rivera <alex@colleague.example>"
+    assert sorted(finding.extra["roles"]) == ["author", "committer"]  # type: ignore[arg-type]
+    assert finding.present_at_export_ref is False
+
+
+def test_allowlisted_identity_produces_no_finding(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hello\n", "feat: a")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(identity=IdentityConfig(allow=["Pat Public <pat@example.com>"]))
+
+    findings = scan.run(runner, inventory, ScanOptions(config=config))
+    assert not any(f.category == "identity" for f in findings)
+
+
+def test_flagged_trailer_with_email_is_medium(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    message = "feat: add thing\n\nCo-authored-by: Alex Rivera <alex@colleague.example>\n"
+    commit_file(repo, "a.txt", "hello\n", message)
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(trailers=TrailersConfig(flag=["Co-authored-by"]))
+
+    finding = _only(scan.run(runner, inventory, ScanOptions(config=config)), "trailer")
+    assert finding.category == "trailer"
+    assert finding.severity == "medium"
+    assert finding.location.kind == "trailer"
+    assert finding.location.field == "Co-authored-by"
+    assert finding.present_at_export_ref is False
+
+
+def test_non_utc_timezone_offset_is_info(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    env = {
+        "GIT_AUTHOR_NAME": "Pat Public",
+        "GIT_AUTHOR_EMAIL": "pat@example.com",
+        "GIT_AUTHOR_DATE": "2024-01-01T00:00:00+02:00",
+        "GIT_COMMITTER_NAME": "Pat Public",
+        "GIT_COMMITTER_EMAIL": "pat@example.com",
+        "GIT_COMMITTER_DATE": "2024-01-01T00:00:00+00:00",
+    }
+    (repo / "a.txt").write_text("hello\n")
+    git(repo, "add", "a.txt")
+    git(repo, "commit", "-q", "-m", "feat: a", env=env)
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    finding = _only(scan.run(runner, inventory), "timezone-offset")
+    assert finding.category == "timezone"
+    assert finding.severity == "info"
+    assert finding.extra["role"] == "author"
+
+
+def test_tracked_config_with_deny_terms_is_critical(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, ".go-public.toml", '[deny]\nterms = ["Acme Corp"]\n', "chore: config")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    finding = _only(scan.run(runner, inventory), "tracked-config-deny")
+    assert finding.category == "config"
+    assert finding.severity == "critical"
+    assert finding.location.kind == "path"
+    assert finding.location.paths == [".go-public.toml"]
     assert finding.present_at_export_ref is True
