@@ -165,7 +165,14 @@ def _check_finding_allowed(
             target = finding.match
         elif allowlist.regex_target == "line":
             target = line_text
-        regex_allowed = bool(allowlist.regexes) and any(p.search(target) for p in allowlist.regexes)
+        # gitleaks's `RegexAllowed` (allowlist.go) short-circuits to false on an
+        # empty target regardless of whether the regex itself could match empty
+        # (e.g. `.*`); `target` can be empty via a non-participating secretGroup.
+        regex_allowed = (
+            bool(allowlist.regexes)
+            and bool(target)
+            and any(p.search(target) for p in allowlist.regexes)
+        )
         stopword_allowed = _contains_stopword(finding.value, allowlist.stopwords)
         if allowlist.condition == "AND":
             checks = []

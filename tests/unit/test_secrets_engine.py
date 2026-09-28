@@ -158,6 +158,31 @@ def test_allowlist_regex_target_secret_default() -> None:
     assert len(engine.detect("secretvalue=realvalue99", UnitCtx(path="a.txt"))) == 1
 
 
+def test_allowlist_regex_does_not_match_empty_secret() -> None:
+    """Ports `Allowlist.RegexAllowed` (allowlist.go): it short-circuits to `false`
+    when the target string is empty, regardless of whether the configured regex
+    itself matches an empty string (e.g. `.*`). Without that guard, a rule whose
+    secretGroup captures nothing (see the non-participating-group port above) would
+    be spuriously allowlisted by any `.*`-shaped regex.
+    """
+    config = load_gitleaks_config(
+        _write_config(
+            """
+        [[rules]]
+        id = "opt-rule2"
+        regex = "id=(a)?b"
+        secretGroup = 1
+        [[rules.allowlists]]
+        regexes = ['''.*''']
+        """
+        )
+    )
+    engine = SecretsEngine(config, generic_detector_enabled=False)
+    detections = engine.detect("id=b", UnitCtx(path="a.txt"))
+    assert len(detections) == 1
+    assert detections[0].value == ""
+
+
 def test_allowlist_regex_target_line() -> None:
     config = load_gitleaks_config(
         _write_config(
