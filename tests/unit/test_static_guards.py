@@ -49,3 +49,20 @@ def test_subprocess_only_used_in_allowed_modules() -> None:
         if _SUBPROCESS_CALL_RE.search(path.read_text()):
             offenders.append(rel)
     assert offenders == []
+
+
+# stage-2.md: "python re must not be used for rule patterns" — the gitleaks config
+# loader and the secrets engine compile every rule/allowlist/path pattern with
+# `re2` (linear-time, and the same semantics as gitleaks's Go engine); `re` is not
+# imported by either module at all.
+_RULE_PATTERN_MODULES = {"detect/gitleaks_config.py", "detect/secrets.py"}
+_BARE_RE_IMPORT_RE = re.compile(r"^\s*import re\b|^\s*from re\b", re.MULTILINE)
+
+
+def test_rule_pattern_modules_do_not_import_python_re() -> None:
+    offenders = []
+    for rel in _RULE_PATTERN_MODULES:
+        path = SRC / rel
+        if _BARE_RE_IMPORT_RE.search(path.read_text()):
+            offenders.append(rel)
+    assert offenders == []
