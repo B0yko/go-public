@@ -181,9 +181,14 @@ def _scan_text_occurrences(
     field: str | None = None,
 ) -> list[dict[str, Any]]:
     pairs = occ_pairs or [("", "")]
+    # Content matching (keyword prefilter, regex, secretGroup, entropy) runs exactly
+    # once here, regardless of how many (path, commit) occurrences this blob/field
+    # has; only the path/commit-dependent filtering below re-runs per occurrence
+    # (stage-3a fix for the stage-2b per-occurrence deviation; see secrets.py).
+    content_scan = engine.scan_content(text)
     merged: dict[tuple[str, int], dict[str, Any]] = {}
     for path, commit in pairs:
-        for detection in engine.detect(text, UnitCtx(path=path, commit=commit)):
+        for detection in engine.filter_occurrence(content_scan, UnitCtx(path=path, commit=commit)):
             key = (detection.rule_id, detection.start)
             entry = merged.setdefault(
                 key, {"detection": detection, "paths": set(), "commits": set()}
@@ -227,7 +232,8 @@ def _scan_message(
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     ctx = UnitCtx(path="", commit=commit or "")
-    for detection in engine.detect(text, ctx):
+    content_scan = engine.scan_content(text)
+    for detection in engine.filter_occurrence(content_scan, ctx):
         rows.append(
             {
                 "kind": kind,

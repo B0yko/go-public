@@ -206,6 +206,40 @@ def test_blob_content_is_read_from_git_exactly_once(
     assert len(blob_calls) == 1
 
 
+def test_regex_matched_exactly_once_per_blob_with_several_occurrences(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A blob present at several (path, commit) occurrences still has its content
+    matched by `scan_content` exactly once (stage-3a fix for the stage-2b deviation
+    that re-ran the regexes once per occurrence)."""
+    from go_public.detect.secrets import SecretsEngine
+
+    repo = init_repo(tmp_path / "repo")
+    token = tok.aws_access_key(random.Random(11))
+    content = f'access_key = "{token}"\n'
+    commit_file(repo, "a/config.txt", content, "feat: add a")
+    commit_file(repo, "b/config.txt", content, "feat: add b")
+    commit_file(repo, "c/config.txt", content, "feat: add c")
+
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    calls: list[str] = []
+    original = SecretsEngine.scan_content
+
+    def counting_scan_content(self: SecretsEngine, text: str) -> Any:
+        calls.append(text)
+        return original(self, text)
+
+    monkeypatch.setattr(SecretsEngine, "scan_content", counting_scan_content)
+    findings = scan.run(runner, inventory, ScanOptions(jobs=1))
+    finding = _secret_finding(findings, "aws-access-token")
+    assert sorted(finding.location.paths) == ["a/config.txt", "b/config.txt", "c/config.txt"]
+    # 3 occurrences of the same blob content, but only one `scan_content` call for it
+    # (the other calls are the 3 distinct commit messages, unrelated text units).
+    assert calls.count(content) == 1
+
+
 def test_jobs_one_and_jobs_four_give_identical_findings(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")
     rng = random.Random(9)

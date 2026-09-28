@@ -14,18 +14,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from go_public.detect.constants import DEFAULT_ALLOWED_PATH_PREFIXES, DEFAULT_INTERNAL_SUFFIXES
 from go_public.errors import ConfigError
 
-_DEFAULT_PATHS_ALLOWED_PREFIXES = ("/home/runner/", "/Users/Shared/", "/usr/", "/opt/", "/tmp/")
-_DEFAULT_NETWORK_INTERNAL_SUFFIXES = (
-    ".local",
-    ".internal",
-    ".corp",
-    ".lan",
-    ".intranet",
-    ".home.arpa",
-    ".ts.net",
-)
 _DEFAULT_SENSITIVE_FILES = (
     "id_rsa*",
     "*.pem",
@@ -99,15 +90,11 @@ class PiiConfig(_Base):
 
 
 class PathsConfig(_Base):
-    allowed_prefixes: list[str] = Field(
-        default_factory=lambda: list(_DEFAULT_PATHS_ALLOWED_PREFIXES)
-    )
+    allowed_prefixes: list[str] = Field(default_factory=lambda: list(DEFAULT_ALLOWED_PATH_PREFIXES))
 
 
 class NetworkConfig(_Base):
-    internal_suffixes: list[str] = Field(
-        default_factory=lambda: list(_DEFAULT_NETWORK_INTERNAL_SUFFIXES)
-    )
+    internal_suffixes: list[str] = Field(default_factory=lambda: list(DEFAULT_INTERNAL_SUFFIXES))
 
 
 class LicenceConfig(_Base):
