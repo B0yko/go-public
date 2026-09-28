@@ -71,3 +71,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = [
+  # architecture.md names "pathspec gitwildmatch" explicitly; pathspec's own
+  # deprecation nudge toward "gitignore" is noted, not actionable here.
+  "ignore:GitWildMatchPattern .* is deprecated:DeprecationWarning",
+]
