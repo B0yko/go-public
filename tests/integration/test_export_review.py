@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 from go_public.cli import app
 
 from ..conftest import git
-from .test_export import AUTHOR, _basic_repo, _config, _export
+from .test_export import AUTHOR, REG, _basic_repo, _config, _export
 
 runner = CliRunner()
 
@@ -146,3 +146,33 @@ def test_unsafe_tree_paths_are_dropped_from_the_selection() -> None:
 
     assert [e.text for e in selection.kept] == ["ok/file.txt"]
     assert {d.reason for d in selection.dropped} == {"unsafe path"}
+
+
+def test_precheck_does_not_count_on_strip_for_formats_strip_leaves_alone(tmp_path: Path) -> None:
+    from PIL.ExifTags import Base as ExifTag
+
+    from go_public.bench import binaries
+
+    tiff = binaries.tiff_with_field(ExifTag.Artist.value, "Zed Secretperson")
+    repo = _basic_repo(tmp_path, [(REG, "scan/page.tiff", tiff)])
+
+    code, output, out = _export(tmp_path, repo, "--fail-on", "medium")
+
+    assert code == 1
+    assert "exif-person" in output
+    assert "scan/page.tiff" in output
+    assert not out.exists()
+
+
+def test_precheck_still_lets_strip_resolve_jpeg_person_fields(tmp_path: Path) -> None:
+    from PIL.ExifTags import Base as ExifTag
+
+    from go_public.bench import binaries
+
+    jpeg = binaries.jpeg_with_field(ExifTag.Artist.value, "Zed Secretperson")
+    repo = _basic_repo(tmp_path, [(REG, "img/photo.jpg", jpeg)])
+
+    code, output, out = _export(tmp_path, repo, "--fail-on", "medium")
+
+    assert code == 0, output
+    assert b"Zed Secretperson" not in (out / "img" / "photo.jpg").read_bytes()

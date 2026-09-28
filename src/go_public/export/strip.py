@@ -4,20 +4,20 @@
 five format-specific strippers, each written to remove exactly the fields product
 spec item 16 names and nothing else:
 
-- JPEG: drops APP1 (EXIF/XMP), APP13 (Photoshop IRB/IPTC) and COM segments without
-  touching any other byte; the entropy-coded scan data (everything from the first SOS
-  marker to EOI) is copied through untouched, so it and the decoded pixels stay
-  byte-identical. When the dropped EXIF held a non-default `Orientation`, a minimal
-  replacement APP1 carrying only that one tag is written back so the image does not
-  display rotated.
+- JPEG: drops APP1 (EXIF/XMP), APP13 (Photoshop IRB/IPTC) and COM segments wherever
+  they sit before EOI, without touching any other byte; every entropy-coded scan (all
+  of them, for a progressive file) and anything after EOI is copied through untouched,
+  so scan data and decoded pixels stay byte-identical. When the dropped EXIF held a
+  non-default `Orientation`, a minimal replacement APP1 carrying only that one tag is
+  written back so the image does not display rotated.
 - PNG: drops `tEXt`/`zTXt`/`iTXt`/`tIME`/`eXIf` chunks whole (length+type+data+CRC);
   every other chunk, including every `IDAT`, is copied byte-for-byte.
 - WebP: drops the `EXIF`/`XMP ` RIFF chunks and rewrites the `VP8X` flags byte and the
   RIFF container size to match; every other chunk (image data, alpha, animation) is
   untouched.
-- PDF: clears the Info dictionary and the XMP metadata stream via `pypdf` (no
-  byte-identity requirement here: PDF is not a lossy media format the way a JPEG scan
-  is).
+- PDF: clears the Info dictionary and the XMP metadata stream via `pypdf` on a clone of
+  the whole document (embedded files, forms and outlines survive); no byte-identity
+  requirement here: PDF is not a lossy media format the way a JPEG scan is.
 - OOXML: blanks the person/organisation fields `detect/binary_meta.py` extracts from
   `docProps/core.xml` (`creator`, `lastModifiedBy`) and `docProps/app.xml` (`Company`,
   `Manager`); every other zip entry, including comments and tracked changes, is left
@@ -85,40 +85,68 @@ def _minimal_orientation_app1(orientation: int) -> bytes:
     return struct.pack(">BBH", 0xFF, _MARKER_APP1, len(payload) + 2) + payload
 
 
-def _iter_jpeg_head_segments(data: bytes) -> list[tuple[int, int, int]]:
-    """`[(marker, seg_start, seg_end), ...]` for every segment before the first SOS
-    (or EOI, for a scan-less file). `seg_start`/`seg_end` span the marker's own two
-    bytes through the end of its payload (or just the two marker bytes, for a
-    no-payload marker); malformed/truncated input simply stops early.
-    """
+_RAW = -1  # marker value for bytes that are not a marker segment (passed through)
+_RST_RANGE = range(0xD0, 0xD8)
+
+
+def _next_marker_start(data: bytes, start: int, *, in_scan: bool) -> int:
+    """Offset of the next marker prefix at or after `start` (`len(data)` if none). A
+    stuffed `FF 00` is never a marker; inside entropy-coded data neither is `FF Dn`."""
+    n = len(data)
+    pos = start
+    while True:
+        pos = data.find(b"\xff", pos)
+        if pos < 0 or pos + 1 >= n:
+            return n
+        following = data[pos + 1]
+        if following == 0x00 or (in_scan and following in _RST_RANGE):
+            pos += 2
+            continue
+        return pos
+
+
+def _iter_jpeg_segments(data: bytes) -> list[tuple[int, int, int]]:
+    """`[(marker, start, end), ...]` for the whole stream from after SOI up to and
+    including EOI. A span covers the marker's own bytes (fill bytes included) and its
+    payload; an SOS span also covers its entropy-coded data. Bytes that are not part of
+    a marker segment (extraneous bytes decoders skip) are `_RAW` spans. Malformed or
+    truncated input stops early; the caller copies whatever follows the last span."""
     segments: list[tuple[int, int, int]] = []
     pos = 2  # past the two-byte SOI
     n = len(data)
     while pos < n:
-        if data[pos] != 0xFF:
-            break
+        if data[pos] != 0xFF or (pos + 1 < n and data[pos + 1] == 0x00):
+            end = _next_marker_start(data, pos + (1 if data[pos] != 0xFF else 2), in_scan=False)
+            segments.append((_RAW, pos, end))
+            pos = end
+            continue
         marker_pos = pos
         while marker_pos < n and data[marker_pos] == 0xFF:
             marker_pos += 1
         if marker_pos >= n:
             break
         marker = data[marker_pos]
-        seg_start = pos
         after_marker = marker_pos + 1
-        if marker in _JPEG_NO_PAYLOAD_MARKERS:
-            segments.append((marker, seg_start, after_marker))
+        if marker == 0x00:
+            segments.append((_RAW, pos, after_marker))
             pos = after_marker
             continue
-        if marker in (_MARKER_EOI, _MARKER_SOS):
-            segments.append((marker, seg_start, after_marker))
+        if marker == _MARKER_EOI:
+            segments.append((marker, pos, after_marker))
             break
+        if marker in _JPEG_NO_PAYLOAD_MARKERS:
+            segments.append((marker, pos, after_marker))
+            pos = after_marker
+            continue
         if after_marker + 2 > n:
             break
         (seg_len,) = struct.unpack(">H", data[after_marker : after_marker + 2])
         seg_end = after_marker + seg_len
-        if seg_end > n:
+        if seg_len < 2 or seg_end > n:
             break
-        segments.append((marker, seg_start, seg_end))
+        if marker == _MARKER_SOS:
+            seg_end = _next_marker_start(data, seg_end, in_scan=True)
+        segments.append((marker, pos, seg_end))
         pos = seg_end
     return segments
 
@@ -131,40 +159,30 @@ _JPEG_DROPPED_MARKERS = {
 
 
 def strip_jpeg(data: bytes) -> bytes:
+    """Drop APP1, APP13 and COM segments wherever they sit before EOI (progressive files
+    may carry a COM between scans); every other byte, entropy-coded scan data included,
+    is copied through untouched, as is anything after EOI."""
     if not data.startswith(_JPEG_SOI):
         return data
     orientation = _jpeg_orientation(data)
-    segments = _iter_jpeg_head_segments(data)
-
     out = bytearray(_JPEG_SOI)
     if orientation is not None and orientation != 1:
         out += _minimal_orientation_app1(orientation)
-
     last_end = 2
-    sos_or_eoi_at: int | None = None
-    for marker, seg_start, seg_end in segments:
-        if marker in (_MARKER_SOS, _MARKER_EOI):
-            sos_or_eoi_at = seg_start
-            break
+    for marker, seg_start, seg_end in _iter_jpeg_segments(data):
         if marker not in _JPEG_DROPPED_MARKERS:
             out += data[seg_start:seg_end]
         last_end = seg_end
-
-    # Everything from the first SOS (its length-prefixed header plus every byte of
-    # entropy-coded scan data through EOI) — or, for a scan-less/malformed file,
-    # whatever is left — is copied through untouched: never re-encoded, never
-    # re-parsed, so it and the decoded pixels stay byte-identical.
-    tail_start = sos_or_eoi_at if sos_or_eoi_at is not None else last_end
-    out += data[tail_start:]
+    out += data[last_end:]
     return bytes(out)
 
 
 def _jpeg_droppable(data: bytes) -> list[str]:
-    if not data.startswith(_JPEG_SOI):
+    if not data.startswith(_JPEG_SOI) or strip_jpeg(data) == data:
         return []
     return [
         _JPEG_DROPPED_MARKERS[marker]
-        for marker, _start, _end in _iter_jpeg_head_segments(data)
+        for marker, _start, _end in _iter_jpeg_segments(data)
         if marker in _JPEG_DROPPED_MARKERS
     ]
 
@@ -228,9 +246,10 @@ _VP8X_FOURCC = b"VP8X"
 _VP8X_EXIF_XMP_FLAGS = 0x08 | 0x04  # Exif (bit 3) and XMP (bit 2)
 
 
-def _iter_webp_chunks(data: bytes) -> list[tuple[bytes, bytes]] | None:
-    """`[(fourcc, chunk_data), ...]` (padding byte, if any, excluded), or `None` when
-    `data` is not a RIFF/WEBP container at all."""
+def _parse_webp(data: bytes) -> tuple[list[tuple[bytes, bytes]], bytes] | None:
+    """`([(fourcc, chunk_data), ...], leftover)` (padding byte, if any, excluded;
+    `leftover` is whatever a truncated or malformed tail leaves unparsed), or `None`
+    when `data` is not a RIFF/WEBP container at all."""
     if data[:4] != _RIFF_TAG or data[8:12] != _WEBP_TAG:
         return None
     chunks: list[tuple[bytes, bytes]] = []
@@ -245,10 +264,15 @@ def _iter_webp_chunks(data: bytes) -> list[tuple[bytes, bytes]] | None:
             break
         chunks.append((fourcc, data[data_start:data_end]))
         pos = data_end + (size % 2)
-    return chunks
+    return chunks, data[min(pos, n) :]
 
 
-def _build_webp(chunks: list[tuple[bytes, bytes]]) -> bytes:
+def _iter_webp_chunks(data: bytes) -> list[tuple[bytes, bytes]] | None:
+    parsed = _parse_webp(data)
+    return None if parsed is None else parsed[0]
+
+
+def _build_webp(chunks: list[tuple[bytes, bytes]], leftover: bytes = b"") -> bytes:
     body = bytearray()
     for fourcc, chunk_data in chunks:
         body += fourcc
@@ -256,6 +280,7 @@ def _build_webp(chunks: list[tuple[bytes, bytes]]) -> bytes:
         body += chunk_data
         if len(chunk_data) % 2:
             body += b"\x00"
+    body += leftover  # a truncated tail is kept, not silently cut off
     out = bytearray(_RIFF_TAG)
     out += struct.pack("<I", 4 + len(body))  # "WEBP" + every remaining chunk
     out += _WEBP_TAG
@@ -264,9 +289,12 @@ def _build_webp(chunks: list[tuple[bytes, bytes]]) -> bytes:
 
 
 def strip_webp(data: bytes) -> bytes:
-    chunks = _iter_webp_chunks(data)
-    if chunks is None:
+    parsed = _parse_webp(data)
+    if parsed is None:
         return data
+    chunks, leftover = parsed
+    if leftover[:4] in _WEBP_DROPPED_FOURCCS:
+        leftover = b""  # a truncated EXIF/XMP chunk is metadata all the same
     kept: list[tuple[bytes, bytes]] = []
     for fourcc, chunk_data in chunks:
         if fourcc in _WEBP_DROPPED_FOURCCS:
@@ -274,7 +302,7 @@ def strip_webp(data: bytes) -> bytes:
         if fourcc == _VP8X_FOURCC and chunk_data:
             chunk_data = bytes([chunk_data[0] & ~_VP8X_EXIF_XMP_FLAGS]) + chunk_data[1:]
         kept.append((fourcc, chunk_data))
-    return _build_webp(kept)
+    return _build_webp(kept, leftover)
 
 
 _WEBP_DROPPABLE_NAMES = {b"EXIF": "WebP EXIF chunk", b"XMP ": "WebP XMP chunk"}
@@ -295,25 +323,26 @@ def _webp_droppable(data: bytes) -> list[str]:
 def strip_pdf(data: bytes) -> bytes:
     try:
         reader = PdfReader(io.BytesIO(data))
-        writer = PdfWriter()
-        writer.append(reader)
-    except Exception:  # noqa: BLE001 - not a PDF pypdf can parse
+        # clone_from keeps the whole catalog (embedded files, forms, outlines, names);
+        # `append` would rebuild it from the pages alone and drop those.
+        writer = PdfWriter(clone_from=reader)
+        writer.metadata = None  # clears the whole Info dictionary
+        writer.xmp_metadata = None  # drops the /Metadata XMP stream, if any
+        out = io.BytesIO()
+        writer.write(out)
+    except Exception:  # noqa: BLE001 - not a PDF pypdf can parse or rewrite
         return data
-    writer.metadata = None  # clears the whole Info dictionary
-    writer.xmp_metadata = None  # drops the /Metadata XMP stream, if any
-    out = io.BytesIO()
-    writer.write(out)
     return out.getvalue()
 
 
 def _pdf_droppable(data: bytes) -> list[str]:
+    found = []
     try:
         reader = PdfReader(io.BytesIO(data))
-    except Exception:  # noqa: BLE001
+        if reader.metadata:
+            found.append("PDF Info dictionary")
+    except Exception:  # noqa: BLE001 - a PDF pypdf cannot read has nothing to strip
         return []
-    found = []
-    if reader.metadata:
-        found.append("PDF Info dictionary")
     try:
         if reader.xmp_metadata is not None:
             found.append("PDF XMP metadata")
@@ -341,7 +370,7 @@ for _prefix, _uri in (
 
 
 #: Findings `strip` reports but never removes (mirrors `plan.STRIP_EXCLUDED_RULE_IDS`).
-_REPORT_ONLY_RULE_IDS = frozenset({"ooxml-comment-author", "ooxml-revision-author"})
+_REPORT_ONLY_RULE_IDS = frozenset({"ooxml-comment-author", "ooxml-revision-author", "ooxml-custom"})
 
 
 def _local(tag: str) -> str:
@@ -369,7 +398,7 @@ def strip_ooxml(content: bytes) -> bytes:
         with zipfile.ZipFile(io.BytesIO(content)) as src:
             infos = src.infolist()
             data_by_name = {info.filename: src.read(info.filename) for info in infos}
-    except (zipfile.BadZipFile, OSError, NotImplementedError, ValueError):
+    except Exception:  # noqa: BLE001 - corrupt or encrypted entries: leave it as it is
         return content
     if _CORE_PART in data_by_name:
         core = data_by_name[_CORE_PART]
@@ -386,7 +415,11 @@ def strip_ooxml(content: bytes) -> bytes:
 
 def _ooxml_droppable(data: bytes) -> list[str]:
     found = []
-    for field in extract_fields("ooxml", data):
+    try:
+        fields = extract_fields("ooxml", data)
+    except Exception:  # noqa: BLE001 - corrupt archive: nothing strip could remove
+        return []
+    for field in fields:
         if field.rule_id == "ooxml-core" and field.name in _CORE_PERSON_LOCAL_NAMES:
             found.append(f"{_CORE_PART} {field.name}")
         elif field.rule_id == "ooxml-app" and field.name in _APP_ORG_LOCAL_NAMES:
@@ -429,6 +462,14 @@ def describe(content: bytes) -> list[str]:
     kind = route_blob(content, max_scan_mb=_NO_SIZE_GATE_MB).kind
     describer = _DESCRIBERS.get(kind)
     return describer(content) if describer else []
+
+
+def residual_fields(content: bytes) -> set[tuple[str, str]]:
+    """`(rule_id, field name)` of every binary-metadata field that survives
+    `strip_bytes(content)`: what the export would still ship."""
+    stripped = strip_bytes(content)
+    kind = route_blob(stripped, max_scan_mb=_NO_SIZE_GATE_MB).kind
+    return {(field.rule_id, field.name) for field in extract_fields(kind, stripped)}
 
 
 def reported_only(content: bytes) -> list[str]:

@@ -38,8 +38,12 @@ STRIPPABLE_RULE_PREFIXES = ("exif-", "png-", "pdf-", "ooxml-")
 
 #: OOXML tracked-change/comment authors: item 16 is explicit that `strip` reports
 #: these but never removes them ("Tracked changes and comments are reported, never
-#: auto-removed"), unlike every other `ooxml-*`/`exif-*`/`png-*`/`pdf-*` rule id.
-STRIP_EXCLUDED_RULE_IDS = frozenset({"ooxml-comment-author", "ooxml-revision-author"})
+#: auto-removed"), unlike every other `ooxml-*`/`exif-*`/`png-*`/`pdf-*` rule id. Custom
+#: document properties (`ooxml-custom`) are free-form values `strip` cannot safely
+#: blank, so they are reported and left for the author to edit.
+STRIP_EXCLUDED_RULE_IDS = frozenset(
+    {"ooxml-comment-author", "ooxml-revision-author", "ooxml-custom"}
+)
 
 _LARGE_FILE_DECIDE_RULE_IDS = frozenset(
     {"large-file-warn", "large-file-high", "large-file-github-limit"}

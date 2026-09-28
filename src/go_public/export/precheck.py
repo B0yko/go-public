@@ -23,6 +23,7 @@ Everything else at or above `--fail-on` blocks the export unless `--force-export
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import pathspec
@@ -30,6 +31,7 @@ import pathspec
 from go_public import scan as scan_mod
 from go_public import suppress as suppress_mod
 from go_public.config import Config
+from go_public.export.strip import residual_fields
 from go_public.git.inventory import Inventory
 from go_public.git.runner import GitRunner
 from go_public.model import Finding, severity_rank
@@ -67,9 +69,12 @@ def is_resolved_by_export(
     export_exclude_spec: pathspec.PathSpec[pathspec.pattern.Pattern],
     auto_exclude: bool,
     strip_metadata: bool,
+    strip_removes: Callable[[Finding], bool] | None = None,
 ) -> bool:
     """Whether the export process (`export/squash.py`) removes or fixes `finding` by
-    itself, so it never needs to block `--fail-on`."""
+    itself, so it never needs to block `--fail-on`. `strip_removes` confirms from the
+    blob's content that stripping really removes a binary-metadata field (the rule id
+    alone cannot tell: TIFF carries EXIF that `strip` leaves alone)."""
     if not finding.present_at_export_ref:
         return True
     if finding.rule_id in _ALWAYS_DROPPED_RULE_IDS:
@@ -79,11 +84,13 @@ def is_resolved_by_export(
         return True
     if auto_exclude and finding.category in _AUTO_EXCLUDED_CATEGORIES:
         return True
-    return (
+    if not (
         strip_metadata
         and finding.category == "binary-metadata"
         and is_strip_resolvable(finding.rule_id)
-    )
+    ):
+        return False
+    return strip_removes is None or strip_removes(finding)
 
 
 def blocking_findings(
@@ -93,6 +100,7 @@ def blocking_findings(
     fail_on: str,
     strip_metadata: bool,
     auto_exclude: bool | None = None,
+    strip_removes: Callable[[Finding], bool] | None = None,
 ) -> list[Finding]:
     """Every finding at or above `fail_on` that the export cannot resolve by itself.
     `auto_exclude` (the `--no-auto-exclude` switch) defaults to `[files] auto_exclude`."""
@@ -108,8 +116,25 @@ def blocking_findings(
             export_exclude_spec=export_exclude_spec,
             auto_exclude=auto_exclude,
             strip_metadata=strip_metadata,
+            strip_removes=strip_removes,
         )
     ]
+
+
+def _strip_check(runner: GitRunner) -> Callable[[Finding], bool]:
+    """A `strip_removes` callback that reads each blob once and asks the stripper what
+    it would leave behind."""
+    residual: dict[str, set[tuple[str, str]]] = {}
+
+    def strip_removes(finding: Finding) -> bool:
+        blob = finding.location.blob
+        if blob is None or finding.location.field is None:
+            return False
+        if blob not in residual:
+            residual[blob] = residual_fields(runner.run(["cat-file", "blob", blob]))
+        return (finding.rule_id, finding.location.field) not in residual[blob]
+
+    return strip_removes
 
 
 def run(
@@ -132,6 +157,7 @@ def run(
         fail_on=fail_on,
         strip_metadata=strip_metadata,
         auto_exclude=auto_exclude,
+        strip_removes=_strip_check(runner),
     )
     return PrecheckOutcome(
         inventory=inventory,

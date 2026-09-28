@@ -402,7 +402,7 @@ def _extract_ooxml_fields(content: bytes) -> list[BinaryField]:
                 if part_name in names:
                     fields.extend(extractor(archive.read(part_name)))
             return fields
-    except (zipfile.BadZipFile, OSError, NotImplementedError, ValueError):
+    except Exception:  # noqa: BLE001 - corrupt entries (bad deflate, encrypted): not inspectable
         return []
 
 
