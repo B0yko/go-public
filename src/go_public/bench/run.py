@@ -43,6 +43,7 @@ from go_public.export import history as history_mod
 from go_public.export import squash as squash_mod
 from go_public.git.runner import GitRunner, check_git_version
 from go_public.model import Finding, Report, severity_rank
+from go_public.plan import STRIP_EXCLUDED_RULE_IDS
 from go_public.scan import ScanOptions
 
 #: The evaluated classes, in table order (architecture.md "Fixture & truth").
@@ -793,13 +794,16 @@ def _export_squash(workspace: Workspace, fx: Fixture, work: Path) -> ExportOutco
 
 def by_design_reason(finding: Finding) -> str | None:
     """Why a kept history still carries this finding, when it does by design: licence
-    history is kept as it was, and only blobs at or above the size limit are dropped."""
+    history is kept as it was, only blobs at or above the size limit are dropped, and
+    `strip` reports OOXML comment and revision authors without removing them."""
     if history_mod.is_licence_history(finding):
         return "licence history"
     if finding.rule_id == "large-file-warn":
         return "large file below the size limit"
     if finding.rule_id == "lfs-pointer":
         return "LFS pointer"
+    if finding.rule_id in STRIP_EXCLUDED_RULE_IDS:
+        return "OOXML comments and revisions"
     return None
 
 
@@ -1107,7 +1111,9 @@ def run_export_verify(workspace: Workspace) -> tuple[dict[str, Any], str, bool]:
             lines += [
                 "",
                 "Left by design: licence history (kept as it was, needs a decision), blobs "
-                "under the size limit that is dropped, and LFS pointers. They are listed in "
+                "under the size limit that is dropped, LFS pointers, and OOXML comment and "
+                "revision authors (`strip` reports them and never removes them; exclude the "
+                "file to drop it from history). They are listed in "
                 f"the re-scan report and not scored. This run: {listed}.",
             ]
     return data, "\n".join(lines) + "\n", all_ok
