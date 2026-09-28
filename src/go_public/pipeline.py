@@ -73,7 +73,11 @@ def assess(
 
     suppression = suppress_mod.run(findings, config, inventory, runner)
     rotated_reasons = {entry.id: entry.reason for entry in config.rotated.fingerprints}
-    plan, refined = plan_mod.build_plan(suppression.kept, rotated_reasons=rotated_reasons)
+    plan, refined = plan_mod.build_plan(
+        suppression.kept,
+        rotated_reasons=rotated_reasons,
+        export_paths=set(inventory.export_tree),
+    )
 
     report = assemble_report(
         repo_path=str(repo_path),

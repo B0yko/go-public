@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import shlex
 from collections import defaultdict
+from collections.abc import Collection
 
 from go_public.model import (
     Finding,
@@ -61,17 +62,22 @@ def is_strip_resolvable(rule_id: str) -> bool:
 
 
 def build_plan(
-    findings: list[Finding], *, rotated_reasons: dict[str, str] | None = None
+    findings: list[Finding],
+    *,
+    rotated_reasons: dict[str, str] | None = None,
+    export_paths: Collection[str] | None = None,
 ) -> tuple[PlanModel, list[Finding]]:
     """Return `(plan, refined_findings)`: `refined_findings` is `findings` with each
     entry's `fix` replaced by the category-appropriate action; `plan` groups
-    `refined_findings` by fingerprint so both stay consistent."""
+    `refined_findings` by fingerprint so both stay consistent. `export_paths` (the
+    paths in the export ref's tree) keeps group B to files that exist there: a blob's
+    other, historical paths are no use to someone editing the current files."""
     rotated_reasons = rotated_reasons or {}
     buckets = {f.fingerprint: _bucket(f) for f in findings}
     refined = [_refine_fix(f, buckets[f.fingerprint]) for f in findings]
 
     a_entries = _group_a(refined, rotated_reasons)
-    b_entries = _group_file(refined, buckets, "B")
+    b_entries = _group_file(refined, buckets, "B", export_paths)
     c_entries = _group_file(refined, buckets, "C")
     d_entries = _group_d(refined, buckets)
     identity_notes = _identity_notes(refined)
@@ -175,13 +181,19 @@ def _group_key(finding: Finding) -> str:
 
 
 def _group_file(
-    findings: list[Finding], buckets: dict[str, str], bucket: str
+    findings: list[Finding],
+    buckets: dict[str, str],
+    bucket: str,
+    export_paths: Collection[str] | None = None,
 ) -> list[PlanFileGroup]:
     grouped: dict[str, list[Finding]] = defaultdict(list)
     for finding in findings:
         if buckets[finding.fingerprint] != bucket:
             continue
-        for key in finding.location.paths or [_group_key(finding)]:
+        paths = finding.location.paths
+        if bucket == "B" and export_paths is not None:
+            paths = [p for p in paths if p in export_paths] or paths
+        for key in paths or [_group_key(finding)]:
             grouped[key].append(finding)
 
     groups = []
