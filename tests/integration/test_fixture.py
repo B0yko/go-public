@@ -66,8 +66,15 @@ def _assert_marker_attributed(marker: ResolvedPlant, inv: Inventory) -> None:
 def test_every_marker_is_found_and_attributed(tmp_path: Path) -> None:
     result = _build(tmp_path, "repo", markers_in_truth=True)
     inv = build(GitRunner(result.repo, role="source"), include_unreachable=True)
-    assert len(result.markers) == len(LOCATION_TYPES)
-    for marker in result.markers:
+    # `result.markers` holds every resolved plant (stage 2b's real secret plants now
+    # coexist with the neutral markers); `_assert_marker_attributed`'s
+    # commit_message/tag_message checks assume a marker's own plant_id is the
+    # planted text, which only markers guarantee.
+    markers = [m for m in result.markers if m.plant.category == "marker"]
+    # "original" is excluded from markers: bench/plants/secrets.py's own plant
+    # covers it for real, and git allows only one thing to claim that fixed ref.
+    assert len(markers) == len(LOCATION_TYPES) - 1
+    for marker in markers:
         _assert_marker_attributed(marker, inv)
 
 
@@ -93,7 +100,9 @@ def test_no_plants_leaves_no_markers(tmp_path: Path) -> None:
 def test_markers_are_not_written_to_truth_by_default(tmp_path: Path) -> None:
     result = _build(tmp_path, "repo")
     assert result.markers  # the python API still returns them (the "test helper")
-    assert read_truth(result.truth_path) == []
+    entries = read_truth(result.truth_path)
+    assert entries  # stage 2b's real secret plants are non-marker and do appear
+    assert all(e.category != "marker" for e in entries)
 
 
 def test_markers_flag_writes_them_to_truth(tmp_path: Path) -> None:
@@ -105,7 +114,7 @@ def test_markers_flag_writes_them_to_truth(tmp_path: Path) -> None:
 
 def test_unsupported_size_is_not_implemented_yet(tmp_path: Path) -> None:
     with pytest.raises(UsageError):
-        fixture.build(0, "small", out=tmp_path / "repo")
+        fixture.build(0, "medium", out=tmp_path / "repo")
 
 
 def test_blind_spots_is_not_implemented_yet(tmp_path: Path) -> None:

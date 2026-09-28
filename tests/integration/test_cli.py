@@ -76,9 +76,17 @@ def test_fixture_builds_a_tiny_repo(tmp_path: Path) -> None:
 
 def test_fixture_unsupported_size_exits_2(tmp_path: Path) -> None:
     result = runner.invoke(
-        app, ["fixture", "--seed", "0", "--size", "small", "--out", str(tmp_path / "fixture")]
+        app, ["fixture", "--seed", "0", "--size", "medium", "--out", str(tmp_path / "fixture")]
     )
     assert result.exit_code == 2
+
+
+def test_fixture_small_size_builds_a_repo(tmp_path: Path) -> None:
+    out = tmp_path / "fixture"
+    result = runner.invoke(app, ["fixture", "--seed", "0", "--size", "small", "--out", str(out)])
+    assert result.exit_code == 0
+    assert (out / "repo").is_dir()
+    assert (out / "truth.jsonl").is_file()
 
 
 def test_rules_check_prints_bundled_summary() -> None:

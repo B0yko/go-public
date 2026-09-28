@@ -15,6 +15,7 @@ import tomlkit
 
 from go_public.bench import filler
 from go_public.bench.plants import LOCATION_TYPES, FixtureContext, Identity, Plant, ResolvedPlant
+from go_public.bench.plants import secrets as secret_plants
 from go_public.bench.truth import write_truth
 from go_public.errors import UsageError
 from go_public.git.runner import GitRunner
@@ -27,7 +28,7 @@ COLLEAGUE_IDENTITIES: tuple[Identity, ...] = (
     ("Jordan Blake", "jordan@colleague.example"),
 )
 
-_SIZES = {"tiny"}
+_SIZES = {"tiny", "small"}
 _EPOCH = 1_700_000_000  # 2023-11-14T22:13:20Z; a fixed, seed-independent base
 
 
@@ -62,6 +63,9 @@ def build(
     _build_topology(ctx, rng)
     if plants:
         _place_markers(ctx, seed)
+        secrets_rng = random.Random(f"{seed}-secrets")
+        for plant in secret_plants.generate(secrets_rng, ctx, size=size):
+            ctx.place(plant)
 
     out.mkdir(parents=True, exist_ok=True)
     repo = out / "repo"
@@ -140,10 +144,21 @@ def _build_topology(ctx: FixtureContext, rng: random.Random) -> None:
     )
 
 
+#: `original` (`refs/original/refs/heads/main`) is a single fixed ref name: `bench/
+#: plants/secrets.py`'s own plants always claim it for real (stage 2b), and git
+#: allows only one thing there per fixture build (a second `update-ref` would
+#: silently orphan whichever placement lost the race) — see that module's
+#: `_SINGLETON_LOCATION` comment. Markers stop covering it once real plants do,
+#: exactly as fixture-api.md anticipates ("build fewer markers once real coverage
+#: of a location type exists").
+_MARKER_LOCATIONS = tuple(t for t in LOCATION_TYPES if t != "original")
+
+
 def _place_markers(ctx: FixtureContext, seed: int) -> None:
-    """One neutral marker per location type, so the inventory can be exercised
-    everywhere without a real detector existing yet (Stage 1 brief, 1b)."""
-    for location_type in LOCATION_TYPES:
+    """One neutral marker per location type not already covered by a real plant
+    category, so the inventory can be exercised everywhere a detector doesn't exist
+    yet (Stage 1 brief, 1b)."""
+    for location_type in _MARKER_LOCATIONS:
         token = f"marker-{location_type}-{seed:04d}"
         plant = Plant(
             plant_id=f"marker-{location_type}",
