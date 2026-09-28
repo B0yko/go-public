@@ -115,3 +115,28 @@ def test_small_hard_negatives_present(tmp_path: Path, seed: int) -> None:
     runner = GitRunner(result.repo, role="source")
     tree = runner.run(["ls-tree", "-r", "--name-only", "HEAD"]).decode().split()
     assert "docs/contacts.md" in tree and "vendor/upstream/README.md" in tree
+
+
+def test_tiny_covers_every_class_and_every_location_type(tmp_path: Path) -> None:
+    from go_public.bench.plants import LOCATION_TYPES
+    from go_public.bench.run import EVAL_CLASSES
+
+    result = fixture.build(0, "tiny", out=tmp_path / "f")
+    truth = read_truth(result.truth_path)
+    expected_classes = {x.eval_class for e in truth for x in e.expected}
+    assert set(EVAL_CLASSES) <= expected_classes
+    assert {m.plant.location_type for m in result.markers} == set(LOCATION_TYPES)
+    assert {e.category for e in truth} >= {
+        "secret",
+        "pii",
+        "org-identifier",
+        "local-path",
+        "network",
+        "binary-metadata",
+        "licence",
+        "large-file",
+        "sensitive-file",
+        "internal-notes",
+        "identity",
+        "trailer",
+    }

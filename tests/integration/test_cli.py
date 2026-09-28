@@ -97,9 +97,9 @@ def test_fixture_builds_a_tiny_repo(tmp_path: Path) -> None:
     assert (out / "go-public.toml").is_file()
 
 
-def test_fixture_unsupported_size_exits_2(tmp_path: Path) -> None:
+def test_fixture_unknown_size_exits_2(tmp_path: Path) -> None:
     result = runner.invoke(
-        app, ["fixture", "--seed", "0", "--size", "medium", "--out", str(tmp_path / "fixture")]
+        app, ["fixture", "--seed", "0", "--size", "huge", "--out", str(tmp_path / "fixture")]
     )
     assert result.exit_code == 2
 
