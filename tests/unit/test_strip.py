@@ -142,6 +142,18 @@ def test_strip_webp_riff_size_matches_remaining_bytes() -> None:
     assert riff_size == len(stripped) - 8
 
 
+def test_strip_webp_clears_the_vp8x_exif_and_xmp_flags() -> None:
+    original = binaries.webp_with_field(ExifTag.Artist.value, "Person Name")
+    assert original[12:16] == b"VP8X"
+    assert original[20] & 0x08  # EXIF flag set before stripping
+
+    stripped = strip.strip_webp(original)
+
+    assert stripped[12:16] == b"VP8X"
+    assert stripped[20] & 0x0C == 0  # EXIF (0x08) and XMP (0x04) flags cleared
+    assert stripped[20] == original[20] & ~0x0C  # every other flag untouched
+
+
 def test_webp_droppable_lists_chunks_present() -> None:
     original = binaries.webp_with_field(ExifTag.Artist.value, "Person Name")
     assert strip.describe(original) == ["WebP EXIF chunk"]
