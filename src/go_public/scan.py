@@ -27,6 +27,7 @@ from typing import Any
 
 from go_public.config import Config
 from go_public.detect import base, commit_meta, files
+from go_public.detect import licence as licence_detect
 from go_public.detect.base import Detection, UnitCtx
 from go_public.detect.deny import DenyDetector
 from go_public.detect.files import FilesDetector
@@ -34,7 +35,7 @@ from go_public.detect.gitleaks_config import GitleaksConfig, load_gitleaks_confi
 from go_public.detect.paths_network import PathsNetworkDetector
 from go_public.detect.pii import PiiDetector
 from go_public.detect.secrets import SecretsEngine
-from go_public.git.inventory import Inventory
+from go_public.git.inventory import BlobOccurrence, Inventory
 from go_public.git.objects import CatFileBatch
 from go_public.git.runner import GitRunner
 from go_public.model import (
@@ -79,6 +80,16 @@ class ScanOptions:
     extra_names: tuple[str, ...] = ()
 
 
+class LicenceNoticeDetector:
+    """Thin wrapper around `detect/licence.py`'s stateless `detect_notice`, so it
+    slots into `_TextDetectors` like every other per-text detector (no config knobs
+    of its own yet)."""
+
+    def detect(self, text: str) -> list[Detection]:
+        detection = licence_detect.detect_notice(text)
+        return [detection] if detection is not None else []
+
+
 @dataclass(frozen=True, slots=True)
 class _TextDetectors:
     """Every detector `run()` needs, built once per process (main or worker)."""
@@ -88,6 +99,7 @@ class _TextDetectors:
     deny: DenyDetector
     paths_network: PathsNetworkDetector
     files: FilesDetector
+    licence: LicenceNoticeDetector
     gitleaks_config: GitleaksConfig
 
 
@@ -121,6 +133,7 @@ def _build_text_detectors(options: ScanOptions) -> _TextDetectors:
             sensitive_files=tuple(config.files.sensitive_files),
             internal_notes=tuple(config.files.internal_notes),
         ),
+        licence=LicenceNoticeDetector(),
         gitleaks_config=gitleaks_config,
     )
 
@@ -172,6 +185,11 @@ def run(
     rows.extend(_scan_trailers(list(config.trailers.flag), inventory))
     rows.extend(_scan_timezones(inventory))
     rows.extend(_scan_tracked_config(inventory, runner))
+    rows.extend(_scan_large_files(inventory, config, occ_by_blob))
+    rows.extend(_scan_gitlinks(inventory))
+    rows.extend(_scan_lfs_pointers(inventory, occ_by_blob))
+    rows.extend(_scan_licence_transitions(inventory, runner))
+    rows.extend(_scan_licence_head_state(inventory, runner, config))
 
     return [_finding_from_row(row, inventory, detectors.gitleaks_config, options) for row in rows]
 
@@ -278,19 +296,68 @@ def _scan_blob_content(
             )
         )
     elif route.kind in base.BINARY_KINDS:
-        for field_name, field_text in base.extract_binary_fields(route.kind, content).items():
+        for bf in base.extract_binary_fields(route.kind, content):
+            # go-public's own classification of this field's mere presence
+            # (exif-person, ooxml-core, ...), attributed the same way as the text
+            # detectors run on its value just below (architecture.md: both happen).
+            own = Detection(
+                category="binary-metadata",
+                rule_id=bf.rule_id,
+                severity=bf.severity,
+                start=0,
+                end=0,
+                line=0,
+                col=0,
+                value=bf.value,
+                secret=False,
+            )
             rows.extend(
                 _scan_unit(
                     detectors,
-                    field_text,
+                    bf.value,
                     occ_pairs,
                     kind="binary_field",
                     blob=blob_id,
-                    field_name=field_name,
+                    field_name=bf.name,
+                    extra=(own,),
                 )
             )
-    # "archive" / "binary" / "large": no text detector runs (stage 3b reports them).
+    elif route.kind == "archive":
+        detection = Detection(
+            category="binary-metadata",
+            rule_id="archive-not-scanned",
+            severity="info",
+            start=0,
+            end=0,
+            line=0,
+            col=0,
+            value="archive",
+            secret=False,
+        )
+        rows.extend(_attribute_detections([detection], occ_pairs, kind=base_kind, blob=blob_id))
+    # "binary" / "large": no text detector runs.
     return rows
+
+
+def _attribute_detections(
+    detections: list[Detection],
+    occ_pairs: list[_Occurrence],
+    *,
+    kind: str,
+    blob: str | None = None,
+    field_name: str | None = None,
+) -> list[dict[str, Any]]:
+    """Attribute detections with no path/commit-dependent behaviour to every
+    `(path, commit)` occurrence uniformly."""
+    if not detections:
+        return []
+    pairs = occ_pairs or [("", "")]
+    paths = sorted({p for p, _c in pairs if p})
+    commits = sorted({c for _p, c in pairs if c})
+    return [
+        _row(d, kind=kind, blob=blob, field_name=field_name, paths=paths, commits=commits)
+        for d in detections
+    ]
 
 
 def _scan_unit(
@@ -302,6 +369,7 @@ def _scan_unit(
     blob: str,
     field_name: str | None = None,
     is_gitmodules: bool = False,
+    extra: tuple[Detection, ...] = (),
 ) -> list[dict[str, Any]]:
     """Run every text detector over one blob/binary-field's content, attributing the
     result to every `(path, commit)` occurrence this blob/field has.
@@ -339,27 +407,20 @@ def _scan_unit(
             )
         )
 
-    # pii/deny/paths_network have no path/commit-dependent behaviour: run once and
-    # attribute the result to every occurrence uniformly.
+    # pii/deny/paths_network/licence-notice have no path/commit-dependent behaviour:
+    # run once and attribute the result to every occurrence uniformly, alongside
+    # `extra` (the caller's own pre-computed detections, e.g. binary-metadata's
+    # field-presence classification).
     stateless = (
         detectors.pii.detect(text)
         + detectors.deny.detect(text)
         + detectors.paths_network.detect(text, is_gitmodules=is_gitmodules)
+        + detectors.licence.detect(text)
+        + list(extra)
     )
-    if stateless:
-        paths = sorted({p for p, _c in pairs if p})
-        commits = sorted({c for _p, c in pairs if c})
-        for detection in stateless:
-            rows.append(
-                _row(
-                    detection,
-                    kind=kind,
-                    blob=blob,
-                    field_name=field_name,
-                    paths=paths,
-                    commits=commits,
-                )
-            )
+    rows.extend(
+        _attribute_detections(stateless, pairs, kind=kind, blob=blob, field_name=field_name)
+    )
     return rows
 
 
@@ -382,6 +443,7 @@ def _scan_message(
         detectors.pii.detect(text)
         + detectors.deny.detect(text)
         + detectors.paths_network.detect(text)
+        + detectors.licence.detect(text)
     )
     for detection in stateless:
         rows.append(_row(detection, kind=kind, commit=commit, tag=tag, paths=[], commits=commits))
@@ -542,6 +604,274 @@ def _scan_tracked_config(inventory: Inventory, runner: GitRunner) -> list[dict[s
     return [_row(detection, kind="path", paths=[".go-public.toml"], commits=[])]
 
 
+# -- large files / gitlinks / LFS pointers (product spec item 8; stage-3.md 3b) -----
+
+_ONE_MB = 1024 * 1024
+_GITHUB_LIMIT_BYTES = 100 * _ONE_MB
+
+
+def _large_file_tier(size: int, *, warn_mb: int, high_mb: int) -> tuple[str, str] | None:
+    """The single highest threshold `size` crosses, or `None` under `warn_mb`. One
+    finding per blob rather than up to three duplicates for the same oversized blob."""
+    if size >= _GITHUB_LIMIT_BYTES:
+        return "large-file-github-limit", "high"
+    if size >= high_mb * _ONE_MB:
+        return "large-file-high", "medium"
+    if size >= warn_mb * _ONE_MB:
+        return "large-file-warn", "low"
+    return None
+
+
+def _large_file_row(
+    blob_id: str, size: int, tier: tuple[str, str], *, kind: str, **loc: Any
+) -> dict[str, Any]:
+    rule_id, severity = tier
+    detection = Detection(
+        category="large-file",
+        rule_id=rule_id,
+        severity=severity,
+        start=0,
+        end=0,
+        line=0,
+        col=0,
+        value=str(size),
+        secret=False,
+        extra={"size_bytes": size},
+    )
+    return _row(detection, kind=kind, blob=blob_id, **loc)
+
+
+def _scan_large_files(
+    inventory: Inventory, config: Config, occ_by_blob: dict[str, set[_Occurrence]]
+) -> list[dict[str, Any]]:
+    warn_mb, high_mb = config.files.warn_mb, config.files.high_mb
+    rows: list[dict[str, Any]] = []
+    for blob_id, size in inventory.blob_sizes.items():
+        tier = _large_file_tier(size, warn_mb=warn_mb, high_mb=high_mb)
+        if tier is None:
+            continue
+        pairs = sorted(occ_by_blob.get(blob_id, set()))
+        paths = sorted({p for p, _c in pairs if p})
+        commits = sorted({c for _p, c in pairs if c})
+        rows.append(_large_file_row(blob_id, size, tier, kind="blob", paths=paths, commits=commits))
+    for blob_id, size in inventory.unreachable_blobs.items():
+        tier = _large_file_tier(size, warn_mb=warn_mb, high_mb=high_mb)
+        if tier is None:
+            continue
+        rows.append(
+            _large_file_row(blob_id, size, tier, kind="unreachable_blob", paths=[], commits=[])
+        )
+    return rows
+
+
+def _scan_gitlinks(inventory: Inventory) -> list[dict[str, Any]]:
+    """Gitlinks (submodules): never exported, never read (architecture.md "Objects &
+    inventory": "Gitlinks... recorded separately (never read)."), info per path."""
+    by_path: dict[str, set[str]] = defaultdict(set)
+    oid_by_path: dict[str, str] = {}
+    for link in inventory.gitlinks:
+        by_path[link.path].add(link.commit)
+        oid_by_path[link.path] = link.oid
+    rows: list[dict[str, Any]] = []
+    for path, commits in by_path.items():
+        detection = Detection(
+            category="large-file",
+            rule_id="gitlink",
+            severity="info",
+            start=0,
+            end=0,
+            line=0,
+            col=0,
+            value=path,
+            secret=False,
+            extra={"oid": oid_by_path[path]},
+        )
+        rows.append(_row(detection, kind="path", paths=[path], commits=sorted(commits)))
+    return rows
+
+
+def _scan_lfs_pointers(
+    inventory: Inventory, occ_by_blob: dict[str, set[_Occurrence]]
+) -> list[dict[str, Any]]:
+    """LFS pointer blobs: `_build_tasks` never scans their (pointer) text as content
+    (architecture.md "Blob routing": "LFS pointer blobs -> info finding only")."""
+    rows: list[dict[str, Any]] = []
+    for blob_id in inventory.lfs_pointers:
+        pairs = sorted(occ_by_blob.get(blob_id, set()))
+        paths = sorted({p for p, _c in pairs if p})
+        commits = sorted({c for _p, c in pairs if c})
+        detection = Detection(
+            category="large-file",
+            rule_id="lfs-pointer",
+            severity="info",
+            start=0,
+            end=0,
+            line=0,
+            col=0,
+            value=blob_id,
+            secret=False,
+        )
+        rows.append(_row(detection, kind="blob", blob=blob_id, paths=paths, commits=commits))
+    return rows
+
+
+# -- licence history (product spec item 7; stage-3.md 3b) ---------------------------
+
+
+def _licence_relevant_occurrences(inventory: Inventory) -> dict[str, list[BlobOccurrence]]:
+    by_path: dict[str, list[BlobOccurrence]] = defaultdict(list)
+    for occ in inventory.occurrences:
+        if licence_detect.is_licence_relevant_path(occ.path):
+            by_path[occ.path].append(occ)
+    return by_path
+
+
+def _commit_time(inventory: Inventory, commit: str) -> int:
+    obj = inventory.commits.get(commit)
+    return obj.author.timestamp if obj is not None else 0
+
+
+def _fetch_blobs(runner: GitRunner, blob_ids: set[str]) -> dict[str, bytes]:
+    content_by_blob: dict[str, bytes] = {}
+    if not blob_ids:
+        return content_by_blob
+    with CatFileBatch(runner) as batch:
+        for blob_id in blob_ids:
+            got = batch.get(blob_id)
+            if got is not None:
+                content_by_blob[blob_id] = got[1]
+    return content_by_blob
+
+
+def _scan_licence_transitions(inventory: Inventory, runner: GitRunner) -> list[dict[str, Any]]:
+    """Each commit that changes a licence file or manifest `license` field, when the
+    licence label actually changes (architecture.md "Match keys": keyed by
+    `finding.extra["transition_commit"]`, not by location, since two independent
+    transitions could carry identical text). Scope: `detect/licence.py`'s own
+    docstring explains why an arbitrary file's `SPDX-License-Identifier` header does
+    not also feed this (STATUS.md deviation)."""
+    by_path = _licence_relevant_occurrences(inventory)
+    if not by_path:
+        return []
+    needed: set[str] = set()
+    for occs in by_path.values():
+        for occ in occs:
+            needed.add(occ.blob)
+            if occ.old_blob:
+                needed.add(occ.old_blob)
+    content_by_blob = _fetch_blobs(runner, needed)
+
+    rows: list[dict[str, Any]] = []
+    for path, occs in by_path.items():
+        ordered = sorted(occs, key=lambda o: _commit_time(inventory, o.commit))
+        transitions: list[tuple[str, str, str, str]] = []  # (commit, from, to, dst_blob)
+        for occ in ordered:
+            new_content = content_by_blob.get(occ.blob)
+            if new_content is None:
+                continue
+            to_label = licence_detect.identify_path_content(path, new_content) or "unknown"
+            if not occ.old_blob:
+                continue  # a brand new file: an initial state, not a transition
+            old_content = content_by_blob.get(occ.old_blob)
+            if old_content is None:
+                continue
+            from_label = licence_detect.identify_path_content(path, old_content) or "unknown"
+            if from_label != to_label:
+                transitions.append((occ.commit, from_label, to_label, occ.blob))
+        for index, (commit, from_label, to_label, dst_blob) in enumerate(transitions):
+            carried_to = transitions[index + 1][0] if index + 1 < len(transitions) else "HEAD"
+            detection = Detection(
+                category="licence",
+                rule_id="licence-transition",
+                severity="medium",
+                start=0,
+                end=0,
+                line=0,
+                col=0,
+                value=f"{from_label} -> {to_label}",
+                secret=False,
+                extra={
+                    "from": from_label,
+                    "to": to_label,
+                    "transition_commit": commit,
+                    "carried_range": f"{commit}..{carried_to}",
+                },
+            )
+            rows.append(_row(detection, kind="blob", blob=dst_blob, paths=[path], commits=[commit]))
+    return rows
+
+
+def _current_licence_declarations(
+    inventory: Inventory, runner: GitRunner
+) -> list[tuple[str, str, bytes]]:
+    """`(path, label, content)` for every licence-relevant path at the export ref
+    that actually declares something (a manifest with no recognisable field yields
+    nothing for that path)."""
+    relevant = [p for p in inventory.export_tree if licence_detect.is_licence_relevant_path(p)]
+    if not relevant:
+        return []
+    blob_by_path = {p: inventory.export_tree[p][1] for p in relevant}
+    content_by_blob = _fetch_blobs(runner, set(blob_by_path.values()))
+    results: list[tuple[str, str, bytes]] = []
+    for path, blob_id in blob_by_path.items():
+        content = content_by_blob.get(blob_id)
+        if content is None:
+            continue
+        label = licence_detect.identify_path_content(path, content)
+        if label is not None:
+            results.append((path, label, content))
+    return results
+
+
+def _scan_licence_head_state(
+    inventory: Inventory, runner: GitRunner, config: Config
+) -> list[dict[str, Any]]:
+    """`licence-missing-at-head` (no `model.LOCATION_KINDS` fits a whole-repository
+    absence check, so this reuses `path` kind with a synthetic repo-root marker path,
+    same idea as timezone's reuse of `commit_message` in stage 3a — see STATUS.md) and
+    `licence-foreign-holder` (a licence file's copyright holder vs. `[licence]
+    owner`), both read from one export-ref fetch."""
+    declarations = _current_licence_declarations(inventory, runner)
+    rows: list[dict[str, Any]] = []
+    if not declarations:
+        detection = Detection(
+            category="licence",
+            rule_id="licence-missing-at-head",
+            severity="info",
+            start=0,
+            end=0,
+            line=0,
+            col=0,
+            value="",
+            secret=False,
+        )
+        rows.append(_row(detection, kind="path", paths=["."], commits=[]))
+
+    owner = config.licence.owner.strip()
+    if owner:
+        for path, _label, content in declarations:
+            if not licence_detect.is_licence_file_path(path):
+                continue
+            holder = licence_detect.extract_copyright_holder(
+                content.decode("utf-8", errors="replace")
+            )
+            if holder and owner.lower() not in holder.lower():
+                detection = Detection(
+                    category="licence",
+                    rule_id="licence-foreign-holder",
+                    severity="medium",
+                    start=0,
+                    end=0,
+                    line=0,
+                    col=0,
+                    value=holder,
+                    secret=False,
+                    extra={"holder": holder, "owner": owner},
+                )
+                rows.append(_row(detection, kind="path", paths=[path], commits=[]))
+    return rows
+
+
 # -- in-process (--jobs 1, or fewer tasks than workers) -----------------------------
 
 
@@ -675,6 +1005,30 @@ _TITLES: dict[str, str] = {
     "trailer": "Flagged commit trailer",
     "timezone-offset": "Non-UTC commit timestamp",
     "tracked-config-deny": "Tracked .go-public.toml has a non-empty [deny] table",
+    "exif-gps": "GPS location found in image metadata",
+    "exif-person": "Person field found in image metadata",
+    "exif-org": "Organisation field found in image metadata",
+    "exif-software": "Software field found in image metadata",
+    "png-text": "Text metadata found in PNG",
+    "png-time": "Time metadata found in PNG",
+    "png-exif": "EXIF metadata found in PNG",
+    "pdf-info": "PDF Info dictionary field found",
+    "pdf-xmp": "PDF XMP metadata field found",
+    "ooxml-core": "Office document core property found",
+    "ooxml-app": "Office document application property found",
+    "ooxml-custom": "Office document custom property found",
+    "ooxml-comment-author": "Office document comment author found",
+    "ooxml-revision-author": "Office document tracked-change author found",
+    "archive-not-scanned": "Archive contents were not scanned",
+    "licence-transition": "Licence changed",
+    "licence-proprietary": "Proprietary or confidential notice found",
+    "licence-foreign-holder": "Copyright holder differs from the configured owner",
+    "licence-missing-at-head": "No licence found at the export ref",
+    "large-file-warn": "Large blob",
+    "large-file-high": "Very large blob",
+    "large-file-github-limit": "Blob at or above GitHub's 100 MB push limit",
+    "gitlink": "Submodule (gitlink) found",
+    "lfs-pointer": "Git LFS pointer found",
 }
 
 

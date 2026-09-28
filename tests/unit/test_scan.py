@@ -7,14 +7,25 @@ Repos here are built with plain `subprocess` git calls (conftest.py's `git`/
 
 from __future__ import annotations
 
+import io
 import random
+import zipfile
 from pathlib import Path
 from typing import Any
 
 import pytest
+from PIL.ExifTags import Base as ExifTag
 
 from go_public import scan
-from go_public.config import Config, DenyConfig, IdentityConfig, TrailersConfig
+from go_public.bench import binaries
+from go_public.config import (
+    Config,
+    DenyConfig,
+    FilesConfig,
+    IdentityConfig,
+    LicenceConfig,
+    TrailersConfig,
+)
 from go_public.git.inventory import build, build_head_only
 from go_public.git.objects import CatFileBatch
 from go_public.git.runner import GitRunner
@@ -426,3 +437,182 @@ def test_tracked_config_with_deny_terms_is_critical(tmp_path: Path) -> None:
     assert finding.location.kind == "path"
     assert finding.location.paths == [".go-public.toml"]
     assert finding.present_at_export_ref is True
+
+
+# -- stage 3b: binary metadata / archives --------------------------------------------
+
+
+def test_jpeg_artist_field_is_reported_as_exif_person_and_scanned_as_text(
+    tmp_path: Path,
+) -> None:
+    repo = init_repo(tmp_path / "repo")
+    content = binaries.jpeg_with_field(ExifTag.Artist.value, "Alex Rivera")
+    (repo / "photo.jpg").write_bytes(content)
+    git(repo, "add", "photo.jpg")
+    git(repo, "commit", "-q", "-m", "feat: add photo", env=_env_at("2024-01-01T00:00:00+00:00"))
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    finding = _only(scan.run(runner, inventory), "exif-person")
+    assert finding.category == "binary-metadata"
+    assert finding.severity == "medium"
+    assert finding.location.kind == "binary_field"
+    assert finding.location.field == "Artist"
+    assert finding.location.paths == ["photo.jpg"]
+
+
+def test_plain_zip_is_reported_as_archive_not_scanned(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        archive.writestr("readme.txt", "just a plain zip")
+    (repo / "bundle.zip").write_bytes(buf.getvalue())
+    git(repo, "add", "bundle.zip")
+    git(repo, "commit", "-q", "-m", "feat: add bundle", env=_env_at("2024-01-01T00:00:00+00:00"))
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    finding = _only(scan.run(runner, inventory), "archive-not-scanned")
+    assert finding.category == "binary-metadata"
+    assert finding.severity == "info"
+    assert finding.location.paths == ["bundle.zip"]
+
+
+# -- stage 3b: large files / gitlinks / LFS pointers / licence history --------------
+
+_MIT_TEXT = (
+    "MIT License\n\n"
+    "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
+    "of this software.\n"
+)
+_APACHE_TEXT = 'Apache License\nVersion 2.0, January 2004\n\nLicensed under the "License".\n'
+
+
+def test_blob_over_warn_mb_is_large_file_warn(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "big.bin", "x" * (1024 * 1024 + 100), "feat: add big file")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(files=FilesConfig(warn_mb=1, high_mb=5))
+
+    finding = _only(scan.run(runner, inventory, ScanOptions(config=config)), "large-file-warn")
+    assert finding.category == "large-file"
+    assert finding.severity == "low"
+    assert finding.location.kind == "blob"
+    assert finding.location.paths == ["big.bin"]
+    assert finding.extra["size_bytes"] == 1024 * 1024 + 100
+
+
+def test_blob_over_high_mb_is_large_file_high_not_warn(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "big.bin", "x" * (2 * 1024 * 1024), "feat: add big file")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(files=FilesConfig(warn_mb=1, high_mb=2))
+
+    findings = scan.run(runner, inventory, ScanOptions(config=config))
+    large_file = [f for f in findings if f.category == "large-file"]
+    assert [f.rule_id for f in large_file] == ["large-file-high"]
+    assert large_file[0].severity == "medium"
+
+
+def test_gitlink_is_reported_as_info_and_never_read(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    fake_submodule_oid = "a" * 40
+    git(repo, "update-index", "--add", "--cacheinfo", f"160000,{fake_submodule_oid},vendor/lib")
+    git(repo, "commit", "-q", "-m", "feat: add submodule", env=_env_at("2024-01-01T00:00:00+00:00"))
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    finding = _only(scan.run(runner, inventory), "gitlink")
+    assert finding.category == "large-file"
+    assert finding.severity == "info"
+    assert finding.location.kind == "path"
+    assert finding.location.paths == ["vendor/lib"]
+    assert finding.extra["oid"] == fake_submodule_oid
+
+
+def test_lfs_pointer_blob_is_info_and_not_scanned_as_text(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    pointer = (
+        "version https://git-lfs.github.com/spec/v1\noid sha256:" + ("0" * 64) + "\nsize 12345\n"
+    )
+    commit_file(repo, "asset.psd", pointer, "feat: add lfs pointer")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    finding = _only(scan.run(runner, inventory), "lfs-pointer")
+    assert finding.category == "large-file"
+    assert finding.severity == "info"
+    assert finding.location.paths == ["asset.psd"]
+
+
+def test_licence_transition_is_reported_with_from_to_and_commit(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "LICENSE", _MIT_TEXT, "chore: add licence")
+    transition_oid = commit_file(repo, "LICENSE", _APACHE_TEXT, "chore: relicense")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    finding = _only(scan.run(runner, inventory), "licence-transition")
+    assert finding.category == "licence"
+    assert finding.severity == "medium"
+    assert finding.extra["from"] == "MIT"
+    assert finding.extra["to"] == "Apache-2.0"
+    assert finding.extra["transition_commit"] == transition_oid
+    assert finding.present_at_export_ref is True
+
+
+def test_repo_with_no_licence_file_reports_missing_at_head(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hello\n", "feat: a")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    finding = _only(scan.run(runner, inventory), "licence-missing-at-head")
+    assert finding.category == "licence"
+    assert finding.severity == "info"
+
+
+def test_licence_file_declares_licence_suppresses_missing_at_head(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "LICENSE", _MIT_TEXT, "chore: add licence")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    findings = scan.run(runner, inventory)
+    assert not any(f.rule_id == "licence-missing-at-head" for f in findings)
+
+
+def test_licence_foreign_holder_differs_from_configured_owner(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    proprietary_text = (
+        "Copyright (c) 2024 Riverside Fictional Holdings\n\n"
+        "All rights reserved. Internal distribution only.\n"
+    )
+    commit_file(repo, "LICENSE", proprietary_text, "chore: add licence")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(licence=LicenceConfig(owner="Pat Public"))
+
+    finding = _only(
+        scan.run(runner, inventory, ScanOptions(config=config)), "licence-foreign-holder"
+    )
+    assert finding.category == "licence"
+    assert finding.severity == "medium"
+    assert finding.location.kind == "path"
+    assert finding.location.paths == ["LICENSE"]
+    assert finding.extra["holder"] == "Riverside Fictional Holdings"
+    assert finding.extra["owner"] == "Pat Public"
+
+
+def test_licence_holder_matching_owner_is_not_flagged(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    text = "Copyright (c) 2024 Pat Public\n\nAll rights reserved.\n"
+    commit_file(repo, "LICENSE", text, "chore: add licence")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(licence=LicenceConfig(owner="Pat Public"))
+
+    findings = scan.run(runner, inventory, ScanOptions(config=config))
+    assert not any(f.rule_id == "licence-foreign-holder" for f in findings)

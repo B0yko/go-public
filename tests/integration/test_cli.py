@@ -26,6 +26,19 @@ def _allow_public_identity_config(tmp_path: Path) -> Path:
     return config
 
 
+def _commit_licence(repo: Path) -> None:
+    """A LICENSE file, so these secret-focused tests don't also see the info-level
+    `licence-missing-at-head` finding (stage 3b: `detect/licence.py`) every repo
+    without one now produces by default."""
+    commit_file(
+        repo,
+        "LICENSE",
+        "MIT License\n\nPermission is hereby granted, free of charge, to any person "
+        "obtaining a copy of this software.\n",
+        "chore: add licence",
+    )
+
+
 def test_version() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
@@ -124,6 +137,7 @@ def test_rules_check_reports_compile_failures_exit_1(tmp_path: Path) -> None:
 def test_scan_with_no_secrets_exits_0_with_zero_findings(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")
     commit_file(repo, "a.txt", "hi\n", "feat: a")
+    _commit_licence(repo)
     config = _allow_public_identity_config(tmp_path)
     result = runner.invoke(app, ["scan", str(repo), "--config", str(config)])
     assert result.exit_code == 0
@@ -134,6 +148,7 @@ def test_scan_with_a_secret_exits_1_by_default(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")
     token = tok.aws_access_key(random.Random(42))
     commit_file(repo, "config.txt", f'access_key = "{token}"\n', "feat: add config")
+    _commit_licence(repo)
     config = _allow_public_identity_config(tmp_path)
     result = runner.invoke(app, ["scan", str(repo), "--config", str(config)])
     assert result.exit_code == 1
@@ -174,6 +189,7 @@ def test_scan_debug_json_writes_findings(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")
     token = tok.npm_token(random.Random(45))
     commit_file(repo, "config.txt", f'token = "{token}"\n', "feat: add token")
+    _commit_licence(repo)
     config = _allow_public_identity_config(tmp_path)
     debug_json = tmp_path / "debug.json"
     result = runner.invoke(
