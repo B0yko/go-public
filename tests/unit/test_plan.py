@@ -5,6 +5,8 @@ from __future__ import annotations
 from go_public.model import Finding, FixAction, Location
 from go_public.plan import build_plan
 
+EXPORT_COMMANDS = ["go-public export . --check", "go-public export . --out ../public-export"]
+
 
 def _finding(
     *,
@@ -239,8 +241,9 @@ def test_next_commands_only_lists_open_secrets() -> None:
 
     plan, _ = build_plan([open_secret, rotated_secret], rotated_reasons={"s2": "done"})
 
-    assert len(plan.next_commands) == 1
     assert plan.next_commands[0].startswith("go-public allow s1 --rotated")
+    assert sum(c.startswith("go-public allow") for c in plan.next_commands) == 1
+    assert plan.next_commands[-2:] == EXPORT_COMMANDS
 
 
 def test_empty_findings_produce_an_empty_plan() -> None:
@@ -248,7 +251,7 @@ def test_empty_findings_produce_an_empty_plan() -> None:
 
     assert plan.A == plan.B == plan.C == plan.D == []
     assert plan.identity_notes == []
-    assert plan.next_commands == []
+    assert plan.next_commands == EXPORT_COMMANDS
     assert refined == []
 
 
@@ -265,7 +268,7 @@ def test_next_commands_names_a_strip_line_per_strippable_path() -> None:
 
     plan, _ = build_plan([finding])
 
-    assert plan.next_commands == ["go-public strip photo.jpg"]
+    assert plan.next_commands == ["go-public strip photo.jpg", *EXPORT_COMMANDS]
 
 
 def test_ooxml_comment_and_revision_authors_are_not_marked_strip() -> None:

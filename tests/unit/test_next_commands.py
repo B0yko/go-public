@@ -1,9 +1,7 @@
 """`plan.py`'s `next_commands` (product spec item 12; stage-4.md): every line is an
 exact `go-public` invocation whose subcommand and flags exist in the CLI.
 
-`export`/`strip` don't exist yet (later stages), so `next_commands` only ever emits
-`allow --rotated` lines today (STATUS.md deviation) — this test still validates the
-general shape so it keeps holding once those commands land.
+`next_commands` holds `allow --rotated`, `strip` and the two `export` lines.
 """
 
 from __future__ import annotations
@@ -56,6 +54,8 @@ def test_next_commands_only_names_flags_that_exist_in_the_cli() -> None:
         _assert_is_a_real_invocation(line)
 
 
-def test_no_open_secrets_means_no_next_commands() -> None:
+def test_no_open_secrets_leaves_only_the_export_commands() -> None:
     plan, _ = build_plan([])
-    assert plan.next_commands == []
+    assert [line.split()[1] for line in plan.next_commands] == ["export", "export"]
+    for line in plan.next_commands:
+        _assert_is_a_real_invocation(line)

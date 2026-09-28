@@ -232,13 +232,17 @@ def _identity_notes(findings: list[Finding]) -> list[str]:
     return sorted(identities)
 
 
+#: The export commands end every plan. Reports never hold absolute paths, so the
+#: repository argument is `.` (run from the repository) and the output directory a
+#: sibling of it.
+_EXPORT_CHECK_COMMAND = "go-public export . --check"
+_EXPORT_COMMAND = "go-public export . --out ../public-export"
+
+
 def _next_commands(a_entries: list[PlanEntryA], b_entries: list[PlanFileGroup]) -> list[str]:
     """Every open secret first (rotate before anything else), then one `go-public
-    strip` line per distinct B-group path whose action is `strip` — the extension
-    point stage 4's STATUS.md flagged once `go-public strip` existed (stage 5).
-    `export`/`export --check` are not emitted yet: unlike a fingerprint or a path,
-    naming a concrete `--out` directory here would need a repo-specific argument
-    `build_plan` does not take (STATUS.md deviation)."""
+    strip` line per distinct B-group path whose action is `strip`, then the export
+    pre-check and the export itself."""
     commands = [
         f'go-public allow {entry.secret_id} --rotated --reason "{_PLACEHOLDER_REASON}"'
         for entry in a_entries
@@ -246,4 +250,5 @@ def _next_commands(a_entries: list[PlanEntryA], b_entries: list[PlanFileGroup]) 
     ]
     strip_paths = sorted({g.key for g in b_entries if g.is_path and g.action == "strip"})
     commands += [f"go-public strip {shlex.quote(path)}" for path in strip_paths]
+    commands += [_EXPORT_CHECK_COMMAND, _EXPORT_COMMAND]
     return commands
