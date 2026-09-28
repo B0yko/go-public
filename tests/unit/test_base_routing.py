@@ -102,6 +102,9 @@ def test_oversized_text_blob_routes_to_large_instead_of_text() -> None:
     assert result.text is None
 
 
-def test_extract_binary_fields_stub_returns_no_fields_for_every_binary_kind() -> None:
+def test_extract_binary_fields_is_empty_for_unparseable_content_of_every_binary_kind() -> None:
+    """`extract_binary_fields` delegates to `detect/binary_meta.py` (stage 3b); real
+    extraction from valid content is that module's own tests. Here: garbage bytes
+    never crash routing and never fabricate a field."""
     for kind in BINARY_KINDS:
-        assert extract_binary_fields(kind, b"anything") == {}
+        assert extract_binary_fields(kind, b"anything") == []

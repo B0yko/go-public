@@ -38,6 +38,10 @@ dev = [
   "pytest>=8",
   "ruff>=0.6",
   "mypy>=1.11",
+  # Dev-only: architecture.md "the OOXML files load in python-docx and openpyxl in
+  # a dev-only test". `fixture`/`demo`/`bench` never import either at runtime.
+  "python-docx>=1.1",
+  "openpyxl>=3.1",
 ]
 
 [tool.ruff]
@@ -55,6 +59,10 @@ known-first-party = ["go_public"]
 # Typer's `= typer.Option(...)` / `typer.Argument(...)` defaults are the documented
 # way to declare CLI parameters; bugbear's mutable-default check doesn't know that.
 "src/go_public/cli.py" = ["B008"]
+# Minimal hand-written OOXML part templates: real content-type/relationship URIs,
+# not code, and splitting them mid-attribute would only make them harder to compare
+# against a real Office-produced package.
+"src/go_public/bench/binaries.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

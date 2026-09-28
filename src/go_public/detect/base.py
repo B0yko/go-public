@@ -1,13 +1,9 @@
 """The shared detector contract (architecture.md "Scan units and routing") plus blob
 routing: magic bytes, the NUL/UTF-16 text check, and the `max_scan_mb` gate.
 
-`detect/secrets.py` (stage 2a) is the only detector that exists yet; `scan.py`
-(stage 2b) is the only caller of the routing functions here. Real binary field
-extraction (Pillow/pypdf/defusedxml) is stage 3b's `detect/binary_meta.py`;
-`extract_binary_fields` is a stub that always returns no fields, so a JPEG/PNG/WebP/
-TIFF/PDF/OOXML blob is routed correctly now (unit-tested) and scan.py already has
-the wiring to run text detectors over whatever fields a later stage's extractor
-returns, without any change to scan.py itself.
+`extract_binary_fields` delegates to `detect/binary_meta.py` (stage 3b): a
+JPEG/PNG/WebP/TIFF/PDF/OOXML blob is routed here, then its named fields (EXIF tags,
+PDF Info/XMP, OOXML docProps/comments/tracked-changes) are extracted there.
 """
 
 from __future__ import annotations
@@ -16,6 +12,8 @@ import io
 import zipfile
 from dataclasses import dataclass, field
 from typing import Any
+
+from go_public.detect import binary_meta
 
 #: Magic-byte signatures (product spec item 6 / architecture "Scan units and
 #: routing"). Checked in this order; the first match wins.
@@ -167,15 +165,9 @@ def route_blob(content: bytes, *, max_scan_mb: int = 10) -> RouteResult:
     return _as_text_or_large(text, max_scan_mb=max_scan_mb)
 
 
-def extract_binary_fields(kind: str, content: bytes) -> dict[str, str]:
-    """Extract named text fields (EXIF tags, PDF Info/XMP, OOXML docProps, PNG text
-    chunks) for the text detectors to scan (location kind `binary_field`).
-
-    Stub for stage 2b: real extraction is stage 3b's `detect/binary_meta.py`
-    (Pillow/pypdf/defusedxml). Returning no fields for every `kind in BINARY_KINDS`
-    means `scan.py`'s wiring (route -> extract -> run text detectors per field) is
-    exercised end-to-end now without producing findings yet, matching stage-2.md's
-    scope.
-    """
-    del kind, content
-    return {}
+def extract_binary_fields(kind: str, content: bytes) -> list[binary_meta.BinaryField]:
+    """Extract named fields (EXIF tags, PDF Info/XMP, OOXML docProps/comments/
+    tracked-changes, PNG text chunks) for `scan.py` to both classify on its own
+    (go-public's binary-metadata rule ids) and run through the text detectors
+    (location kind `binary_field`)."""
+    return binary_meta.extract_fields(kind, content)
