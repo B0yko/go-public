@@ -39,6 +39,7 @@ from go_public.bench.plants._fictional import (
 from go_public.bench.truth import write_truth
 from go_public.errors import UsageError
 from go_public.git.runner import GitRunner
+from go_public.plan import is_strip_resolvable
 
 #: Every category's plant module, in a fixed order so seeds are reproducible
 #: regardless of dict/set iteration order. Each gets its own `random.Random` seeded
@@ -88,6 +89,58 @@ _BASELINE_LICENSE = (
 )
 
 
+@dataclass(frozen=True)
+class FixPlan:
+    """What the scripted fix commit of a `scripted_fix` build did (export-verify).
+
+    `neutralised` maps plant id -> path for every HEAD-resident plant the export
+    cannot resolve by itself; the fix commit deletes those paths, so their findings
+    become history-only. `auto_resolved` maps plant id -> path for HEAD-resident
+    plants that stay: the export drops the file (sensitive files, internal notes) or
+    strips the metadata field itself."""
+
+    neutralised: dict[str, str]
+    auto_resolved: dict[str, str]
+
+
+_TREE_KINDS = frozenset({"blob", "path", "binary_field", "licence_transition"})
+_AUTO_DROPPED_CATEGORIES = frozenset({"sensitive-file", "internal-notes"})
+_PRIMARY_KIND = {
+    "head": "blob",
+    "path_name": "path",
+    "binary_field": "binary_field",
+    "licence_transition": "licence_transition",
+}
+
+
+def plan_scripted_fix(plants: list[Plant]) -> FixPlan:
+    """Decide, for every plant at the export ref, whether the export resolves it by
+    itself (`auto_resolved`) or a fix at HEAD must remove it first (`neutralised`).
+    The decision mirrors `export/precheck.py`'s notion of "resolved by the export"."""
+    neutralised: dict[str, str] = {}
+    auto_resolved: dict[str, str] = {}
+    for plant in plants:
+        path = FixtureContext.tree_path(plant)
+        if plant.category == "marker" or path is None:
+            continue
+        expected: list[tuple[str, str]] = [(e.category, e.kind) for e in plant.expected_extra]
+        if not plant.suppress_primary_expected:
+            expected.append((plant.category, _PRIMARY_KIND[plant.location_type]))
+        tree_categories = {cat for cat, kind in expected if kind in _TREE_KINDS}
+        if not tree_categories:
+            continue  # identity/trailer/message findings live in history only
+        strippable = plant.category == "binary-metadata" and is_strip_resolvable(
+            plant.rule_family or ""
+        )
+        if tree_categories <= _AUTO_DROPPED_CATEGORIES or (
+            tree_categories == {"binary-metadata"} and strippable
+        ):
+            auto_resolved[plant.plant_id] = path
+        else:
+            neutralised[plant.plant_id] = path
+    return FixPlan(neutralised=neutralised, auto_resolved=auto_resolved)
+
+
 @dataclass
 class FixtureResult:
     repo: Path
@@ -96,6 +149,8 @@ class FixtureResult:
     markers: list[ResolvedPlant]
     #: `truth.blind.jsonl`, written only for a `--blind-spots` build.
     blind_truth_path: Path | None = None
+    #: Set for a `scripted_fix` build (export-verify's deterministic variant).
+    fix: FixPlan | None = None
 
 
 def build(
@@ -106,6 +161,7 @@ def build(
     blind_spots: bool = False,
     markers_in_truth: bool = False,
     medium_scale: float = 1.0,
+    scripted_fix: bool = False,
     out: Path,
 ) -> FixtureResult:
     """Build one fixture repository at `out/repo`, plus `truth.jsonl` and config.
@@ -128,13 +184,26 @@ def build(
         _build_medium(ctx, rng, medium_scale)
     else:
         _build_topology(ctx, rng, plants=plants, size=size)
+    placed: list[Plant] = []
     if plants:
         _place_markers(ctx, seed)
         for category_plants in _PLANT_MODULES:
             module_rng = random.Random(f"{seed}-{category_plants.__name__}")
             for plant in category_plants.generate(module_rng, ctx, size=plant_size):
                 ctx.place(plant)
+                placed.append(plant)
 
+    fix: FixPlan | None = None
+    if scripted_fix:
+        fix = plan_scripted_fix(placed)
+        if fix.neutralised:
+            # One final commit on main removes what the export cannot resolve, so
+            # export-verify needs no `git commit` of its own (deterministic variant).
+            ctx.commit(
+                "refs/heads/main",
+                message="chore: remove flagged files",
+                files=dict.fromkeys(sorted(set(fix.neutralised.values())), None),
+            )
     if blind_spots:
         blind_rng = random.Random(f"{seed}-blind")
         for plant in blind_spot_plants.generate(blind_rng, ctx, size=plant_size):
@@ -160,6 +229,10 @@ def build(
     marks_file.unlink(missing_ok=True)
 
     resolved = ctx.finalize(runner, mark_to_oid)
+    if fix is not None:
+        for entry in resolved:
+            if entry.plant.plant_id in fix.neutralised:
+                entry.at_export_ref = False
 
     truth_path = out / "truth.jsonl"
     is_blind = [r.plant.plant_id.startswith(blind_spot_plants.BLIND_PREFIX) for r in resolved]
@@ -186,6 +259,7 @@ def build(
         config_path=config_path,
         markers=resolved,
         blind_truth_path=blind_truth_path,
+        fix=fix,
     )
 
 

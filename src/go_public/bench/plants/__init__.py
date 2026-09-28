@@ -281,6 +281,22 @@ class FixtureContext:
 
     # -- plant placement -------------------------------------------------------
 
+    #: Location types whose content sits in the export ref's tree at its own path.
+    TREE_LOCATIONS = ("head", "path_name", "binary_field", "licence_transition")
+
+    @staticmethod
+    def tree_path(plant: Plant) -> str | None:
+        """The path a tree-resident plant occupies at HEAD (`None` for every other
+        location type); mirrors the default paths the `_place_*` methods use."""
+        defaults = {
+            "head": f"markers/{plant.plant_id}.txt",
+            "path_name": f"markers/{plant.plant_id}/file.txt",
+            "binary_field": f"markers/{plant.plant_id}.bin",
+            "licence_transition": f"markers/{plant.plant_id}/LICENSE",
+        }
+        default = defaults.get(plant.location_type)
+        return None if default is None else (plant.path or default)
+
     def place(self, plant: Plant) -> None:
         """Dispatch to the `_place_<location_type>` method for this plant."""
         method = getattr(self, f"_place_{plant.location_type}")

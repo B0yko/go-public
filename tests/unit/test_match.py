@@ -66,9 +66,29 @@ def test_duplicate_findings_on_one_entry_count_once() -> None:
     result = report.by_class["secret-generic"]
     assert result.expected == 1
     assert result.matched_expected == 1
-    assert result.findings == 2
-    assert result.matched_findings == 2  # both count as matched, not one FP
+    assert result.findings == 1  # the two overlapping generic hits are one finding
+    assert result.matched_findings == 1
     assert report.unmatched_findings == []
+
+
+def test_overlapping_generic_hits_on_an_unplanted_span_are_one_false_positive() -> None:
+    findings = [
+        _finding(rule_id="generic-api-key", location=Location(kind="blob", blob="x", line=3)),
+        _finding(rule_id="generic-entropy", location=Location(kind="blob", blob="x", line=3)),
+    ]
+    report = match([], findings)
+    assert report.by_class["secret-generic"].findings == 1
+    assert len(report.unmatched_findings) == 1
+
+
+def test_same_location_different_classes_are_scored_separately() -> None:
+    findings = [
+        _finding(rule_id="aws-access-token", location=Location(kind="blob", blob="x", line=3)),
+        _finding(rule_id="generic-entropy", location=Location(kind="blob", blob="x", line=3)),
+    ]
+    report = match([], findings)
+    assert report.by_class["secret-vendor"].findings == 1
+    assert report.by_class["secret-generic"].findings == 1
 
 
 def test_missing_finding_is_a_false_negative() -> None:

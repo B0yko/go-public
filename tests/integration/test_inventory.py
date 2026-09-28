@@ -217,6 +217,16 @@ def test_head_only_skips_history(tmp_path: Path) -> None:
     assert inv.total_bytes == len("hello\n") + len("world\n")
 
 
+def test_head_only_still_finds_lfs_pointers(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    pointer = "version https://git-lfs.github.com/spec/v1\noid sha256:" + "ab" * 32 + "\nsize 9\n"
+    commit_file(repo, "big.bin", pointer, "feat: lfs pointer")
+    commit_file(repo, "a.txt", "hello\n", "feat: a", date="2024-01-02T00:00:00+00:00")
+
+    inv = build_head_only(GitRunner(repo, role="source"))
+    assert len(inv.lfs_pointers) == 1
+
+
 def test_bare_repo_is_scanned(tmp_path: Path) -> None:
     src = init_repo(tmp_path / "src")
     commit_file(src, "a.txt", "hi\n", "feat: a")

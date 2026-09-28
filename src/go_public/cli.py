@@ -7,6 +7,7 @@ from __future__ import annotations
 import functools
 import json
 import os
+import tempfile
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
@@ -17,6 +18,7 @@ from go_public import __version__, config_write, fileview, pipeline
 from go_public import config as config_mod
 from go_public import scan as scan_mod
 from go_public.bench import fixture as fixture_mod
+from go_public.bench import run as bench_run
 from go_public.detect import commit_meta
 from go_public.detect.gitleaks_config import load_gitleaks_config, rules_check
 from go_public.errors import GoPublicError, UsageError
@@ -488,6 +490,110 @@ def fixture(
     check_git_version()
     result = fixture_mod.build(seed, size, plants=not no_plants, blind_spots=blind_spots, out=out)
     typer.echo(f"fixture: {result.repo}")
+
+
+@app.command()
+@_handle_errors
+def demo(
+    report_dir: Path | None = typer.Option(
+        None, "--report-dir", help="Override the default report location."
+    ),
+) -> None:
+    """Build the demo repository (seed 1, small), scan it and print where the reports are.
+
+    The demo repository and its config are left in a temporary directory so you can
+    try `go-public export` on them; nothing is written outside it except the reports.
+    """
+    git_version = check_git_version()
+    work = Path(tempfile.mkdtemp(prefix="go-public-demo-"))
+    result = fixture_mod.build(1, "small", out=work)
+    repo = result.repo.rename(result.repo.with_name("demo-repo"))
+    config = config_mod.load_config(result.config_path)
+    runner = GitRunner(repo, role="source")
+    assessment = pipeline.assess(
+        runner,
+        repo_path=repo,
+        ref="HEAD",
+        config=config,
+        config_source=str(result.config_path),
+        options=scan_mod.ScanOptions.from_config(config),
+        git_version=git_version,
+        fail_on=config.scan.fail_on,
+        include_unreachable=True,
+    )
+    paths = write_reports(assessment.report, repo, report_dir, protected=repository_roots(runner))
+    typer.echo(assessment.inventory.summary_line())
+    _print_finding_counts(assessment.findings)
+    typer.echo(f"demo repository: {repo}")
+    typer.echo(f"demo config: {result.config_path}")
+    typer.echo(f"reports: {paths['json'].parent}")
+    typer.echo(f"  open {paths['html']} in a browser, or read {paths['md']}")
+    typer.echo(f"next: go-public export {repo} --config {result.config_path} --check")
+
+
+@app.command()
+@_handle_errors
+def bench(
+    seeds: str = typer.Option(..., "--seeds", help="Seed spec: 2-6, 0,1 or 100."),
+    size: str = typer.Option(..., "--size", help="tiny or small (medium is for --runtime)."),
+    out: Path = typer.Option(..., "--out", help="Directory for the results files."),
+    compare_head_only: bool = typer.Option(
+        False, "--compare-head-only", help="Recall by location type: full scan vs --head-only."
+    ),
+    export_verify: bool = typer.Option(
+        False, "--export-verify", help="Scan, scripted fix, export, re-scan; check immutability."
+    ),
+    blind_spots: bool = typer.Option(
+        False, "--blind-spots", help="Measured recall on the blind-spot plants."
+    ),
+    gate: bool = typer.Option(False, "--gate", help="Exit 1 if any gate fails."),
+    jobs: int = typer.Option(0, "--jobs", help="Scan worker processes (0 = CPU count)."),
+    hardware: str = typer.Option(
+        "", "--hardware", help="Hardware label for the results files (default: detected)."
+    ),
+    detector_commit: str = typer.Option(
+        "unknown", "--detector-commit", help="Frozen detector commit SHA to record."
+    ),
+    gitleaks: Path | None = typer.Option(
+        None, "--gitleaks", help="gitleaks baseline (not available yet)."
+    ),
+    real_world_dir: Path | None = typer.Option(
+        None, "--real-world-dir", help="Real-world noise run (not available yet)."
+    ),
+    labels: Path | None = typer.Option(None, "--labels", help="Labels file for --real-world-dir."),
+    runtime: bool = typer.Option(False, "--runtime", help="Runtime run (not available yet)."),
+    repeat: int = typer.Option(3, "--repeat", help="Repetitions for --runtime."),
+) -> None:
+    """Build synthetic fixtures, scan them and write results files under --out."""
+    for flag, given in (
+        ("--gitleaks", gitleaks is not None),
+        ("--real-world-dir", real_world_dir is not None),
+        ("--labels", labels is not None),
+        ("--runtime", runtime or repeat != 3),
+    ):
+        if given:
+            raise UsageError(f"{flag} is not available yet")
+    check_git_version()
+    options = bench_run.BenchOptions(
+        seed_spec=seeds,
+        size=size,
+        out=out,
+        jobs=jobs,
+        hardware=hardware,
+        detector_commit=detector_commit,
+    )
+    outcome = bench_run.run(
+        options,
+        compare_head_only=compare_head_only,
+        export_verify=export_verify,
+        blind=blind_spots,
+    )
+    for path in outcome.written:
+        typer.echo(f"wrote {path}")
+    for line in outcome.summary:
+        typer.echo(line)
+    if gate and not outcome.gates_ok:
+        raise typer.Exit(code=1)
 
 
 @rules_app.command("check")

@@ -148,13 +148,22 @@ def match(
     expected_key_set = {(category, key) for _pid, category, _cls, key in expected_items}
 
     considered: list[tuple[Finding, str, Key]] = []
+    counted: set[tuple[str, str, Key]] = set()
     for finding in findings:
         cls = eval_class_for_finding(finding)
         if eval_classes is not None and cls not in eval_classes:
             continue
         key = _finding_key(finding)
-        if key is not None:
-            considered.append((finding, cls, key))
+        if key is None:
+            continue
+        # Several findings on one location and class are one finding for scoring:
+        # duplicates of a truth entry count once, and so do overlapping generic hits on
+        # one span (a `generic-api-key` and a `generic-entropy` finding on one line).
+        identity = (finding.category, cls, key)
+        if identity in counted:
+            continue
+        counted.add(identity)
+        considered.append((finding, cls, key))
     found_key_set = {(finding.category, key) for finding, _cls, key in considered}
 
     expected_total: Counter[str] = Counter()
@@ -192,3 +201,51 @@ def match(
         unmatched_expected=unmatched_expected,
         unmatched_findings=unmatched_findings,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class ExpectedHit:
+    """One expected finding and whether a scan produced it."""
+
+    plant_id: str
+    location_type: str
+    at_export_ref: bool
+    eval_class: str
+    category: str
+    kind: str
+    key: Key
+    matched: bool
+
+
+def expected_hits(
+    truth_entries: list[TruthEntry],
+    findings: list[Finding],
+    *,
+    eval_classes: set[str] | None = None,
+) -> list[ExpectedHit]:
+    """Every expected finding in `truth_entries` with its matched flag, so callers can
+    group recall by any truth attribute (location type, kind, ...)."""
+    found: set[tuple[str, Key]] = set()
+    for finding in findings:
+        key = _finding_key(finding)
+        if key is not None:
+            found.add((finding.category, key))
+    hits = []
+    for entry in truth_entries:
+        for exp in entry.expected:
+            if eval_classes is not None and exp.eval_class not in eval_classes:
+                continue
+            key = _expected_key(exp.kind, exp.key)
+            hits.append(
+                ExpectedHit(
+                    plant_id=entry.plant_id,
+                    location_type=entry.location_type,
+                    at_export_ref=entry.at_export_ref,
+                    eval_class=exp.eval_class,
+                    category=exp.category,
+                    kind=exp.kind,
+                    key=key,
+                    matched=(exp.category, key) in found,
+                )
+            )
+    return hits
