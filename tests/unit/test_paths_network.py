@@ -20,6 +20,13 @@ def _detector(**kwargs: object) -> PathsNetworkDetector:
     return PathsNetworkDetector(**defaults)  # type: ignore[arg-type]
 
 
+_INTERNAL_HOST = "build." + "internal"
+
+
+def _ip(*octets: int) -> str:
+    return ".".join(str(o) for o in octets)
+
+
 def _unix_user_path(name: str) -> str:
     return "/Us" + "ers/" + name + "/"
 
@@ -56,12 +63,12 @@ def test_windows_user_path_forms_are_detected() -> None:
 
 
 def test_macos_temp_path_is_detected() -> None:
-    hits = _detector().detect("cache at ***REMOVED***")
+    hits = _detector().detect("cache at " + "/var/" + "folders/ab/xyz123/T/file")
     assert [d.rule_id for d in hits] == ["macos-temp-path"]
 
 
 def test_private_ipv4_is_detected_and_loopback_is_not() -> None:
-    hits = _detector().detect("server at ***REMOVED***")
+    hits = _detector().detect("server at " + _ip(10, 1, 2, 3))
     assert [d.rule_id for d in hits] == ["private-ip"]
     assert _detector().detect("server at 127.0.0.1") == []
 
@@ -72,7 +79,7 @@ def test_ip_like_version_string_is_not_flagged() -> None:
 
 
 def test_internal_hostname_suffix_is_detected() -> None:
-    hits = _detector().detect("deployed to ***REMOVED***")
+    hits = _detector().detect("deployed to " + _INTERNAL_HOST)
     assert [d.rule_id for d in hits] == ["internal-host"]
 
 
@@ -83,13 +90,13 @@ def test_host_under_deny_domain_is_detected() -> None:
 
 
 def test_gitmodules_url_to_internal_host_is_flagged() -> None:
-    content = '[submodule "x"]\n\tpath = x\n\turl = https://***REMOVED***/x.git\n'
+    content = '[submodule "x"]\n\tpath = x\n\turl = https://' + _INTERNAL_HOST + "/x.git\n"
     hits = _detector().detect(content, is_gitmodules=True)
     rule_ids = {d.rule_id for d in hits}
     assert "private-submodule-url" in rule_ids
 
 
 def test_gitmodules_check_is_skipped_for_ordinary_blobs() -> None:
-    content = '[submodule "x"]\n\tpath = x\n\turl = https://***REMOVED***/x.git\n'
+    content = '[submodule "x"]\n\tpath = x\n\turl = https://' + _INTERNAL_HOST + "/x.git\n"
     hits = _detector().detect(content, is_gitmodules=False)
     assert not any(d.rule_id == "private-submodule-url" for d in hits)

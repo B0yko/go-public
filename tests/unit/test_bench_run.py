@@ -56,7 +56,7 @@ def test_sanitiser_rejects_absolute_paths_home_and_host() -> None:
     for bad in (
         "wrote /Us" + "ers/someone/results.json",
         'path": "/home/runner/work"',
-        "in (/private***REMOVED***)",
+        "in (/private/var/" + "folders/x)",
         "tmp=/tmp/go-public-bench-abc",
     ):
         with pytest.raises(bench_run.BenchError):

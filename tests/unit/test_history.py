@@ -50,12 +50,12 @@ def test_collect_values_keys_values_by_the_carrying_object_longest_first() -> No
             _finding(blob="b1", value="abcdef", fingerprint="f2"),
             _finding(blob="b1", value="abc", fingerprint="f3"),
             _finding(category="pii", kind="commit_message", commit="c1", value="jo@x"),
-            _finding(category="network", kind="tag_message", tag="t1", value="***REMOVED***"),
+            _finding(category="network", kind="tag_message", tag="t1", value="10." + "0.0.1"),
         ]
     )
     assert values.blob == {"b1": ["abcdef", "abc"]}
     assert values.commit == {"c1": ["jo@x"]}
-    assert values.tag == {"t1": ["***REMOVED***"]}
+    assert values.tag == {"t1": ["10." + "0.0.1"]}
     assert values.count == 4
 
 

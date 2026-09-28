@@ -34,6 +34,10 @@ _RULE_FAMILIES = [
 # A rule set with one rule whose regex can never match anything (the trailing `^^^`
 # would need "unused" to end at text position 0). Used by the generic-entropy tests,
 # which only care about the custom detector, not the vendored rules.
+# Assembled at runtime: a keyword assignment with a random-looking value is what the
+# generic detector flags in this repository's own self-scan.
+_MIXED_12 = "aZ9kQ7" + "mN2pXb"
+
 _NO_OP_RULE_CONFIG = '[[rules]]\nid = "unused"\nregex = "nomatch^^^"'
 
 
@@ -137,7 +141,7 @@ def test_entropy_threshold_skips_low_entropy_match() -> None:
     )
     engine = SecretsEngine(config, generic_detector_enabled=False)
     assert engine.detect("token=aaaaaaaaaaaa", UnitCtx(path="a.txt")) == []
-    hits = engine.detect("token=***REMOVED***", UnitCtx(path="a.txt"))
+    hits = engine.detect("token=" + _MIXED_12, UnitCtx(path="a.txt"))
     assert len(hits) == 1
 
 

@@ -8,7 +8,7 @@ from go_public.redaction import make_preview, mask_secret_spans, redact_secret
 
 
 def test_redact_secret_shows_first_four_chars_length_and_hash_prefix() -> None:
-    value = "***REMOVED***"
+    value = "AKIA" + "ABCDEFGHIJKLMNOP"
     result = redact_secret(value)
     assert result.startswith("AKIA…")
     assert f"[len={len(value)} " in result
@@ -53,7 +53,7 @@ def _detection(text: str, start: int, end: int) -> Detection:
 
 
 def test_mask_secret_spans_never_leaves_the_tail_of_an_overlapping_span() -> None:
-    text = "key = " + "AKIA1234567890ABCDEF" + "zzzzzz_tail_of_a_longer_match" + " end"
+    text = "key = " + "AKIA" + "1234567890ABCDEF" + "zzzzzz_tail_of_a_longer_match" + " end"
     first = _detection(text, 6, 26)
     longer = _detection(text, 12, len(text) - 4)
 

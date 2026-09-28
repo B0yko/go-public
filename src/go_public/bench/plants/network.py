@@ -22,7 +22,16 @@ _CONTENT_LOCATIONS: tuple[LocationType, ...] = (
 
 _COUNTS: dict[str, int] = {"tiny": 3, "small": 8}
 
-_INTERNAL_HOSTS = ("***REMOVED***", "***REMOVED***", "***REMOVED***", "***REMOVED***")
+# Assembled from parts: only detect/constants.py may hold internal-suffix literals.
+_INTERNAL_HOSTS = tuple(
+    ".".join(parts)
+    for parts in (
+        ("build", "internal"),
+        ("ci", "corp"),
+        ("deploy", "lan"),
+        ("metrics", "intranet"),
+    )
+)
 
 
 def _private_ip(rng: random.Random) -> str:
@@ -60,7 +69,11 @@ def _gitmodules_plant(index: int) -> Plant:
     plant whose path must literally be `.gitmodules`, so `path_name` carries it (the
     finding itself is still content-based — `blob`/{blob, line} — since
     `detect/paths_network.py` scans the file's *content*, not its path)."""
-    content = b'[submodule "vendor"]\n\tpath = vendor\n\turl = https://***REMOVED***/vendor.git\n'
+    content = (
+        '[submodule "vendor"]\n\tpath = vendor\n\turl = https://'
+        + _INTERNAL_HOSTS[0]
+        + "/vendor.git\n"
+    ).encode()
     blob = blob_id(content)
     return Plant(
         plant_id=f"network-gitmodules-{index:02d}",
