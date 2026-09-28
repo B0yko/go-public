@@ -168,7 +168,7 @@ def run(
 
     rows.extend(_scan_paths(detectors.deny, detectors.files, inventory))
     rows.extend(_scan_ref_names(detectors.deny, inventory))
-    rows.extend(_scan_identities(list(config.identity.allow), inventory))
+    rows.extend(_scan_identities(detectors.deny, list(config.identity.allow), inventory))
     rows.extend(_scan_trailers(list(config.trailers.flag), inventory))
     rows.extend(_scan_timezones(inventory))
     rows.extend(_scan_tracked_config(inventory, runner))
@@ -423,26 +423,44 @@ def _scan_ref_names(deny: DenyDetector, inventory: Inventory) -> list[dict[str, 
     return rows
 
 
-def _scan_identities(identity_allow: list[str], inventory: Inventory) -> list[dict[str, Any]]:
+def _scan_identities(
+    deny: DenyDetector, identity_allow: list[str], inventory: Inventory
+) -> list[dict[str, Any]]:
+    """Identity strings run through the identity check (non-allowlisted only) and
+    the deny detector (architecture.md: "Identity strings run through identity +
+    deny detectors only (not pii/network)"), every distinct identity either way.
+    """
     occurrences = commit_meta.collect_identities(inventory.commits, inventory.tags)
-    grouped = commit_meta.group_non_allowed_identities(occurrences, identity_allow)
+    by_identity: dict[str, list[commit_meta.IdentityOccurrence]] = {}
+    for occ in occurrences:
+        by_identity.setdefault(occ.identity, []).append(occ)
+
+    not_allowed = commit_meta.group_non_allowed_identities(occurrences, identity_allow)
+
     rows: list[dict[str, Any]] = []
-    for identity, occs in grouped.items():
+    for identity, occs in by_identity.items():
         commits = sorted({occ.commit for occ in occs if occ.commit})
-        roles = sorted({occ.role for occ in occs})
-        detection = Detection(
-            category="identity",
-            rule_id="identity",
-            severity="medium",
-            start=0,
-            end=0,
-            line=0,
-            col=0,
-            value=identity,
-            secret=False,
-            extra={"roles": roles},
-        )
-        rows.append(_row(detection, kind="identity", identity=identity, paths=[], commits=commits))
+        if identity in not_allowed:
+            roles = sorted({occ.role for occ in occs})
+            detection = Detection(
+                category="identity",
+                rule_id="identity",
+                severity="medium",
+                start=0,
+                end=0,
+                line=0,
+                col=0,
+                value=identity,
+                secret=False,
+                extra={"roles": roles},
+            )
+            rows.append(
+                _row(detection, kind="identity", identity=identity, paths=[], commits=commits)
+            )
+        for detection in deny.detect(identity):
+            rows.append(
+                _row(detection, kind="identity", identity=identity, paths=[], commits=commits)
+            )
     return rows
 
 

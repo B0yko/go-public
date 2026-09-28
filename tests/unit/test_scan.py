@@ -351,6 +351,20 @@ def test_identity_not_on_allowlist_is_flagged_with_roles(tmp_path: Path) -> None
     assert finding.present_at_export_ref is False
 
 
+def test_deny_term_in_identity_name_is_flagged(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    other = {"name": "Acme Corp Bot", "email": "bot@colleague.example"}
+    commit_file(repo, "a.txt", "hello\n", "feat: a", author=other)
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+    config = Config(deny=DenyConfig(terms=["Acme Corp"]))
+
+    finding = _only(scan.run(runner, inventory, ScanOptions(config=config)), "deny-term")
+    assert finding.category == "org-identifier"
+    assert finding.location.kind == "identity"
+    assert finding.location.identity == "Acme Corp Bot <bot@colleague.example>"
+
+
 def test_allowlisted_identity_produces_no_finding(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")
     commit_file(repo, "a.txt", "hello\n", "feat: a")
