@@ -60,3 +60,19 @@ def test_scan_sha256_repo_exits_3(tmp_path: Path) -> None:
     commit_file(repo, "a.txt", "hi\n", "feat: a")
     result = runner.invoke(app, ["scan", str(repo)])
     assert result.exit_code == 3
+
+
+def test_fixture_builds_a_tiny_repo(tmp_path: Path) -> None:
+    out = tmp_path / "fixture"
+    result = runner.invoke(app, ["fixture", "--seed", "0", "--size", "tiny", "--out", str(out)])
+    assert result.exit_code == 0
+    assert (out / "repo").is_dir()
+    assert (out / "truth.jsonl").is_file()
+    assert (out / "go-public.toml").is_file()
+
+
+def test_fixture_unsupported_size_exits_2(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["fixture", "--seed", "0", "--size", "small", "--out", str(tmp_path / "fixture")]
+    )
+    assert result.exit_code == 2
