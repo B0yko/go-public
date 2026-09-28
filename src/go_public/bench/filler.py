@@ -3,13 +3,25 @@
 Templates for the file types real repositories contain. No emails outside reserved
 domains, no local paths, IPs, hostnames, secrets or binary metadata: once detectors
 exist, a `--no-plants` fixture must scan to zero findings (Data section).
+
+`hard_negatives()` adds content that looks plant-shaped but must never be flagged
+(Data section's own list), so precision on the fixture means something: a detector
+that fires on these would show up as a false positive in the recall/precision test,
+not just in `--no-plants`.
 """
 
 from __future__ import annotations
 
 import json
 import random
+import uuid
 from collections.abc import Callable
+
+import phonenumbers
+
+from go_public.bench.plants._fictional import BOUNDARY_TERM_HARD_NEGATIVE
+
+_PHONE_REGIONS = ("US", "GB", "DE")
 
 _Generator = Callable[[random.Random, str], bytes]
 
@@ -80,8 +92,72 @@ def svg_image(rng: random.Random, name: str) -> bytes:
 
 def lockfile(rng: random.Random, name: str) -> bytes:
     version = f"{rng.randint(1, 9)}.{rng.randint(0, 20)}.{rng.randint(0, 20)}"
-    doc = {"name": name, "lockfileVersion": 3, "packages": {"": {"version": version}}}
+    integrity = (
+        "sha512-"
+        + "".join(
+            rng.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+            for _ in range(64)
+        )
+        + "=="
+    )
+    doc = {
+        "name": name,
+        "lockfileVersion": 3,
+        "packages": {"": {"version": version, "integrity": integrity}},
+    }
     return (json.dumps(doc, indent=2) + "\n").encode()
+
+
+def _looks_like_a_phone_number(digits: str) -> bool:
+    """A random digit run can coincidentally be (or contain) a valid phone number in
+    some region (plain 10-digit runs are often valid NANP numbers); check with the
+    same library `detect/pii.py` uses so this hard negative is a true negative
+    regardless of the digits `rng` happens to pick, rather than relying on a length
+    or prefix that "usually" avoids it.
+    """
+    text = f"an order number that looks like a phone number: {digits}"
+    return any(
+        list(phonenumbers.PhoneNumberMatcher(text, region, leniency=phonenumbers.Leniency.VALID))
+        for region in _PHONE_REGIONS
+    )
+
+
+def _non_phone_order_number(rng: random.Random) -> str:
+    for _ in range(50):
+        digits = "".join(rng.choice("0123456789") for _ in range(10))
+        if not _looks_like_a_phone_number(digits):
+            return digits
+    raise AssertionError("could not find a non-phone-shaped order number in 50 tries")
+
+
+def hard_negatives(rng: random.Random, name: str) -> bytes:
+    """Content that looks plant-shaped but is not: every bullet the Data section
+    names, so a detector that fires here shows up as a false positive.
+    """
+    order_number = _non_phone_order_number(rng)
+    git_sha = "".join(rng.choice("0123456789abcdef") for _ in range(40))
+    data_uri = (
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lE"
+        "QVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )
+    return (
+        f"# {name}\n\n"
+        "Notes on strings that must never be flagged:\n\n"
+        "- an example.com email: pat@example.com (also the allowlisted identity)\n"
+        f"- a UUID: {uuid.UUID(int=rng.getrandbits(128))}\n"
+        f"- a git commit SHA: {git_sha}\n"
+        f"- a base64 data URI: {data_uri}\n"
+        "- a placeholder API key: YOUR_API_KEY_HERE\n"
+        "- a run of x placeholders: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n"
+        "- loopback: 127.0.0.1\n"
+        "- an IP-like version string: 1.2.3.4\n"
+        "- a common install prefix: /usr/local/bin\n"
+        f"- an order number that looks like a phone number: {order_number}\n"
+        f"- a word containing a deny term as a substring: {BOUNDARY_TERM_HARD_NEGATIVE}\n"
+        "- an MIT licence quoted inside a vendored file's docs:\n"
+        '  "Permission is hereby granted, free of charge, to any person obtaining a\n'
+        '  copy of this software..."\n'
+    ).encode()
 
 
 #: (repo-relative path, generator) pairs used by `generate`, in commit order.
@@ -94,6 +170,7 @@ TEMPLATES: tuple[tuple[str, _Generator], ...] = (
     ("notebooks/analysis.ipynb", notebook),
     ("assets/logo.svg", svg_image),
     ("package-lock.json", lockfile),
+    ("docs/hard-negatives.md", hard_negatives),
 )
 
 
