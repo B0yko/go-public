@@ -246,7 +246,12 @@ def run_runtime(
                     target, repeat=repeat, tmp=target_tmp, log=log
                 )
             results.append(entry)
-    return {"repeat": repeat, "target_seconds": TARGET_SECONDS, "targets": results}
+    return {
+        "repeat": repeat,
+        "target_seconds": TARGET_SECONDS,
+        "cpu_count": os.cpu_count(),
+        "targets": results,
+    }
 
 
 # -- markdown ------------------------------------------------------------------------
@@ -268,7 +273,8 @@ def runtime_markdown(data: dict[str, Any], meta_block: str) -> str:
         f"Median of {data['repeat']} runs of the full command line under `/usr/bin/time -l`. "
         "Peak RSS is the largest single process (parent or one worker), not the sum over "
         "workers. Load average is the 1-minute figure at the start of each run; the machine "
-        "is shared with other jobs."
+        "is shared with other jobs. "
+        f"The default `--jobs` is the CPU count ({data.get('cpu_count')} here)."
     )
     out.append("")
     for target in data["targets"]:
