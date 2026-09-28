@@ -176,3 +176,20 @@ def test_precheck_still_lets_strip_resolve_jpeg_person_fields(tmp_path: Path) ->
 
     assert code == 0, output
     assert b"Zed Secretperson" not in (out / "img" / "photo.jpg").read_bytes()
+
+
+def test_symlink_and_case_variant_directory_never_write_outside_out(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    repo = _basic_repo(
+        tmp_path,
+        [
+            ("120000", "dir", str(outside).encode()),
+            (REG, "DIR/pwned.txt", b"written through a symlink\n"),
+        ],
+    )
+
+    _code, _output, out = _export(tmp_path, repo)
+
+    assert list(outside.iterdir()) == []
+    assert out.exists()

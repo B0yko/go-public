@@ -35,20 +35,26 @@ def make_preview(value: str, *, secret: bool, show_secrets: bool) -> str:
 def mask_secret_spans(text: str, detections: Sequence[Detection]) -> str:
     """`text` with every detection's `[start, end)` span replaced by
     `redact_secret(value)` (product spec item 20: `go-public show` "masks every
-    secret span with the report's redaction"). Spans are processed in position order
-    and the output is rebuilt piece by piece, so a mask that is longer than the
-    secret it replaces never shifts a later span's offset; an overlapping span (only
-    possible with a hostile/contradictory detector set) keeps the first and drops the
-    rest rather than double-masking the same text.
+    secret span with the report's redaction"). Overlapping spans (two rules matching
+    the same or adjacent text) are merged first, so no part of either secret survives;
+    the output is rebuilt piece by piece, so a mask longer than the secret it replaces
+    never shifts a later span's offset.
     """
-    ordered = sorted(detections, key=lambda d: d.start)
+    merged: list[tuple[int, int, str]] = []  # (start, end, masked value)
+    for detection in sorted(detections, key=lambda d: (d.start, -d.end)):
+        if merged and detection.start < merged[-1][1]:
+            start, end, value = merged[-1]
+            if detection.end > end:
+                merged[-1] = (start, detection.end, text[start : detection.end])
+            else:
+                merged[-1] = (start, end, value)
+            continue
+        merged.append((detection.start, detection.end, detection.value))
     pieces: list[str] = []
     cursor = 0
-    for detection in ordered:
-        if detection.start < cursor:
-            continue
-        pieces.append(text[cursor : detection.start])
-        pieces.append(redact_secret(detection.value))
-        cursor = detection.end
+    for start, end, value in merged:
+        pieces.append(text[cursor:start])
+        pieces.append(redact_secret(value))
+        cursor = end
     pieces.append(text[cursor:])
     return "".join(pieces)
