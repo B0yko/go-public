@@ -1,0 +1,22 @@
+# Self-scan configuration for this repository (allowlists only).
+#
+# `go-public scan . --include-unreachable --fail-on medium` runs in CI with this file.
+# Nothing else is allowlisted: tests and the fixture generator assemble every
+# plant-shaped string at runtime, so they need no entry.
+
+[identity]
+# The maintainer's public commit identity (GitHub noreply address).
+allow = ["Andrii Boiko <142843700+B0yko@users.noreply.github.com>"]
+
+[allowlist]
+# Reason: the vendored gitleaks rule set holds the regexes and example values the
+# secret engine is built from; it is data, not leaked material.
+# Reason: the detector constants module lists the private CIDR ranges, path prefixes
+# and internal host suffixes the detectors compare against; that is the detector's
+# own reference data.
+paths = [
+  "src/go_public/rules/gitleaks.toml",
+  "src/go_public/detect/constants.py",
+]
+
+[deny]

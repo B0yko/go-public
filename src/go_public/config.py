@@ -206,8 +206,9 @@ def _read_tracked_config_text(runner: GitRunner, ref: str) -> str | None:
 
 
 def _tracked_allowlist_config(text: str) -> Config:
-    """Only `[allowlist]` is read from a *tracked* config (architecture.md "Config"
-    discovery order: "tracked `.go-public.toml`... (allowlists only)"); every other
+    """Only `[allowlist]` and `[identity].allow` are read from a *tracked* config
+    (architecture.md "Config" discovery order: "tracked `.go-public.toml`... (allowlists
+    only)"; the identity allowlist only removes findings, so it counts); every other
     table a committed file might carry is ignored here (`detect/files.py`'s
     `check_tracked_config`/`scan.py`'s `_scan_tracked_config` separately flag a
     non-empty `[deny]` table there as a critical finding, so this never silently lets
@@ -217,11 +218,22 @@ def _tracked_allowlist_config(text: str) -> Config:
     except tomllib.TOMLDecodeError:
         return Config()
     allowlist_data = data.get("allowlist")
-    if not isinstance(allowlist_data, dict):
-        return Config()
+    identity_data = data.get("identity")
     try:
-        return Config(allowlist=AllowlistConfig.model_validate(allowlist_data))
-    except ValidationError:
+        return Config(
+            allowlist=(
+                AllowlistConfig.model_validate(allowlist_data)
+                if isinstance(allowlist_data, dict)
+                else AllowlistConfig()
+            ),
+            # `[identity].allow` is an allowlist too (it only removes findings).
+            identity=(
+                IdentityConfig(allow=identity_data["allow"])
+                if isinstance(identity_data, dict) and "allow" in identity_data
+                else IdentityConfig()
+            ),
+        )
+    except (ValidationError, TypeError):
         return Config()
 
 

@@ -173,6 +173,25 @@ def test_discover_config_reads_only_the_allowlist_from_a_tracked_config(
     assert result.source == ".go-public.toml@HEAD"
 
 
+def test_discover_config_reads_identity_allow_from_a_tracked_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("GO_PUBLIC_CONFIG", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "no-xdg-file-here"))
+    repo = init_repo(tmp_path / "repo")
+    commit_file(
+        repo,
+        ".go-public.toml",
+        '[identity]\nallow = ["Pat Public <pat@example.com>"]\n[pii]\nphone_regions = ["FR"]\n',
+        "chore: config",
+    )
+
+    result = discover_config(explicit=None, repo=repo, runner=GitRunner(repo, role="source"))
+
+    assert result.config.identity.allow == ["Pat Public <pat@example.com>"]
+    assert result.config.pii.phone_regions == ["US", "GB", "DE"]  # nothing else is read
+
+
 def test_discover_config_with_no_config_anywhere_is_defaults(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
