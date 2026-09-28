@@ -328,10 +328,13 @@ class SecretsEngine:
                     if rule.secret_group > 0:
                         if rule.secret_group > rule.regex.groups:
                             continue  # load-time validation should prevent this
+                        # A non-participating optional group is `""` in Go's
+                        # `FindStringSubmatch` (never absent) so gitleaks still
+                        # emits a finding with an empty secret; re2's Python binding
+                        # returns `None` here instead of `""`, so translate it to
+                        # match rather than dropping the finding.
                         candidate = resub.group(rule.secret_group)
-                        if candidate is None:
-                            continue
-                        value = candidate
+                        value = candidate if candidate is not None else ""
                     else:
                         for i in range(1, rule.regex.groups + 1):
                             candidate = resub.group(i)

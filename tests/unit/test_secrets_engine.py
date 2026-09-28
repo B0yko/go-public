@@ -101,6 +101,29 @@ def test_secret_group_extracts_inner_capture() -> None:
     assert detections[0].value == "inner7788"
 
 
+def test_secret_group_non_participating_optional_group_yields_empty_value() -> None:
+    """Ports `FindStringSubmatch` semantics (detect.go): Go's non-participating
+    capture groups are `""`, never absent — `finding.Secret = groups[r.SecretGroup]`
+    sets an *empty* secret rather than dropping the finding. re2's Python binding
+    returns `None` for a non-participating group, so the port must translate `None`
+    to `""` to match gitleaks, instead of skipping the match outright.
+    """
+    config = load_gitleaks_config(
+        _write_config(
+            """
+        [[rules]]
+        id = "opt-rule"
+        regex = "id=(a)?b"
+        secretGroup = 1
+        """
+        )
+    )
+    engine = SecretsEngine(config, generic_detector_enabled=False)
+    detections = engine.detect("id=b", UnitCtx(path="a.txt"))
+    assert len(detections) == 1
+    assert detections[0].value == ""
+
+
 def test_entropy_threshold_skips_low_entropy_match() -> None:
     config = load_gitleaks_config(
         _write_config(
