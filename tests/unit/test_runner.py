@@ -51,6 +51,7 @@ ROLE_EXTRA_SUBCOMMANDS = {
         "clone",
         "reflog",
         "gc",
+        "symbolic-ref",
     ],
     "clone": ["clone"],
     "fixture": ["init", "fast-import", "update-ref", "symbolic-ref", "hash-object"],
@@ -148,7 +149,7 @@ def test_augment_leaves_other_commands_alone() -> None:
     "role,expected",
     [
         ("source", {"GIT_NO_LAZY_FETCH": "1", "GIT_ALLOW_PROTOCOL": "none"}),
-        ("export", {"GIT_ALLOW_PROTOCOL": "file"}),
+        ("export", {"GIT_ALLOW_PROTOCOL": "file", "GIT_NO_LAZY_FETCH": "1"}),
         ("clone", {"GIT_ALLOW_PROTOCOL": "https"}),
         ("fixture", {"GIT_ALLOW_PROTOCOL": "none"}),
     ],
@@ -215,3 +216,13 @@ def test_generic_git_failure_is_git_error(tmp_path) -> None:  # type: ignore[no-
         runner._raise_for_failure(
             ["cat-file", "-p", "deadbeef"], 128, b"fatal: bad object deadbeef"
         )
+
+
+def test_child_env_matches_the_role_environment(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("GIT_DIR", "/should/be/dropped")
+    runner = GitRunner(tmp_path, role="export")
+    env = runner.child_env({"GIT_COMMITTER_NAME": "Pub Lic"})
+    assert "GIT_DIR" not in env
+    assert env["GIT_CONFIG_GLOBAL"] == "/dev/null"
+    assert env["GIT_ALLOW_PROTOCOL"] == "file"
+    assert env["GIT_COMMITTER_NAME"] == "Pub Lic"

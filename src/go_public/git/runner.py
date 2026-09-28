@@ -49,6 +49,7 @@ _ROLE_EXTRA: dict[Role, set[str]] = {
         "clone",
         "reflog",
         "gc",
+        "symbolic-ref",
     },
     "clone": {"clone"},
     "fixture": {
@@ -66,7 +67,7 @@ _FORBIDDEN = {"push", "fetch", "remote"}
 
 _ROLE_ENV: dict[Role, dict[str, str]] = {
     "source": {"GIT_NO_LAZY_FETCH": "1", "GIT_ALLOW_PROTOCOL": "none"},
-    "export": {"GIT_ALLOW_PROTOCOL": "file"},
+    "export": {"GIT_ALLOW_PROTOCOL": "file", "GIT_NO_LAZY_FETCH": "1"},
     "clone": {"GIT_ALLOW_PROTOCOL": "https"},
     "fixture": {"GIT_ALLOW_PROTOCOL": "none"},
 }
@@ -171,6 +172,11 @@ class GitRunner:
             stderr=subprocess.PIPE,
             env=self._build_env(env),
         )
+
+    def child_env(self, extra: dict[str, str] | None = None) -> dict[str, str]:
+        """The environment for a non-git child process that runs git itself (the
+        git-filter-repo child): identical to what a git call of this role gets."""
+        return self._build_env(extra)
 
     # -- internals ------------------------------------------------------------
 
