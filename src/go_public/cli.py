@@ -8,29 +8,21 @@ import functools
 import json
 from collections import Counter
 from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
 
-from go_public import __version__, config_write
+from go_public import __version__, config_write, pipeline
 from go_public import config as config_mod
-from go_public import plan as plan_mod
 from go_public import scan as scan_mod
-from go_public import suppress as suppress_mod
 from go_public.bench import fixture as fixture_mod
 from go_public.detect import commit_meta
 from go_public.detect.gitleaks_config import load_gitleaks_config, rules_check
-from go_public.errors import GitError, GoPublicError, UsageError
-from go_public.git.inventory import build, build_head_only
+from go_public.errors import GoPublicError, UsageError
+from go_public.git.inventory import Inventory, build
 from go_public.git.runner import GitRunner, check_git_version
-from go_public.model import (
-    SEVERITIES,
-    Finding,
-    ScanOptionsInfo,
-    repo_display_name,
-)
-from go_public.report.build import assemble_report, write_reports
+from go_public.model import SEVERITIES, Finding, repo_display_name
+from go_public.report.build import write_reports
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, pretty_exceptions_enable=False)
 rules_app = typer.Typer(add_completion=False, no_args_is_help=True)
@@ -142,7 +134,6 @@ def scan(
     under the report location (`--report-dir` overrides it), and exits according to
     `--fail-on`.
     """
-    started_at = datetime.now(UTC)
     git_version = check_git_version()
     repo_resolved = repo.resolve()
     runner = GitRunner(repo_resolved, role="source")
@@ -155,63 +146,45 @@ def scan(
             update={"pii": config.pii.model_copy(update={"detect_names": True})}
         )
     effective_fail_on = fail_on if fail_on is not None else config.scan.fail_on
-    if effective_fail_on not in SEVERITIES:
-        raise UsageError(
-            f"--fail-on: unknown severity {effective_fail_on!r} (expected one of {SEVERITIES})"
-        )
-
-    if head_only:
-        inventory = build_head_only(runner, export_ref=ref)
-    else:
-        inventory = build(runner, include_unreachable=include_unreachable, export_ref=ref)
+    _check_fail_on(effective_fail_on)
 
     quiet_stdout = quiet or summary_json
-    if not quiet_stdout:
+
+    def announce_inventory(inventory: Inventory) -> None:
+        if quiet_stdout:
+            return
         typer.echo(inventory.summary_line())
         for warning in inventory.warnings:
             typer.echo(f"warning: {warning.message}")
         for message in discovery.warnings:
             typer.echo(f"warning: {message}")
 
-    options = scan_mod.ScanOptions(
+    def write_debug_json(raw_findings: list[Finding]) -> None:
+        if debug_json is not None:
+            debug_json.write_text(json.dumps([f.model_dump() for f in raw_findings]))
+
+    options = scan_mod.ScanOptions.from_config(
+        config,
         gitleaks_config=str(gitleaks_config) if gitleaks_config else None,
-        max_scan_mb=config.scan.max_scan_mb,
         jobs=jobs,
         show_secrets=show_secrets,
+    )
+    assessment = pipeline.assess(
+        runner,
+        repo_path=repo_resolved,
+        ref=ref,
         config=config,
-    )
-    findings = scan_mod.run(runner, inventory, options)
-
-    if debug_json is not None:
-        debug_json.write_text(json.dumps([f.model_dump() for f in findings]))
-
-    suppression = suppress_mod.run(findings, config, inventory, runner)
-    rotated_reasons = {entry.id: entry.reason for entry in config.rotated.fingerprints}
-    plan, refined_findings = plan_mod.build_plan(suppression.kept, rotated_reasons=rotated_reasons)
-
-    report_obj = assemble_report(
-        repo_path=str(repo_resolved),
-        export_ref=ref,
-        export_commit=_resolve_export_commit(runner, ref),
-        inventory=inventory,
+        config_source=discovery.source,
+        options=options,
         git_version=git_version,
-        started_at=started_at,
-        finished_at=datetime.now(UTC),
-        options=ScanOptionsInfo(
-            include_unreachable=include_unreachable,
-            head_only=head_only,
-            fail_on=effective_fail_on,
-            jobs=jobs,
-            detect_names=config.pii.detect_names,
-            show_secrets=show_secrets,
-            config_source=discovery.source,
-        ),
-        findings=refined_findings,
-        suppressed=suppression.suppressed,
-        rotated=config.rotated.fingerprints,
-        plan=plan,
         fail_on=effective_fail_on,
+        include_unreachable=include_unreachable,
+        head_only=head_only,
+        on_inventory=announce_inventory,
+        on_raw_findings=write_debug_json,
     )
+    report_obj = assessment.report
+    refined_findings = assessment.findings
 
     report_paths = write_reports(report_obj, repo_resolved, report_dir)
 
@@ -236,11 +209,9 @@ def scan(
         raise typer.Exit(code=report_obj.exit_code)
 
 
-def _resolve_export_commit(runner: GitRunner, ref: str) -> str | None:
-    try:
-        return runner.run(["rev-parse", ref]).decode().strip()
-    except GitError:
-        return None
+def _check_fail_on(value: str) -> None:
+    if value not in SEVERITIES:
+        raise UsageError(f"--fail-on: unknown severity {value!r} (expected one of {SEVERITIES})")
 
 
 def _print_finding_counts(findings: list[Finding]) -> None:

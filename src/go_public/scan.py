@@ -79,6 +79,27 @@ class ScanOptions:
     config: Config = field(default_factory=Config)
     extra_names: tuple[str, ...] = ()
 
+    @classmethod
+    def from_config(
+        cls,
+        config: Config,
+        *,
+        gitleaks_config: str | None = None,
+        jobs: int = 0,
+        show_secrets: bool = False,
+    ) -> ScanOptions:
+        """Options for `config`: an explicit `gitleaks_config` path (the CLI flag)
+        wins over `[secrets] gitleaks_config`; `[secrets]` and `[scan]` supply the rest."""
+        return cls(
+            gitleaks_config=gitleaks_config or config.secrets.gitleaks_config or None,
+            generic_entropy=config.secrets.generic_entropy,
+            generic_detector=config.secrets.generic_detector,
+            max_scan_mb=config.scan.max_scan_mb,
+            jobs=jobs or config.scan.jobs,
+            show_secrets=show_secrets,
+            config=config,
+        )
+
 
 class LicenceNoticeDetector:
     """Thin wrapper around `detect/licence.py`'s stateless `detect_notice`, so it
@@ -137,6 +158,13 @@ def _build_text_detectors(options: ScanOptions) -> _TextDetectors:
         licence=LicenceNoticeDetector(),
         gitleaks_config=gitleaks_config,
     )
+
+
+def detect_secrets_in_text(text: str, path: str, options: ScanOptions) -> list[Detection]:
+    """Every secret detection in `text` as if it were the content of `path`, using the
+    same engine and settings `run()` uses for blobs (`go-public show`/`redact`)."""
+    engine = _build_text_detectors(options).secrets
+    return [d for d in engine.detect(text, UnitCtx(path=path)) if d.secret]
 
 
 def _history_names(config: Config, inventory: Inventory) -> tuple[str, ...]:
