@@ -112,14 +112,9 @@ def test_markers_flag_writes_them_to_truth(tmp_path: Path) -> None:
     assert {e.location_type for e in entries} == set(LOCATION_TYPES)
 
 
-def test_unsupported_size_is_not_implemented_yet(tmp_path: Path) -> None:
+def test_unknown_size_is_a_usage_error(tmp_path: Path) -> None:
     with pytest.raises(UsageError):
-        fixture.build(0, "medium", out=tmp_path / "repo")
-
-
-def test_blind_spots_is_not_implemented_yet(tmp_path: Path) -> None:
-    with pytest.raises(UsageError):
-        fixture.build(0, "tiny", blind_spots=True, out=tmp_path / "repo")
+        fixture.build(0, "huge", out=tmp_path / "repo")
 
 
 def test_annotated_tag_points_at_a_commit_on_no_branch(tmp_path: Path) -> None:

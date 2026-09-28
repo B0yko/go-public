@@ -13,9 +13,10 @@ from pathlib import Path
 
 import tomlkit
 
-from go_public.bench import filler, history, negatives
+from go_public.bench import filler, history, medium, negatives
 from go_public.bench.plants import LOCATION_TYPES, FixtureContext, Identity, Plant, ResolvedPlant
 from go_public.bench.plants import binary_metadata as binary_metadata_plants
+from go_public.bench.plants import blind_spots as blind_spot_plants
 from go_public.bench.plants import identity as identity_plants
 from go_public.bench.plants import internal_notes as internal_notes_plants
 from go_public.bench.plants import large_file as large_file_plants
@@ -66,7 +67,7 @@ COLLEAGUE_IDENTITIES: tuple[Identity, ...] = (
     ("Jordan Blake", "jordan@colleague.example"),
 )
 
-_SIZES = {"tiny", "small"}
+_SIZES = {"tiny", "small", "medium"}
 #: Hard negatives per kind (15 kinds): 30 in `tiny`, 150 in `small` (Data section).
 _NEGATIVES_PER_KIND = {"tiny": 2, "small": 10}
 _EPOCH = 1_700_000_000  # 2023-11-14T22:13:20Z; a fixed, seed-independent base
@@ -93,6 +94,8 @@ class FixtureResult:
     truth_path: Path
     config_path: Path
     markers: list[ResolvedPlant]
+    #: `truth.blind.jsonl`, written only for a `--blind-spots` build.
+    blind_truth_path: Path | None = None
 
 
 def build(
@@ -102,16 +105,17 @@ def build(
     plants: bool = True,
     blind_spots: bool = False,
     markers_in_truth: bool = False,
+    medium_scale: float = 1.0,
     out: Path,
 ) -> FixtureResult:
     """Build one fixture repository at `out/repo`, plus `truth.jsonl` and config.
 
-    Only `size="tiny"` is implemented so far; `small`, `medium` and `--blind-spots`
-    are later stages'. `plants=False` (`--no-plants`) skips the marker plants,
-    leaving only filler and topology under the public identity.
+    `plants=False` (`--no-plants`) skips every plant, leaving filler, hard negatives
+    and topology under the public identity. `medium` is runtime-sized (seed 100
+    targets the product spec's shape); `medium_scale` shrinks it for tests.
     """
-    if size not in _SIZES or blind_spots:
-        raise UsageError(f"fixture size={size!r} blind_spots={blind_spots} is not implemented yet")
+    if size not in _SIZES:
+        raise UsageError(f"unknown fixture size {size!r} (expected one of {sorted(_SIZES)})")
     rng = random.Random(seed)
     ctx = FixtureContext(
         public_identity=PUBLIC_IDENTITY,
@@ -119,13 +123,22 @@ def build(
         colleague_identities=COLLEAGUE_IDENTITIES,
     )
 
-    _build_topology(ctx, rng, plants=plants, size=size)
+    plant_size = "small" if size == "medium" else size
+    if size == "medium":
+        _build_medium(ctx, rng, medium_scale)
+    else:
+        _build_topology(ctx, rng, plants=plants, size=size)
     if plants:
         _place_markers(ctx, seed)
         for category_plants in _PLANT_MODULES:
             module_rng = random.Random(f"{seed}-{category_plants.__name__}")
-            for plant in category_plants.generate(module_rng, ctx, size=size):
+            for plant in category_plants.generate(module_rng, ctx, size=plant_size):
                 ctx.place(plant)
+
+    if blind_spots:
+        blind_rng = random.Random(f"{seed}-blind")
+        for plant in blind_spot_plants.generate(blind_rng, ctx, size=plant_size):
+            ctx.place(plant)
 
     out.mkdir(parents=True, exist_ok=True)
     repo = out / "repo"
@@ -149,17 +162,42 @@ def build(
     resolved = ctx.finalize(runner, mark_to_oid)
 
     truth_path = out / "truth.jsonl"
+    is_blind = [r.plant.plant_id.startswith(blind_spot_plants.BLIND_PREFIX) for r in resolved]
     truth_entries = [
-        r.truth_entry() for r in resolved if markers_in_truth or r.plant.category != "marker"
+        r.truth_entry()
+        for r, blind in zip(resolved, is_blind, strict=True)
+        if not blind and (markers_in_truth or r.plant.category != "marker")
     ]
     write_truth(truth_path, truth_entries)
+    blind_truth_path: Path | None = None
+    if blind_spots:
+        blind_truth_path = out / "truth.blind.jsonl"
+        write_truth(
+            blind_truth_path,
+            [r.truth_entry() for r, blind in zip(resolved, is_blind, strict=True) if blind],
+        )
 
     config_path = out / "go-public.toml"
     config_path.write_text(_fixture_config())
 
     return FixtureResult(
-        repo=repo, truth_path=truth_path, config_path=config_path, markers=resolved
+        repo=repo,
+        truth_path=truth_path,
+        config_path=config_path,
+        markers=resolved,
+        blind_truth_path=blind_truth_path,
     )
+
+
+def _build_medium(ctx: FixtureContext, rng: random.Random, scale: float) -> None:
+    """A runtime-sized repository (product spec Data section): licence, the hard
+    negatives, then `bench/medium.py`'s history. `scale` shrinks it for tests."""
+    licence_blob = ctx.blob(_BASELINE_LICENSE)
+    ctx.commit("refs/heads/main", message="chore: add licence", files={"LICENSE": licence_blob})
+    for path, content in negatives.generate(rng, _NEGATIVES_PER_KIND["small"]):
+        ctx.commit("refs/heads/main", message=f"docs: add {path}", files={path: ctx.blob(content)})
+    shape = medium.MediumShape() if scale == 1.0 else medium.MediumShape().scaled(scale)
+    medium.build_history(ctx, rng, shape)
 
 
 def _build_topology(ctx: FixtureContext, rng: random.Random, *, plants: bool, size: str) -> None:

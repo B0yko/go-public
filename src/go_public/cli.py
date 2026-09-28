@@ -473,12 +473,14 @@ def init(
 @_handle_errors
 def fixture(
     seed: int = typer.Option(..., "--seed", help="Same seed, same repo."),
-    size: str = typer.Option(..., "--size", help="tiny (runs in CI), small or medium."),
+    size: str = typer.Option(
+        ..., "--size", help="tiny (runs in CI), small, or medium (runtime only)."
+    ),
     no_plants: bool = typer.Option(
         False, "--no-plants", help="Filler and topology only, under the public identity."
     ),
     blind_spots: bool = typer.Option(
-        False, "--blind-spots", help="Also build the blind-spot plants (not implemented yet)."
+        False, "--blind-spots", help="Also build the blind-spot plants (truth.blind.jsonl)."
     ),
     out: Path = typer.Option(..., "--out", help="Directory for repo/, truth.jsonl, config."),
 ) -> None:
