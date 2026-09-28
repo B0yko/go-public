@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime
+from pathlib import Path
 
 from go_public import __version__
 from go_public.config import FingerprintEntry
@@ -28,6 +29,15 @@ from go_public.model import (
     repo_display_name,
     severity_rank,
 )
+from go_public.report.html import write_html
+from go_public.report.json import write_json
+from go_public.report.location import (
+    prepare_report_dir,
+    resolve_report_dir,
+    secure_report_file,
+    update_latest_symlink,
+)
+from go_public.report.md import write_markdown
 from go_public.suppress import SuppressedFinding
 
 
@@ -123,6 +133,33 @@ def assemble_report(
         summary=summary,
         exit_code=1 if summary.blocking else 0,
     )
+
+
+def write_reports(
+    report_obj: Report, repo_resolved: Path, report_dir: Path | None
+) -> dict[str, Path]:
+    """Write `report.json`/`report.md`/`report.html` for `report_obj` under the
+    resolved report location (`--report-dir` override, or the default `$XDG_STATE_
+    HOME` path keyed by `repo_resolved`'s directory name), secure their permissions
+    and update the `latest` symlink. Shared by `cli.py`'s `scan` command and
+    `export/squash.py`'s post-export re-scan, so both write reports the same way."""
+    repo_name = repo_display_name(str(repo_resolved))
+    target_dir = resolve_report_dir(
+        repo_name=repo_name, scanned_repo=repo_resolved, override=report_dir
+    )
+    prepare_report_dir(target_dir)
+    paths = {
+        "json": target_dir / "report.json",
+        "md": target_dir / "report.md",
+        "html": target_dir / "report.html",
+    }
+    write_json(report_obj, paths["json"])
+    write_markdown(report_obj, paths["md"])
+    write_html(report_obj, paths["html"])
+    for path in paths.values():
+        secure_report_file(path)
+    update_latest_symlink(target_dir)
+    return paths
 
 
 def _suppressed_info(s: SuppressedFinding) -> SuppressedInfo:

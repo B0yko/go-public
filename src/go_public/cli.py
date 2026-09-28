@@ -27,20 +27,10 @@ from go_public.git.runner import GitRunner, check_git_version
 from go_public.model import (
     SEVERITIES,
     Finding,
-    Report,
     ScanOptionsInfo,
     repo_display_name,
 )
-from go_public.report.build import assemble_report
-from go_public.report.html import write_html
-from go_public.report.json import write_json
-from go_public.report.location import (
-    prepare_report_dir,
-    resolve_report_dir,
-    secure_report_file,
-    update_latest_symlink,
-)
-from go_public.report.md import write_markdown
+from go_public.report.build import assemble_report, write_reports
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, pretty_exceptions_enable=False)
 rules_app = typer.Typer(add_completion=False, no_args_is_help=True)
@@ -223,7 +213,7 @@ def scan(
         fail_on=effective_fail_on,
     )
 
-    report_paths = _write_reports(report_obj, repo_resolved, report_dir)
+    report_paths = write_reports(report_obj, repo_resolved, report_dir)
 
     if summary_json:
         typer.echo(
@@ -251,28 +241,6 @@ def _resolve_export_commit(runner: GitRunner, ref: str) -> str | None:
         return runner.run(["rev-parse", ref]).decode().strip()
     except GitError:
         return None
-
-
-def _write_reports(
-    report_obj: Report, repo_resolved: Path, report_dir: Path | None
-) -> dict[str, Path]:
-    repo_name = repo_display_name(str(repo_resolved))
-    target_dir = resolve_report_dir(
-        repo_name=repo_name, scanned_repo=repo_resolved, override=report_dir
-    )
-    prepare_report_dir(target_dir)
-    paths = {
-        "json": target_dir / "report.json",
-        "md": target_dir / "report.md",
-        "html": target_dir / "report.html",
-    }
-    write_json(report_obj, paths["json"])
-    write_markdown(report_obj, paths["md"])
-    write_html(report_obj, paths["html"])
-    for path in paths.values():
-        secure_report_file(path)
-    update_latest_symlink(target_dir)
-    return paths
 
 
 def _print_finding_counts(findings: list[Finding]) -> None:
