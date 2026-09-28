@@ -165,7 +165,8 @@ def _inventory(report_dir: Path) -> dict[str, Any]:
     return {
         "commits": inv["commits"],
         "branches": sum(1 for r in refs if r.startswith("refs/heads/")),
-        "tags": inv["tags"],
+        "tags": sum(1 for r in refs if r.startswith("refs/tags/")),
+        "annotated_tags": inv["tags"],
         "unique_blobs": inv["unique_blobs"],
         "total_blob_bytes": inv["total_bytes"],
         "unreachable_blobs": inv["unreachable_blobs"],
@@ -278,7 +279,8 @@ def runtime_markdown(data: dict[str, Any], meta_block: str) -> str:
             f"{k.replace('_', ' ')}: {v}" for k, v in target.items() if k in _FACT_KEYS
         )
         shape = (
-            f"{inv['commits']:,} commits, {inv['branches']} branches, {inv['tags']} tags, "
+            f"{inv['commits']:,} commits, {inv['branches']} branches, {inv['tags']} tags "
+            f"({inv.get('annotated_tags', 0)} annotated), "
             f"{inv['unique_blobs']:,} unique blobs, {_mb(inv['total_blob_bytes'])} of blob "
             f"content, {inv['unreachable_blobs']} unreachable blobs, {inv['findings']} findings"
         )
