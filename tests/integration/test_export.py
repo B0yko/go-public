@@ -526,15 +526,6 @@ def test_ref_selects_the_exported_tree(tmp_path: Path) -> None:
     assert set(_tree(out)) == {"LICENSE", "other.txt"}
 
 
-def test_keep_history_is_not_available_yet(tmp_path: Path) -> None:
-    repo = _basic_repo(tmp_path)
-
-    code, _output, out = _export(tmp_path, repo, "--keep-history")
-
-    assert code == 2
-    assert not out.exists()
-
-
 def test_rescan_report_is_written_outside_the_export(tmp_path: Path) -> None:
     repo = _basic_repo(tmp_path)
 

@@ -22,6 +22,7 @@ from go_public.bench import run as bench_run
 from go_public.detect import commit_meta
 from go_public.detect.gitleaks_config import load_gitleaks_config, rules_check
 from go_public.errors import GoPublicError, UsageError
+from go_public.export import history as history_mod
 from go_public.export import squash as squash_mod
 from go_public.export import strip as strip_mod
 from go_public.git.inventory import Inventory, build, repository_roots
@@ -246,7 +247,9 @@ def export(
         None, "--out", help="New export directory: must not exist or be empty, outside the repo."
     ),
     squash: bool = typer.Option(
-        True, "--squash/--keep-history", help="Squash export (default); --keep-history: later."
+        True,
+        "--squash/--keep-history",
+        help="Squash export (default), or keep the branch's history, rewritten.",
     ),
     ref: str = typer.Option("HEAD", "--ref", help="Export ref."),
     check: bool = typer.Option(
@@ -280,6 +283,21 @@ def export(
         "--set-identity/--no-set-identity",
         help="Set the export repository's local user.name/user.email to the export identity.",
     ),
+    include_tags: bool = typer.Option(
+        False, "--include-tags", help="--keep-history: also export the tags of the branch."
+    ),
+    mailmap: Path | None = typer.Option(
+        None,
+        "--mailmap",
+        exists=True,
+        dir_okay=False,
+        help="--keep-history: map identities with this mailmap instead of the export identity.",
+    ),
+    fail_on_licence: bool = typer.Option(
+        False,
+        "--fail-on-licence",
+        help="--keep-history: licence-history findings also decide the exit code.",
+    ),
     config_path: Path | None = typer.Option(
         None, "--config", exists=True, dir_okay=False, help="TOML config."
     ),
@@ -287,13 +305,13 @@ def export(
         None, "--report-dir", help="Override the re-scan report location."
     ),
 ) -> None:
-    """Export a clean, single-commit copy of the repository at --ref.
+    """Export a clean copy of the repository at --ref: one commit, or its history.
 
-    Runs the pre-check, builds the export in a fresh repository, checks it out and
-    re-scans it. Exits 1 when the pre-check refuses or the export is NOT CLEAN.
+    Runs the pre-check, builds the export in a fresh repository and re-scans it. Exits 1
+    when the pre-check refuses or the export is NOT CLEAN.
     """
-    if not squash:
-        raise UsageError("--keep-history is not available yet; only the squash export exists")
+    if squash and (include_tags or mailmap is not None or fail_on_licence):
+        raise UsageError("--include-tags, --mailmap and --fail-on-licence need --keep-history")
     if out is None and not check:
         raise UsageError("--out is required (unless --check)")
     git_version = check_git_version()
@@ -309,6 +327,31 @@ def export(
     _check_fail_on(effective_fail_on)
     author_text = author if author is not None else config.export.author
     identity = squash_mod.parse_identity(author_text) if author_text.strip() else None
+    if not squash:
+        history_request = history_mod.HistoryRequest(
+            source=repo_resolved,
+            out=out,
+            ref=ref,
+            config=config,
+            config_source=discovery.source,
+            scan_options=scan_mod.ScanOptions.from_config(config),
+            git_version=git_version,
+            fail_on=effective_fail_on,
+            author=identity,
+            mailmap=mailmap,
+            include_tags=include_tags,
+            fail_on_licence=fail_on_licence,
+            auto_exclude=auto_exclude and config.files.auto_exclude,
+            strip_metadata=strip_metadata and config.export.strip_metadata,
+            set_identity=set_identity,
+            force_export=force_export,
+            check_only=check,
+            report_dir=report_dir,
+        )
+        history_result = history_mod.run_history(history_request, typer.echo)
+        if history_result.exit_code:
+            raise typer.Exit(code=history_result.exit_code)
+        return
     request = squash_mod.SquashRequest(
         source=repo_resolved,
         out=out,

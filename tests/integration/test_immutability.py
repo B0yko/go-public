@@ -3,8 +3,7 @@
 Product spec item 17: fingerprint every ref, `count-objects -v`, a hash of
 `.git/config`, `HEAD`, the index, and `git --no-optional-locks status --porcelain`,
 before and after running a command, and assert it is unchanged. Covers `scan`, `show`
-and the squash export, on a working-tree repository and on a bare one; the
-history-preserving export extends it when it lands.
+and both exports, on a working-tree repository and on a bare one.
 """
 
 from __future__ import annotations
@@ -126,6 +125,30 @@ def test_cli_scan_show_and_export_leave_the_source_untouched(tmp_path: Path, bar
         ],
     )
 
+    keep_history = runner.invoke(
+        app,
+        [
+            "export",
+            str(repo),
+            "--keep-history",
+            "--include-tags",
+            "--out",
+            str(tmp_path / "out-history"),
+            "--author",
+            "Pub Lic <pub@example.com>",
+            "--config",
+            config,
+            "--report-dir",
+            str(tmp_path / "r4"),
+        ],
+    )
+    check_history = runner.invoke(
+        app, ["export", str(repo), "--keep-history", "--check", "--config", config]
+    )
+
+    assert keep_history.exit_code in (0, 1), keep_history.output
+    assert check_history.exit_code in (0, 1)
+    assert (tmp_path / "out-history" / ".git").is_dir()
     assert scan.exit_code in (0, 1) and scan_all.exit_code in (0, 1)
     assert show.exit_code == 0
     assert check.exit_code in (0, 1)
