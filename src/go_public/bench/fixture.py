@@ -69,7 +69,7 @@ COLLEAGUE_IDENTITIES: tuple[Identity, ...] = (
 )
 
 _SIZES = {"tiny", "small", "medium"}
-#: Hard negatives per kind (15 kinds): 30 in `tiny`, 150 in `small` (Data section).
+#: Hard negatives per kind (16 kinds): 32 in `tiny`, 160 in `small` (Data section).
 _NEGATIVES_PER_KIND = {"tiny": 2, "small": 10}
 _EPOCH = 1_700_000_000  # 2023-11-14T22:13:20Z; a fixed, seed-independent base
 

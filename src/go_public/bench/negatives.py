@@ -2,7 +2,7 @@
 
 The product spec's Data section asks for about 150 of these per seed so that
 precision means something. `generate(rng, per_kind)` returns one small file per
-kind (15 kinds); `per_kind=10` gives 150 items (`small`), `per_kind=2` gives 30
+kind (16 kinds); `per_kind=10` gives 160 items (`small`), `per_kind=2` gives 32
 (`tiny`). Every item is built from parts at runtime, seeded, and checked against
 the detectors' own definitions where a random draw could accidentally cross the
 line (phone-shaped digit runs). A `--no-plants` fixture must scan to zero findings.
@@ -70,6 +70,19 @@ def non_phone_digits(rng: random.Random, length: int = 10) -> str:
         if not _looks_like_a_phone_number(digits):
             return digits
     raise AssertionError("could not find a non-phone-shaped digit run in 200 tries")
+
+
+def phone_valid_digits(rng: random.Random, length: int) -> str:
+    """A digit run of `length` that `phonenumbers` does accept as a national number in
+    one of the scanned regions: the run only stays a negative because it is bare (no
+    separator, no trunk prefix) or sits in a lockfile."""
+    for _ in range(2000):
+        digits = str(rng.randint(2, 9)) + "".join(
+            rng.choice("0123456789") for _ in range(length - 1)
+        )
+        if _looks_like_a_phone_number(digits):
+            return digits
+    raise AssertionError("could not find a phone-valid digit run in 2000 tries")
 
 
 def _tiny_png(rng: random.Random) -> bytes:
@@ -165,7 +178,20 @@ def _install_path(rng: random.Random) -> str:
 
 
 def _order_number(rng: random.Random) -> str:
-    return f"- order #{non_phone_digits(rng)} shipped on 2024-{rng.randint(1, 12):02d}-15"
+    if rng.random() < 0.5:
+        digits = non_phone_digits(rng)
+    else:  # bare 7-10 digit runs that phonenumbers would take for a national number
+        digits = phone_valid_digits(rng, rng.randint(7, 10))
+    return f"- order #{digits} shipped on 2024-{rng.randint(1, 12):02d}-15"
+
+
+def _lockfile_size(rng: random.Random) -> str:
+    name = _word(rng)
+    size = phone_valid_digits(rng, rng.randint(7, 10))
+    return (
+        f'  {{ url = "https://files.example.org/{name}-1.{rng.randint(0, 9)}-py3-none-any.whl", '
+        f"size = {size} }},"
+    )
 
 
 def _deny_substring(rng: random.Random) -> str:
@@ -232,11 +258,12 @@ KINDS: tuple[tuple[str, str, Item], ...] = (
     ("vendor/upstream/README.md", "# Upstream notes", _mit_quote),
     ("src/settings_loader.py", '"""Settings loader stubs."""', _assignment_lookalike),
     ("docs/misc.md", "# Miscellaneous", _misc),
+    ("uv.lock", "wheels = [", _lockfile_size),
 )
 
 
 def generate(rng: random.Random, per_kind: int) -> list[tuple[str, bytes]]:
-    """One file per kind with `per_kind` items each (15 kinds, so `15 * per_kind`
+    """One file per kind with `per_kind` items each (16 kinds, so `16 * per_kind`
     negatives in total)."""
     files: list[tuple[str, bytes]] = []
     for path, heading, item in KINDS:

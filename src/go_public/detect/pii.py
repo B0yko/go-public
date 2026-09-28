@@ -1,6 +1,14 @@
 """Personal data: emails, phone numbers and flagged names (product spec item 3;
 stage-3.md).
 
+Phone trade-off: a national-format candidate (no leading `+`) must carry a
+separator (space, `-`, `.`, parentheses) or a trunk prefix (a leading `0`, or a
+leading `1` on an 11-digit run), because `phonenumbers` accepts plenty of bare digit
+runs (lockfile sizes, ids, counters) as valid national numbers. The price is that a
+bare, unseparated 10-digit national number without a trunk prefix is missed; numbers
+written with `+` are always detected. Lockfiles are skipped for phones altogether
+(`scan.py`, same file list as the generic-entropy detector).
+
 Every check here is content-only (no `path`/`commit` dependence), so a `PiiDetector`
 can be built once per scan and its `detect()` called once per blob/message/field,
 same as every other stage-3 detector (`scan.py` attributes the result to every
@@ -44,6 +52,17 @@ _CANDIDATE_DIGIT_RUN_RE = re2.compile(r"\+?\d[\d\s().-]{5,}\d")
 #: string. `phonenumbers` accepts some of these as valid national numbers, so they are
 #: skipped (a real phone number is not written like this in the supported regions).
 _DOTTED_QUAD_RE = re2.compile(r"\d{1,3}(?:\.\d{1,3}){3,}")
+
+
+_SEPARATORS = frozenset(" -.()")
+
+
+def _has_phone_shape(raw: str) -> bool:
+    """`+` numbers always count; a national candidate needs a separator or a trunk
+    prefix (see the module docstring)."""
+    if raw.startswith("+") or any(ch in _SEPARATORS for ch in raw):
+        return True
+    return raw.startswith("0") or (raw.startswith("1") and len(raw) == 11)
 
 
 def _line_col(text: str, offset: int) -> tuple[int, int]:
@@ -135,6 +154,8 @@ class PiiDetector:
             for match in matcher:
                 span = (match.start, match.start + len(match.raw_string))
                 if span in seen or _DOTTED_QUAD_RE.fullmatch(match.raw_string):
+                    continue
+                if not _has_phone_shape(match.raw_string):
                     continue
                 line, col = _line_col(text, span[0])
                 seen[span] = Detection(

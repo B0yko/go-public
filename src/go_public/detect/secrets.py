@@ -101,7 +101,7 @@ def shannon_entropy(data: str) -> float:
     return entropy
 
 
-def _is_lockfile(path: str) -> bool:
+def is_lockfile(path: str) -> bool:
     if not path:
         return False
     name = PurePosixPath(path).name
@@ -336,7 +336,7 @@ class SecretsEngine:
 
         for finding in scan.candidates:
             if finding.rule_id == "generic-entropy":
-                if _is_lockfile(ctx.path):
+                if is_lockfile(ctx.path):
                     continue
                 if _check_finding_allowed(finding, ctx, finding.line_text, self._config.allowlists):
                     continue

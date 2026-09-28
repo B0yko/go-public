@@ -15,8 +15,9 @@ numbers honest and reproducible.
   transition). Findings that share a category, eval class and key are scored as one, so
   duplicates and overlapping generic-secret hits on one span count once. Any other
   finding in an evaluated class is a false positive in that class.
-- **Hard negatives and `--no-plants`.** Each `small` seed carries about 150 hard
-  negatives (15 kinds, ten each) that look like plants but must never be flagged. A
+- **Hard negatives and `--no-plants`.** Each `small` seed carries about 160 hard
+  negatives (16 kinds, ten each; bare digit runs and lockfile sizes that `phonenumbers`
+  would accept among them) that look like plants but must never be flagged. A
   `--no-plants` fixture keeps the filler and the negatives, uses only the public identity
   and must scan to zero findings. Tests run this for tiny seeds 0-3 and small seed 0.
 - **Export verification without a commit.** `bench --export-verify` needs a "fix at HEAD"

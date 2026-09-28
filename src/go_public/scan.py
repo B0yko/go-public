@@ -36,7 +36,7 @@ from go_public.detect.files import FilesDetector
 from go_public.detect.gitleaks_config import GitleaksConfig, load_gitleaks_config
 from go_public.detect.paths_network import PathsNetworkDetector
 from go_public.detect.pii import PiiDetector
-from go_public.detect.secrets import SecretsEngine
+from go_public.detect.secrets import SecretsEngine, is_lockfile
 from go_public.errors import ScanWorkerError
 from go_public.git.inventory import BlobOccurrence, Inventory
 from go_public.git.objects import CatFileBatch
@@ -452,8 +452,10 @@ def _scan_unit(
     # run once and attribute the result to every occurrence uniformly, alongside
     # `extra` (the caller's own pre-computed detections, e.g. binary-metadata's
     # field-presence classification).
+    pii = detectors.pii.detect(text)
+    phones = [d for d in pii if d.rule_id == "pii-phone"]
     stateless = (
-        detectors.pii.detect(text)
+        [d for d in pii if d.rule_id != "pii-phone"]
         + detectors.deny.detect(text)
         + detectors.paths_network.detect(text, is_gitmodules=is_gitmodules)
         + detectors.licence.detect(text, licence_relevant=licence_relevant)
@@ -462,6 +464,12 @@ def _scan_unit(
     rows.extend(
         _attribute_detections(stateless, pairs, kind=kind, blob=blob, field_name=field_name)
     )
+    # Phone numbers are not looked for in lockfiles (sizes and counters read as numbers).
+    phone_pairs = [(p, c) for p, c in pairs if not is_lockfile(p)]
+    if phones and phone_pairs:
+        rows.extend(
+            _attribute_detections(phones, phone_pairs, kind=kind, blob=blob, field_name=field_name)
+        )
     return rows
 
 
