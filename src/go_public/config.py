@@ -84,7 +84,7 @@ class DenyConfig(_Base):
 
 class SecretsConfig(_Base):
     gitleaks_config: str = ""  # empty = bundled rules
-    generic_entropy: float = 4.3  # tuned on seeds 0-1 only, stage 6
+    generic_entropy: float = 4.0  # tuned on seeds 0-1 only; see docs/adr/0010
     generic_detector: bool = True
 
 

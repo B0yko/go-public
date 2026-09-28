@@ -18,7 +18,7 @@ def test_defaults_match_architecture() -> None:
     assert config.scan.fail_on == "high"
     assert config.scan.max_scan_mb == 10
     assert config.scan.jobs == 0
-    assert config.secrets.generic_entropy == 4.3
+    assert config.secrets.generic_entropy == 4.0
     assert config.secrets.gitleaks_config == ""
     assert config.pii.phone_regions == ["US", "GB", "DE"]
     assert "/tmp/" in config.paths.allowed_prefixes

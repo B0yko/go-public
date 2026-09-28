@@ -291,7 +291,7 @@ class SecretsEngine:
         self,
         config: GitleaksConfig,
         *,
-        generic_entropy_threshold: float = 4.3,
+        generic_entropy_threshold: float = 4.0,
         generic_detector_enabled: bool = True,
     ) -> None:
         self._config = config

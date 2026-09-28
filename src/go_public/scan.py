@@ -74,7 +74,7 @@ class ScanOptions:
     """
 
     gitleaks_config: str | None = None
-    generic_entropy: float = 4.3
+    generic_entropy: float = 4.0
     generic_detector: bool = True
     max_scan_mb: int = 10
     jobs: int = 0  # 0 = CPU count

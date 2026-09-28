@@ -183,3 +183,19 @@ def test_demo_builds_scans_and_prints_where_the_reports_are(
     assert report["findings"]
     assert report["repo"]["name"] == "demo-repo"
     assert (scratch / next(p.name for p in scratch.iterdir()) / "demo-repo").is_dir()
+
+
+def test_generic_entropy_default_sits_inside_the_tuned_plateau(tmp_path: Path) -> None:
+    """ADR 0010: from 3.3 to 4.3 go-public's own detector finds every planted generic
+    value on seeds 0-1 and flags no placeholder; the default keeps a margin inside."""
+    from go_public.config import Config
+
+    assert 3.3 < Config().secrets.generic_entropy < 4.3
+    options = bench_run.BenchOptions(seed_spec="0,1", size="tiny", out=tmp_path, jobs=1)
+    with bench_run.Workspace(options) as workspace:
+        own = 0
+        for seed in options.seeds:
+            findings = workspace.scan(workspace.fixture(seed))
+            own += sum(1 for f in findings if f.rule_id == "generic-entropy")
+            assert not [f for f in findings if "YOUR_API_KEY" in f.preview]
+        assert own == 4  # two planted generic values per tiny seed
