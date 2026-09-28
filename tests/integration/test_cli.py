@@ -17,6 +17,15 @@ from ..unit import secret_tokens as tok
 runner = CliRunner()
 
 
+def _allow_public_identity_config(tmp_path: Path) -> Path:
+    """A config allowlisting `conftest.PUBLIC_IDENT`, so these secret-focused tests
+    don't also see the identity finding every commit's author now produces by
+    default (stage 3a: `detect/commit_meta.py`)."""
+    config = tmp_path / "go-public.toml"
+    config.write_text('[identity]\nallow = ["Pat Public <pat@example.com>"]\n')
+    return config
+
+
 def test_version() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
@@ -115,7 +124,8 @@ def test_rules_check_reports_compile_failures_exit_1(tmp_path: Path) -> None:
 def test_scan_with_no_secrets_exits_0_with_zero_findings(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")
     commit_file(repo, "a.txt", "hi\n", "feat: a")
-    result = runner.invoke(app, ["scan", str(repo)])
+    config = _allow_public_identity_config(tmp_path)
+    result = runner.invoke(app, ["scan", str(repo), "--config", str(config)])
     assert result.exit_code == 0
     assert "0 finding(s)" in result.stdout
 
@@ -124,7 +134,8 @@ def test_scan_with_a_secret_exits_1_by_default(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")
     token = tok.aws_access_key(random.Random(42))
     commit_file(repo, "config.txt", f'access_key = "{token}"\n', "feat: add config")
-    result = runner.invoke(app, ["scan", str(repo)])
+    config = _allow_public_identity_config(tmp_path)
+    result = runner.invoke(app, ["scan", str(repo), "--config", str(config)])
     assert result.exit_code == 1
     assert "1 finding(s)" in result.stdout
     assert "secret=1" in result.stdout
@@ -163,8 +174,11 @@ def test_scan_debug_json_writes_findings(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")
     token = tok.npm_token(random.Random(45))
     commit_file(repo, "config.txt", f'token = "{token}"\n', "feat: add token")
+    config = _allow_public_identity_config(tmp_path)
     debug_json = tmp_path / "debug.json"
-    result = runner.invoke(app, ["scan", str(repo), "--debug-json", str(debug_json)])
+    result = runner.invoke(
+        app, ["scan", str(repo), "--config", str(config), "--debug-json", str(debug_json)]
+    )
     assert result.exit_code == 1
     findings = json.loads(debug_json.read_text())
     assert len(findings) == 1

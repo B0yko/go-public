@@ -15,10 +15,41 @@ import tomlkit
 
 from go_public.bench import filler
 from go_public.bench.plants import LOCATION_TYPES, FixtureContext, Identity, Plant, ResolvedPlant
+from go_public.bench.plants import identity as identity_plants
+from go_public.bench.plants import internal_notes as internal_notes_plants
+from go_public.bench.plants import local_path as local_path_plants
+from go_public.bench.plants import network as network_plants
+from go_public.bench.plants import org_identifier as org_identifier_plants
+from go_public.bench.plants import pii as pii_plants
 from go_public.bench.plants import secrets as secret_plants
+from go_public.bench.plants import sensitive_file as sensitive_file_plants
+from go_public.bench.plants import trailer as trailer_plants
+from go_public.bench.plants._fictional import (
+    DENY_DOMAINS,
+    DENY_NAMES,
+    DENY_REGEXES,
+    DENY_TERMS,
+    DENY_TICKET_KEYS,
+)
 from go_public.bench.truth import write_truth
 from go_public.errors import UsageError
 from go_public.git.runner import GitRunner
+
+#: Every category's plant module, in a fixed order so seeds are reproducible
+#: regardless of dict/set iteration order. Each gets its own `random.Random` seeded
+#: from the fixture seed plus its own name, so adding or removing a module never
+#: reshuffles another module's RNG stream.
+_PLANT_MODULES = (
+    secret_plants,
+    pii_plants,
+    org_identifier_plants,
+    local_path_plants,
+    network_plants,
+    sensitive_file_plants,
+    internal_notes_plants,
+    identity_plants,
+    trailer_plants,
+)
 
 #: Fictional identities only: reserved-for-documentation domains, per conventions.md.
 PUBLIC_IDENTITY: Identity = ("Pat Public", "pat@example.com")
@@ -58,14 +89,19 @@ def build(
     if size not in _SIZES or blind_spots:
         raise UsageError(f"fixture size={size!r} blind_spots={blind_spots} is not implemented yet")
     rng = random.Random(seed)
-    ctx = FixtureContext(public_identity=PUBLIC_IDENTITY, base_when=_EPOCH + seed * 100_000)
+    ctx = FixtureContext(
+        public_identity=PUBLIC_IDENTITY,
+        base_when=_EPOCH + seed * 100_000,
+        colleague_identities=COLLEAGUE_IDENTITIES,
+    )
 
-    _build_topology(ctx, rng)
+    _build_topology(ctx, rng, plants=plants)
     if plants:
         _place_markers(ctx, seed)
-        secrets_rng = random.Random(f"{seed}-secrets")
-        for plant in secret_plants.generate(secrets_rng, ctx, size=size):
-            ctx.place(plant)
+        for category_plants in _PLANT_MODULES:
+            module_rng = random.Random(f"{seed}-{category_plants.__name__}")
+            for plant in category_plants.generate(module_rng, ctx, size=size):
+                ctx.place(plant)
 
     out.mkdir(parents=True, exist_ok=True)
     repo = out / "repo"
@@ -102,8 +138,17 @@ def build(
     )
 
 
-def _build_topology(ctx: FixtureContext, rng: random.Random) -> None:
-    """Filler history on main, a merged feature branch, an unmerged side branch."""
+def _build_topology(ctx: FixtureContext, rng: random.Random, *, plants: bool) -> None:
+    """Filler history on main, a merged feature branch, an unmerged side branch.
+
+    The feature/side branch commits are authored by a colleague identity only when
+    `plants` is set; `--no-plants` uses the public identity throughout, so that
+    build has no identity for `detect/commit_meta.py` to flag (Data section:
+    "`--no-plants`... with only the public identity... scans to zero findings").
+    Real identity coverage for the colleague identities is `bench/plants/
+    identity.py`'s job, which assigns them deliberately (fixture-api.md's own
+    "Known gaps" note).
+    """
     for path, content in filler.generate(rng):
         blob_mark = ctx.blob(content)
         ctx.commit(
@@ -113,13 +158,14 @@ def _build_topology(ctx: FixtureContext, rng: random.Random) -> None:
         )
 
     main_tip = ctx.branch_tip["refs/heads/main"]
+    feature_author = COLLEAGUE_IDENTITIES[0] if plants else None
     feature_content = filler.python_module(rng, "feature.py")
     feature_blob = ctx.blob(feature_content)
     feature_tip = ctx.commit(
         "refs/heads/feature/enhancement",
         message="feat: add enhancement",
         files={"src/feature.py": feature_blob},
-        author=COLLEAGUE_IDENTITIES[0],
+        author=feature_author,
         from_=main_tip,
     )
     ctx.commit(
@@ -129,13 +175,14 @@ def _build_topology(ctx: FixtureContext, rng: random.Random) -> None:
         merges=(feature_tip,),
     )
 
+    side_author = COLLEAGUE_IDENTITIES[1] if plants else None
     side_content = filler.markdown_notes(rng, "experiment")
     side_blob = ctx.blob(side_content)
     ctx.commit(
         "refs/heads/side/experiment",
         message="wip: experiment",
         files={"experiment.md": side_blob},
-        author=COLLEAGUE_IDENTITIES[1],
+        author=side_author,
         from_=ctx.branch_tip["refs/heads/main"],
     )
 
@@ -184,11 +231,22 @@ def _read_marks(path: Path) -> dict[str, str]:
 
 
 def _fixture_config() -> str:
-    """A minimal, forward-compatible `go-public.toml` for the fixture (config.py,
-    the pydantic schema this will validate against, lands in a later stage)."""
+    """The `go-public.toml` a scan of this fixture needs to match `config.py`'s
+    schema (stage 2b): the public identity is allowlisted, and `[deny]` lists
+    exactly the fictional terms/domains/regexes/ticket keys/names the org-identifier
+    and pii plants target (`bench/plants/_fictional.py`), so the deny-list and name
+    detectors have something to match against, the same way a real user's config
+    would.
+    """
     doc: dict[str, object] = {
         "identity": {"allow": [f"{PUBLIC_IDENTITY[0]} <{PUBLIC_IDENTITY[1]}>"]},
-        "deny": {"terms": []},
+        "deny": {
+            "terms": list(DENY_TERMS),
+            "domains": list(DENY_DOMAINS),
+            "regex": list(DENY_REGEXES),
+            "names": list(DENY_NAMES),
+            "ticket_keys": list(DENY_TICKET_KEYS),
+        },
         "files": {"warn_mb": 1, "high_mb": 5},
         "export": {"author": f"{PUBLIC_IDENTITY[0]} <{PUBLIC_IDENTITY[1]}>"},
     }

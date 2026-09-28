@@ -37,9 +37,16 @@ LocationType = Literal[
     "path_name",
     "binary_field",
     "unreachable",
+    "trailer",
 ]
 
 #: Every location type the API supports, for callers that need to enumerate them.
+#: `trailer` (stage 3a) is fixture-api.md's set plus one: mechanically identical to
+#: `commit_message` (an empty-diff commit on main whose message carries the token),
+#: but resolves to kind `trailer`/`{commit, key}` instead of `commit_message`/
+#: `{commit}`, since `detect/commit_meta.py` reports a flagged trailer under its own
+#: location kind (architecture.md's `LocationKind` already names `trailer`) rather
+#: than folding it into the whole-message finding.
 LOCATION_TYPES: tuple[LocationType, ...] = (
     "head",
     "history_only",
@@ -56,6 +63,7 @@ LOCATION_TYPES: tuple[LocationType, ...] = (
     "path_name",
     "binary_field",
     "unreachable",
+    "trailer",
 )
 
 Identity = tuple[str, str]  # (name, email)
@@ -99,6 +107,12 @@ class Plant:
     eval_class: str | None = None
     rule_family: str | None = None
     expected_extra: list[ExpectedFinding] = field(default_factory=list)
+    #: When set, `truth_entry()` lists only `expected_extra`, not the location
+    #: type's own mechanical kind/key. For a plant whose *placement* mechanics don't
+    #: match its *detector's* location kind — e.g. a `.gitmodules` plant needs
+    #: `path_name` placement (the file must literally be named `.gitmodules`) but
+    #: the finding itself is content-based (`blob`), not path-based (stage 3a).
+    suppress_primary_expected: bool = False
 
 
 @dataclass
@@ -114,15 +128,17 @@ class ResolvedPlant:
     blob: str | None = None
 
     def truth_entry(self) -> TruthEntry:
-        expected = [
-            ExpectedFinding(
-                category=self.plant.category,
-                eval_class=self.plant.eval_class or self.plant.category,
-                kind=self.kind,
-                key=self.key,
-            ),
-            *self.plant.expected_extra,
-        ]
+        expected = list(self.plant.expected_extra)
+        if not self.plant.suppress_primary_expected:
+            expected.insert(
+                0,
+                ExpectedFinding(
+                    category=self.plant.category,
+                    eval_class=self.plant.eval_class or self.plant.category,
+                    kind=self.kind,
+                    key=self.key,
+                ),
+            )
         return TruthEntry(
             plant_id=self.plant.plant_id,
             category=self.plant.category,
@@ -148,8 +164,20 @@ class FixtureContext:
     every plant's `ResolvedPlant`).
     """
 
-    def __init__(self, *, public_identity: Identity, base_when: int) -> None:
+    def __init__(
+        self,
+        *,
+        public_identity: Identity,
+        base_when: int,
+        colleague_identities: tuple[Identity, ...] = (),
+    ) -> None:
         self.public_identity = public_identity
+        #: Fictional colleague identities (fixture-api.md "Known gaps": "real plants
+        #: should assign identities deliberately per plant"), exposed here so a
+        #: plant module (e.g. `bench/plants/identity.py`) can use them without
+        #: importing `bench/fixture.py` (which would be circular: fixture.py itself
+        #: imports every plant module).
+        self.colleague_identities = colleague_identities
         self._when = base_when
         self._parts: list[bytes] = []
         self._next_mark = 0
@@ -512,6 +540,29 @@ class FixtureContext:
                 kind="commit_message",
                 key={"commit": commit},
                 at_export_ref=True,
+                ref=ref,
+                commit=commit,
+            )
+
+        self._queue(resolve)
+
+    def _place_trailer(self, plant: Plant) -> None:
+        """Mechanically identical to `_place_commit_message`; resolves to kind
+        `trailer`/`{commit, key}` (`plant.field_name` carries the trailer key, e.g.
+        `"Co-authored-by"`) instead of `commit_message`/`{commit}`.
+        """
+        ref = "refs/heads/main"
+        message = plant.message or "chore: marker commit"
+        commit_mark = self.commit(ref, message=message, files={}, author=plant.author)
+        trailer_key = plant.field_name or "trailer"
+
+        def resolve(marks: dict[str, str], _tags: dict[str, str]) -> ResolvedPlant:
+            commit = marks[commit_mark]
+            return ResolvedPlant(
+                plant=plant,
+                kind="trailer",
+                key={"commit": commit, "key": trailer_key},
+                at_export_ref=False,
                 ref=ref,
                 commit=commit,
             )

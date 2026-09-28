@@ -15,6 +15,7 @@ import typer
 from go_public import __version__
 from go_public import scan as scan_mod
 from go_public.bench import fixture as fixture_mod
+from go_public.config import load_config
 from go_public.detect.gitleaks_config import load_gitleaks_config, rules_check
 from go_public.errors import GoPublicError, UsageError
 from go_public.git.inventory import build, build_head_only
@@ -70,6 +71,18 @@ def scan(
         ..., exists=True, file_okay=False, help="Path to the git repository."
     ),
     ref: str = typer.Option("HEAD", "--ref", help="Export ref to scan against."),
+    config_path: Path | None = typer.Option(
+        None,
+        "--config",
+        exists=True,
+        dir_okay=False,
+        help="TOML config (deny list, identity allowlist, ...). Defaults to the built-in defaults.",
+    ),
+    detect_names: bool = typer.Option(
+        False,
+        "--detect-names",
+        help="Also search content for every non-allowlisted identity's name from history.",
+    ),
     include_unreachable: bool = typer.Option(
         False,
         "--include-unreachable",
@@ -112,6 +125,11 @@ def scan(
     if fail_on not in SEVERITIES:
         raise UsageError(f"--fail-on: unknown severity {fail_on!r} (expected one of {SEVERITIES})")
     check_git_version()
+    config = load_config(config_path)
+    if detect_names:
+        config = config.model_copy(
+            update={"pii": config.pii.model_copy(update={"detect_names": True})}
+        )
     runner = GitRunner(repo.resolve(), role="source")
     if head_only:
         inventory = build_head_only(runner, export_ref=ref)
@@ -123,9 +141,10 @@ def scan(
 
     options = scan_mod.ScanOptions(
         gitleaks_config=str(gitleaks_config) if gitleaks_config else None,
-        max_scan_mb=10,
+        max_scan_mb=config.scan.max_scan_mb,
         jobs=jobs,
         show_secrets=show_secrets,
+        config=config,
     )
     findings = scan_mod.run(runner, inventory, options)
 
