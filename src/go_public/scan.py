@@ -1039,6 +1039,11 @@ def _present_at_export_ref(row: dict[str, Any], inventory: Inventory) -> bool:
     # message-preserving semantics are stage 4's `plan.py`.
     kind = row["kind"]
     if kind in ("blob", "binary_field"):
+        # A path-dependent rule (a key-store file name) attributes a blob to the paths it
+        # fired on: the blob sitting at HEAD under another name does not make those present.
+        paths = row["paths"]
+        if paths:
+            return any(inventory.export_tree.get(p, ("", ""))[1] == row["blob"] for p in paths)
         return inventory.present_at_export_ref(row["blob"])
     if kind == "path":
         return row["paths"][0] in inventory.export_tree

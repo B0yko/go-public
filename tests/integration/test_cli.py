@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 from go_public import __version__
 from go_public.cli import app
 
-from ..conftest import commit_file, init_repo
+from ..conftest import commit_file, git, init_repo
 from ..unit import secret_tokens as tok
 
 runner = CliRunner()
@@ -370,3 +370,31 @@ def test_init_writes_template_with_identities_and_refuses_overwrite(
 
     again = runner.invoke(app, ["init", str(repo)])
     assert again.exit_code == 2
+
+
+def test_path_rule_finding_is_not_at_the_export_ref_when_only_another_path_holds_the_blob(
+    tmp_path: Path,
+) -> None:
+    # The key-store rule fires on the file name. The same bytes still sit at HEAD under
+    # a harmless name; the flagged path is gone, so the finding is not "at HEAD".
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "secrets/wallet.p12", "not really a key store\n", "feat: add store")
+    commit_file(repo, "notes.txt", "not really a key store\n", "feat: same bytes")
+    _commit_licence(repo)
+    git(repo, "rm", "-q", "secrets/wallet.p12")
+    ident = {
+        "GIT_AUTHOR_NAME": "Pat Public",
+        "GIT_AUTHOR_EMAIL": "pat@example.com",
+        "GIT_COMMITTER_NAME": "Pat Public",
+        "GIT_COMMITTER_EMAIL": "pat@example.com",
+    }
+    git(repo, "commit", "-q", "-m", "chore: drop the store", env=ident)
+    config = _allow_public_identity_config(tmp_path)
+    debug_json = tmp_path / "debug.json"
+    runner.invoke(
+        app, ["scan", str(repo), "--config", str(config), "--debug-json", str(debug_json)]
+    )
+    findings = [f for f in json.loads(debug_json.read_text()) if f["rule_id"] == "pkcs12-file"]
+    assert len(findings) == 1
+    assert findings[0]["location"]["paths"] == ["secrets/wallet.p12"]
+    assert findings[0]["present_at_export_ref"] is False
