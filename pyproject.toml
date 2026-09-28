@@ -1,0 +1,73 @@
+[project]
+name = "go-public"
+version = "0.1.0"
+description = "Audit a private git repository and produce a clean export before you open-source it."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [{ name = "Andrii Boiko" }]
+dependencies = [
+  "typer>=0.12",
+  "pydantic>=2",
+  "jinja2>=3.1",
+  "pillow>=10",
+  "pypdf>=4",
+  "phonenumbers>=8.13",
+  "defusedxml>=0.7",
+  "git-filter-repo==2.47.0",
+  "google-re2>=1.1",
+  "tomlkit>=0.12",
+  "pathspec>=0.12",
+]
+
+[project.scripts]
+go-public = "go_public.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# hatchling packages every tracked file under this directory into the
+# wheel, so package data (src/go_public/rules/*, report/templates/*)
+# ships automatically without a separate MANIFEST.
+packages = ["src/go_public"]
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "ruff>=0.6",
+  "mypy>=1.11",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["go_public"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer's `= typer.Option(...)` / `typer.Argument(...)` defaults are the documented
+# way to declare CLI parameters; bugbear's mutable-default check doesn't know that.
+"src/go_public/cli.py" = ["B008"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+strict = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+# Untyped or loosely-typed third-party dependencies used by later stages.
+module = ["re2.*", "git_filter_repo", "phonenumbers.*", "defusedxml.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
