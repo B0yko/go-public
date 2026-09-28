@@ -578,7 +578,7 @@ def demo(
 @_handle_errors
 def bench(
     seeds: str = typer.Option(..., "--seeds", help="Seed spec: 2-6, 0,1 or 100."),
-    size: str = typer.Option(..., "--size", help="tiny or small (medium is for --runtime)."),
+    size: str = typer.Option(..., "--size", help="tiny or small; medium with --runtime only."),
     out: Path = typer.Option(..., "--out", help="Directory for the results files."),
     compare_head_only: bool = typer.Option(
         False, "--compare-head-only", help="Recall by location type: full scan vs --head-only."
@@ -604,7 +604,9 @@ def bench(
         None, "--real-world-dir", help="Real-world noise run (not available yet)."
     ),
     labels: Path | None = typer.Option(None, "--labels", help="Labels file for --real-world-dir."),
-    runtime: bool = typer.Option(False, "--runtime", help="Runtime run (not available yet)."),
+    runtime: bool = typer.Option(
+        False, "--runtime", help="Wall time and peak RSS of full scans of the medium fixture."
+    ),
     repeat: int = typer.Option(3, "--repeat", help="Repetitions for --runtime."),
 ) -> None:
     """Build synthetic fixtures, scan them and write results files under --out."""
@@ -612,10 +614,11 @@ def bench(
         ("--gitleaks", gitleaks is not None),
         ("--real-world-dir", real_world_dir is not None),
         ("--labels", labels is not None),
-        ("--runtime", runtime or repeat != 3),
     ):
         if given:
             raise UsageError(f"{flag} is not available yet")
+    if repeat != 3 and not runtime:
+        raise UsageError("--repeat applies to --runtime")
     check_git_version()
     options = bench_run.BenchOptions(
         seed_spec=seeds,
@@ -630,6 +633,8 @@ def bench(
         compare_head_only=compare_head_only,
         export_verify=export_verify,
         blind=blind_spots,
+        runtime=runtime,
+        repeat=repeat,
     )
     for path in outcome.written:
         typer.echo(f"wrote {path}")

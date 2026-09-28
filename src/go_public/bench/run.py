@@ -8,6 +8,8 @@ synthetic per-class table runs):
 - `--compare-head-only`: recall by location type, full scan against `--head-only`.
 - `--export-verify`: scan, scripted fix at HEAD, export, re-scan, source immutability.
 - `--blind-spots`: measured recall on the blind-spot plants.
+- `--runtime`: wall time and peak RSS of full scans of the `medium` fixture (`runtime.py`);
+  writes `runtime.{json,md}`.
 
 Every fixture is built in a temporary directory outside the repository and removed
 afterwards. Results files carry no absolute path, user name or host name; the writer
@@ -26,7 +28,7 @@ import subprocess
 import tempfile
 import time
 from collections import Counter, defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -34,6 +36,7 @@ from typing import Any
 
 from go_public import __version__, pipeline
 from go_public.bench import fixture as fixture_mod
+from go_public.bench import runtime as runtime_mod
 from go_public.bench.match import ExpectedHit, expected_hits, finding_key, match
 from go_public.bench.plants import blind_spots
 from go_public.bench.truth import TruthEntry, read_truth
@@ -1119,6 +1122,41 @@ def run_export_verify(workspace: Workspace) -> tuple[dict[str, Any], str, bool]:
     return data, "\n".join(lines) + "\n", all_ok
 
 
+# -- runtime -----------------------------------------------------------------------------
+
+
+def run_runtime(
+    workspace: Workspace,
+    *,
+    repeat: int,
+    extra_targets: Sequence[runtime_mod.RuntimeTarget] = (),
+    log: Callable[[str], None] = lambda _line: None,
+) -> tuple[dict[str, Any], str]:
+    """Time full scans (and a squash export) of the synthetic `medium` fixture for each
+    seed, then of `extra_targets`. The real-world `pallets/flask` clone is passed in
+    here as a `RuntimeTarget` by the real-world step."""
+    targets: list[runtime_mod.RuntimeTarget] = []
+    for seed in workspace.options.seeds:
+        fx = workspace.fixture(seed, plants=False)
+        targets.append(
+            runtime_mod.RuntimeTarget(
+                label=f"Synthetic medium fixture, seed {seed}",
+                repo=fx.result.repo,
+                config=fx.result.config_path,
+                export=True,
+                gated=True,
+            )
+        )
+    targets.extend(extra_targets)
+    data = runtime_mod.run_runtime(
+        targets, repeat=repeat, default_jobs=workspace.options.jobs, log=log
+    )
+    meta = workspace.options.metadata("runtime", "--runtime", f"--repeat {repeat}")
+    data = {**meta, **data}
+    md = runtime_mod.runtime_markdown(data, _meta_block(meta))
+    return data, md
+
+
 # -- entry point -----------------------------------------------------------------------
 
 
@@ -1135,9 +1173,18 @@ def run(
     compare_head_only: bool = False,
     export_verify: bool = False,
     blind: bool = False,
+    runtime: bool = False,
+    repeat: int = 3,
+    extra_runtime_targets: Sequence[runtime_mod.RuntimeTarget] = (),
 ) -> BenchOutcome:
     """Run the selected modes (the synthetic table when none is selected) and write
     their results files."""
+    if runtime:
+        if options.size != "medium":
+            raise UsageError("--runtime measures the medium fixture: pass --size medium")
+        if compare_head_only or export_verify or blind:
+            raise UsageError("--runtime cannot be combined with the scoring modes")
+        return _run_runtime_only(options, repeat, extra_runtime_targets)
     if options.size == "medium":
         raise UsageError("bench scores tiny and small fixtures; medium is for --runtime")
     started = time.monotonic()
@@ -1190,3 +1237,25 @@ def run(
             summary.append(f"blind spots: {o['detected']}/{o['plants']} detected")
     summary.append(f"done in {time.monotonic() - started:.0f}s")
     return BenchOutcome(written=written, gates_ok=gates_ok, summary=summary)
+
+
+def _run_runtime_only(
+    options: BenchOptions,
+    repeat: int,
+    extra_targets: Sequence[runtime_mod.RuntimeTarget],
+) -> BenchOutcome:
+    started = time.monotonic()
+    summary: list[str] = []
+    with Workspace(options) as workspace:
+        data, md = run_runtime(
+            workspace, repeat=repeat, extra_targets=extra_targets, log=summary.append
+        )
+        written = write_results(options.out, "runtime", data, md, workspace=workspace)
+    gated_ok = all(
+        t["scan_default_jobs"]["wall_s_median"] <= data["target_seconds"]
+        for t in data["targets"]
+        if t["gated"]
+    )
+    summary.append(f"runtime: medium target {'met' if gated_ok else 'MISSED'}")
+    summary.append(f"done in {time.monotonic() - started:.0f}s")
+    return BenchOutcome(written=written, gates_ok=gated_ok, summary=summary)
