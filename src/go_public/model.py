@@ -1,10 +1,7 @@
-"""The `Finding` model (architecture.md "Finding model"), pydantic v2.
-
-Only the `Finding`/`Location`/`FixAction` shapes land in stage 2b: they are what
-`scan.py` produces from a `detect.base.Detection` plus attribution. The full
-`Report` model (repo/scan/inventory/warnings/suppressed/rotated/plan/summary) and
-the generated JSON Schema are stage 4's job (`schemas/go-public-report-v1.json`,
-`report/json.py`) — nothing here is a Report field yet.
+"""The `Finding` and `Report` models (architecture.md "Finding model" / "Report:"),
+pydantic v2. `Report.model_json_schema()` is the source of
+`schemas/go-public-report-v1.json` (stage-4.md item 11; see `tests/unit/
+test_report_schema.py`).
 """
 
 from __future__ import annotations
@@ -142,3 +139,201 @@ class Finding(BaseModel):
     preview: str = ""
     fix: FixAction
     extra: dict[str, str | int | float | bool | list[str]] = Field(default_factory=dict)
+
+
+def repo_display_name(path: str) -> str:
+    """A repository's name for the report (product spec item 11: "names the
+    repository by its directory name, never by its absolute path"); `.git` is
+    stripped so a bare `myrepo.git` reports as `myrepo`, same as a non-bare
+    `myrepo/`."""
+    name = path.rstrip("/").rsplit("/", 1)[-1]
+    return name[: -len(".git")] if name.endswith(".git") and name != ".git" else name
+
+
+# -- Report (architecture.md "Report:", stage-4.md item 11) ------------------------
+
+
+class ToolInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = "go-public"
+    version: str
+
+
+class RepoInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    bare: bool
+    object_format: str
+    export_ref: str
+    export_commit: str | None = None
+
+
+class ScanOptionsInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    include_unreachable: bool = False
+    head_only: bool = False
+    fail_on: str = "high"
+    jobs: int = 0
+    detect_names: bool = False
+    show_secrets: bool = False
+    config_source: str = "defaults"
+
+
+class ScanInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: str
+    finished_at: str
+    duration_s: float
+    git_version: str
+    options: ScanOptionsInfo
+
+
+class InventoryInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    refs: int
+    commits: int
+    tags: int
+    unique_blobs: int
+    total_bytes: int
+    unreachable_blobs: int = 0
+    ref_list: list[str] = Field(default_factory=list)
+    missing_objects: int = 0
+    lfs_pointers: int = 0
+
+
+class WarningInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    message: str
+
+
+#: architecture.md "Suppression": every place a finding can be suppressed from.
+SUPPRESS_SOURCES: tuple[str, ...] = (
+    "config-fingerprint",
+    "config-group",
+    "path-glob",
+    "inline-comment",
+    "identity-allow",
+)
+
+
+class SuppressedInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprint: str
+    group_id: str
+    category: str
+    rule_id: str
+    source: str
+    reason: str = ""
+    pattern: str | None = None
+
+
+class RotatedInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    reason: str
+
+
+class PlanEntryA(BaseModel):
+    """`plan.py` group A: one row per secret `group_id` (architecture.md "Fix plan")."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    secret_id: str
+    rule_id: str
+    preview: str
+    occurrences: int
+    paths: list[str] = Field(default_factory=list)
+    commits: list[str] = Field(default_factory=list)
+    refs: list[str] = Field(default_factory=list)
+    present_at_export_ref: bool
+    status: str  # open | rotated
+    rotated_reason: str | None = None
+
+
+class PlanFileGroup(BaseModel):
+    """`plan.py` groups B/C: one row per file path, or (`is_path=False`) per location
+    kind for non-file items (architecture.md: "grouped per file path (non-file items
+    grouped under their kind)")."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    is_path: bool
+    categories: list[str] = Field(default_factory=list)
+    findings: list[str] = Field(default_factory=list)  # fingerprints
+    action: str
+    fix_text: str = ""
+
+
+class PlanDecideItem(BaseModel):
+    """`plan.py` group D: one row per category (licence, large-file) at the export
+    ref (architecture.md: "licence category + large-file findings at the export
+    ref")."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: str
+    findings: list[str] = Field(default_factory=list)  # fingerprints
+
+
+class PlanModel(BaseModel):
+    """architecture.md "Fix plan": `plan{A[], B[], C[], D[], next_commands[]}`.
+    `identity_notes` is a stage-4 addition beyond that literal shape (recorded as a
+    deviation in STATUS.md): product spec item 12 group D also carries "names if you
+    keep history", a plain FYI list of identity strings rather than findings, which
+    does not fit `PlanDecideItem`'s per-category/fingerprint shape.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    A: list[PlanEntryA] = Field(default_factory=list)
+    B: list[PlanFileGroup] = Field(default_factory=list)
+    C: list[PlanFileGroup] = Field(default_factory=list)
+    D: list[PlanDecideItem] = Field(default_factory=list)
+    identity_notes: list[str] = Field(default_factory=list)
+    next_commands: list[str] = Field(default_factory=list)
+
+
+class SummaryInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    by_group: dict[str, int] = Field(default_factory=dict)
+    by_category: dict[str, int] = Field(default_factory=dict)
+    by_severity: dict[str, int] = Field(default_factory=dict)
+    blocking: int = 0
+
+
+class Report(BaseModel):
+    """The top-level report object; `report/json.py` writes this straight to JSON,
+    and `report/md.py`/`report/html.py` render it. `model_json_schema()` on this
+    class is `schemas/go-public-report-v1.json`'s source of truth."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = "go-public-report-v1"
+    tool: ToolInfo
+    repo: RepoInfo
+    scan: ScanInfo
+    inventory: InventoryInfo
+    warnings: list[WarningInfo] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)
+    suppressed: list[SuppressedInfo] = Field(default_factory=list)
+    rotated: list[RotatedInfo] = Field(default_factory=list)
+    plan: PlanModel
+    summary: SummaryInfo
+    exit_code: int
+
+
+def report_json_schema() -> dict[str, object]:
+    """`Report.model_json_schema()`, the source of
+    `schemas/go-public-report-v1.json` (stage-4.md item 11)."""
+    return Report.model_json_schema()

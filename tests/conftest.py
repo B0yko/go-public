@@ -12,6 +12,18 @@ from pathlib import Path
 
 import pytest
 
+from go_public.model import (
+    Finding,
+    InventoryInfo,
+    PlanModel,
+    RepoInfo,
+    Report,
+    ScanInfo,
+    ScanOptionsInfo,
+    SummaryInfo,
+    ToolInfo,
+)
+
 PUBLIC_IDENT = {"name": "Pat Public", "email": "pat@example.com"}
 
 
@@ -103,3 +115,24 @@ def hash_blob(repo: Path, content: str) -> str:
         check=True,
     )
     return proc.stdout.decode().strip()
+
+
+def minimal_report(findings: list[Finding] | None = None) -> Report:
+    """The smallest valid `model.Report`, for tests that only care about one or two
+    fields (`report/*`, `config_write.py`'s report-backed id resolution)."""
+    return Report(
+        tool=ToolInfo(version="0.1.0"),
+        repo=RepoInfo(name="repo", bare=False, object_format="sha1", export_ref="HEAD"),
+        scan=ScanInfo(
+            started_at="2024-01-01T00:00:00+00:00",
+            finished_at="2024-01-01T00:00:01+00:00",
+            duration_s=1.0,
+            git_version="git version 2.45.0",
+            options=ScanOptionsInfo(),
+        ),
+        inventory=InventoryInfo(refs=0, commits=0, tags=0, unique_blobs=0, total_bytes=0),
+        findings=findings or [],
+        plan=PlanModel(),
+        summary=SummaryInfo(),
+        exit_code=0,
+    )

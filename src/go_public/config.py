@@ -9,13 +9,17 @@ built-in defaults. `$GO_PUBLIC_CONFIG`, the XDG file and the tracked `.go-public
 
 from __future__ import annotations
 
+import os
 import tomllib
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from go_public.detect.constants import DEFAULT_ALLOWED_PATH_PREFIXES, DEFAULT_INTERNAL_SUFFIXES
-from go_public.errors import ConfigError
+from go_public.errors import ConfigError, GitError
+from go_public.git.runner import GitRunner
+from go_public.model import repo_display_name
 
 _DEFAULT_SENSITIVE_FILES = (
     "id_rsa*",
@@ -177,3 +181,96 @@ def load_config(path: str | Path | None = None) -> Config:
         return Config.model_validate(data)
     except ValidationError as exc:
         raise ConfigError(f"invalid config {text_path}: {exc}") from exc
+
+
+# -- discovery (stage 4): --config > $GO_PUBLIC_CONFIG > XDG file > tracked -------
+
+
+def xdg_config_path(repo: Path) -> Path:
+    """`$XDG_CONFIG_HOME/go-public/<repo-dir-name>.toml` (`$XDG_CONFIG_HOME` default
+    `~/.config`) — where `go-public init` writes and discovery's third step reads."""
+    xdg_home = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(xdg_home) if xdg_home else Path.home() / ".config"
+    return base / "go-public" / f"{repo_display_name(str(repo))}.toml"
+
+
+def _read_tracked_config_text(runner: GitRunner, ref: str) -> str | None:
+    """`.go-public.toml` at `ref`'s tree, or `None` when the repo has none there.
+    Uses `cat-file -p <ref>:<path>`, a single read-only call any `source`-role runner
+    already allows (architecture.md "Git runner")."""
+    try:
+        content = runner.run(["cat-file", "-p", f"{ref}:.go-public.toml"])
+    except GitError:
+        return None
+    return content.decode("utf-8", errors="replace")
+
+
+def _tracked_allowlist_config(text: str) -> Config:
+    """Only `[allowlist]` is read from a *tracked* config (architecture.md "Config"
+    discovery order: "tracked `.go-public.toml`... (allowlists only)"); every other
+    table a committed file might carry is ignored here (`detect/files.py`'s
+    `check_tracked_config`/`scan.py`'s `_scan_tracked_config` separately flag a
+    non-empty `[deny]` table there as a critical finding, so this never silently lets
+    a committed repo widen its own scan)."""
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        return Config()
+    allowlist_data = data.get("allowlist")
+    if not isinstance(allowlist_data, dict):
+        return Config()
+    try:
+        return Config(allowlist=AllowlistConfig.model_validate(allowlist_data))
+    except ValidationError:
+        return Config()
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigDiscovery:
+    config: Config
+    source: str
+    warnings: list[str] = field(default_factory=list)
+
+
+def discover_config(
+    *,
+    explicit: str | Path | None,
+    repo: Path,
+    runner: GitRunner | None = None,
+    export_ref: str = "HEAD",
+) -> ConfigDiscovery:
+    """Resolve go-public's config the way architecture.md's "Config" fixes it:
+    `--config` (`explicit`) wins outright; else `$GO_PUBLIC_CONFIG`; else the XDG
+    file (ignored with a warning when its own `[repo] path` names a different
+    repository); else a tracked `.go-public.toml` at `export_ref` (allowlists only,
+    read through `runner` when given); else the built-in defaults. `source` is a
+    short description for `Report.scan.options.config_source`."""
+    if explicit is not None:
+        return ConfigDiscovery(config=load_config(explicit), source=str(explicit))
+
+    env_path = os.environ.get("GO_PUBLIC_CONFIG")
+    if env_path:
+        return ConfigDiscovery(config=load_config(env_path), source=f"env:{env_path}")
+
+    warnings: list[str] = []
+    xdg_path = xdg_config_path(repo)
+    if xdg_path.is_file():
+        candidate = load_config(xdg_path)
+        configured_path = candidate.repo.path.strip()
+        if configured_path and Path(configured_path).resolve() != repo.resolve():
+            warnings.append(
+                f"ignoring {xdg_path}: [repo] path {configured_path!r} names a different repository"
+            )
+        else:
+            return ConfigDiscovery(config=candidate, source=str(xdg_path), warnings=warnings)
+
+    if runner is not None:
+        text = _read_tracked_config_text(runner, export_ref)
+        if text is not None:
+            return ConfigDiscovery(
+                config=_tracked_allowlist_config(text),
+                source=f".go-public.toml@{export_ref}",
+                warnings=warnings,
+            )
+
+    return ConfigDiscovery(config=Config(), source="defaults", warnings=warnings)

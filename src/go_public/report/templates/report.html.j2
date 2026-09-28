@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<title>go-public scan report — {{ report.repo.name }}</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #5b5b5b;
+  --border: #d8d8d8;
+  --row-alt: #f5f5f5;
+  --chip-bg: #eef1f4;
+  --link: #0645ad;
+  --sev-critical: #8b0000;
+  --sev-high: #b3390d;
+  --sev-medium: #8a6d00;
+  --sev-low: #2f6f2f;
+  --sev-info: #3a5a8c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212;
+    --fg: #e8e8e8;
+    --muted: #a0a0a0;
+    --border: #3a3a3a;
+    --row-alt: #1b1b1b;
+    --chip-bg: #222833;
+    --link: #8ab4f8;
+    --sev-critical: #ff6b6b;
+    --sev-high: #ff9d5c;
+    --sev-medium: #ffd166;
+    --sev-low: #7bd88f;
+    --sev-info: #8ab4f8;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 24px;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+h1 { font-size: 1.4rem; margin: 0 0 4px; }
+h2 { font-size: 1.1rem; margin: 28px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.muted { color: var(--muted); }
+.notice { color: var(--muted); font-style: italic; margin: 4px 0 16px; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+code { background: var(--chip-bg); padding: 1px 4px; border-radius: 3px; }
+pre { background: var(--chip-bg); padding: 8px 10px; border-radius: 4px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tbody tr:nth-child(even) { background: var(--row-alt); }
+.controls { display: flex; flex-wrap: wrap; gap: 16px; margin: 8px 0 16px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; }
+.controls fieldset { border: none; margin: 0; padding: 0; }
+.controls legend { font-weight: 600; padding: 0 0 4px; }
+.controls label { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; white-space: nowrap; }
+.chip { display: inline-block; background: var(--chip-bg); border-radius: 3px; padding: 1px 6px; margin: 1px; font-size: 0.85em; }
+.sev-critical { color: var(--sev-critical); font-weight: 600; }
+.sev-high { color: var(--sev-high); font-weight: 600; }
+.sev-medium { color: var(--sev-medium); }
+.sev-low { color: var(--sev-low); }
+.sev-info { color: var(--sev-info); }
+.hidden-row { display: none; }
+footer { margin-top: 32px; color: var(--muted); font-size: 0.85em; }
+</style>
+</head>
+<body>
+<h1>go-public scan report — {{ report.repo.name }}</h1>
+<p class="notice">These are facts to review, not legal conclusions.</p>
+<p class="muted">
+  Schema <code>{{ report.schema_version }}</code> ·
+  {{ report.tool.name }} {{ report.tool.version }} ·
+  scanned {{ report.scan.started_at }} → {{ report.scan.finished_at }}
+  ({{ "%.2f"|format(report.scan.duration_s) }}s) · git {{ report.scan.git_version }}<br>
+  Export ref <code>{{ report.repo.export_ref }}</code>{% if report.repo.export_commit %} (<code>{{ report.repo.export_commit }}</code>){% endif %}
+  · config <code>{{ report.scan.options.config_source }}</code>
+</p>
+<p>inventory: {{ report.inventory.refs }} refs, {{ report.inventory.commits }} commits,
+  {{ report.inventory.tags }} tags, {{ report.inventory.unique_blobs }} unique blobs,
+  {{ report.inventory.total_bytes }} bytes{% if report.inventory.unreachable_blobs %},
+  {{ report.inventory.unreachable_blobs }} unreachable blobs{% endif %}</p>
+
+{% if report.warnings %}
+<h2>Warnings</h2>
+<ul>
+{% for w in report.warnings %}
+  <li><strong>{{ w.code }}</strong>: {{ w.message }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<h2>Fix plan</h2>
+
+<h3>A. Rotate now ({{ report.plan.A|length }})</h3>
+{% if report.plan.A %}
+<table>
+<thead><tr><th>Secret id</th><th>Rule</th><th>Status</th><th>Occurrences</th><th>At HEAD</th><th>Preview</th></tr></thead>
+<tbody>
+{% for e in report.plan.A %}
+<tr><td><code>{{ e.secret_id }}</code></td><td>{{ e.rule_id }}</td>
+<td>{{ e.status }}{% if e.rotated_reason %} <span class="muted">({{ e.rotated_reason }})</span>{% endif %}</td>
+<td>{{ e.occurrences }}</td><td>{{ "yes" if e.present_at_export_ref else "no" }}</td>
+<td><code>{{ e.preview }}</code></td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="muted">None.</p>
+{% endif %}
+
+<h3>B. Fix at HEAD ({{ report.plan.B|length }})</h3>
+{% if report.plan.B %}
+<table>
+<thead><tr><th>Path / kind</th><th>Categories</th><th>Action</th><th>Findings</th></tr></thead>
+<tbody>
+{% for g in report.plan.B %}
+<tr><td>{% if g.is_path %}<code>{{ g.key }}</code>{% else %}{{ g.key }}{% endif %}</td>
+<td>{% for c in g.categories %}<span class="chip">{{ c }}</span>{% endfor %}</td>
+<td>{{ g.action }}</td><td>{{ g.findings|length }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="muted">None.</p>
+{% endif %}
+
+<h3>C. Removed by a squash export ({{ report.plan.C|length }})</h3>
+{% if report.plan.C %}
+<table>
+<thead><tr><th>Path / kind</th><th>Categories</th><th>Action</th><th>Findings</th></tr></thead>
+<tbody>
+{% for g in report.plan.C %}
+<tr><td>{% if g.is_path %}<code>{{ g.key }}</code>{% else %}{{ g.key }}{% endif %}</td>
+<td>{% for c in g.categories %}<span class="chip">{{ c }}</span>{% endfor %}</td>
+<td>{{ g.action }}</td><td>{{ g.findings|length }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="muted">None.</p>
+{% endif %}
+
+<h3>D. Decide ({{ report.plan.D|length }})</h3>
+{% if report.plan.D %}
+<table>
+<thead><tr><th>Category</th><th>Findings</th></tr></thead>
+<tbody>
+{% for d in report.plan.D %}
+<tr><td>{{ d.category }}</td><td>{{ d.findings|length }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="muted">None.</p>
+{% endif %}
+
+{% if report.plan.identity_notes %}
+<p>Names/identities you would still map (via <code>--mailmap</code> or the export
+identity) if you choose <code>--keep-history</code> instead of a squash export:</p>
+<ul>
+{% for name in report.plan.identity_notes %}
+  <li>{{ name }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<p><strong>Next commands:</strong></p>
+{% if report.plan.next_commands %}
+<pre>{% for cmd in report.plan.next_commands %}{{ cmd }}
+{% endfor %}</pre>
+{% else %}
+<p class="muted">None — nothing left to act on.</p>
+{% endif %}
+
+<h2>Findings ({{ report.findings|length }})</h2>
+{% if report.findings %}
+<div class="controls">
+  <fieldset>
+    <legend>Severity</legend>
+    {% for sev in ["critical", "high", "medium", "low", "info"] %}
+    <label><input type="checkbox" class="sev-filter" value="{{ sev }}" checked> {{ sev }}</label>
+    {% endfor %}
+  </fieldset>
+  <fieldset>
+    <legend>Category</legend>
+    {% for cat in report.findings|map(attribute="category")|unique|sort %}
+    <label><input type="checkbox" class="cat-filter" value="{{ cat }}" checked> {{ cat }}</label>
+    {% endfor %}
+  </fieldset>
+</div>
+<table id="findings-table">
+<thead><tr><th>Severity</th><th>Category</th><th>Rule</th><th>Location</th><th>Preview</th><th>Fingerprint</th></tr></thead>
+<tbody>
+{% for f in report.findings %}
+<tr data-severity="{{ f.severity }}" data-category="{{ f.category }}">
+<td class="sev-{{ f.severity }}">{{ f.severity }}</td>
+<td>{{ f.category }}</td>
+<td>{{ f.rule_id }}</td>
+<td>{{ f.location.kind }}{% if f.location.paths %}: <code>{{ f.location.paths|join(", ") }}</code>{% endif %}</td>
+<td><code>{{ f.preview }}</code></td>
+<td><code>{{ f.fingerprint }}</code></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="muted">No findings.</p>
+{% endif %}
+
+<h2>Suppressed ({{ report.suppressed|length }})</h2>
+{% if report.suppressed %}
+<table>
+<thead><tr><th>Fingerprint</th><th>Category</th><th>Rule</th><th>Source</th><th>Reason</th></tr></thead>
+<tbody>
+{% for s in report.suppressed %}
+<tr><td><code>{{ s.fingerprint }}</code></td><td>{{ s.category }}</td><td>{{ s.rule_id }}</td>
+<td>{{ s.source }}</td><td>{{ s.reason }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="muted">None.</p>
+{% endif %}
+
+<h2>Rotated ({{ report.rotated|length }})</h2>
+{% if report.rotated %}
+<table>
+<thead><tr><th>id</th><th>reason</th></tr></thead>
+<tbody>
+{% for r in report.rotated %}
+<tr><td><code>{{ r.id }}</code></td><td>{{ r.reason }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p class="muted">None.</p>
+{% endif %}
+
+<footer>
+  Exit code {{ report.exit_code }} (<code>--fail-on {{ report.scan.options.fail_on }}</code>,
+  blocking: {{ report.summary.blocking }}) · produced by <code>go-public</code>, fully offline —
+  this page makes no network requests.
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var table = document.getElementById("findings-table");
+  if (!table) { return; }
+  var sevBoxes = Array.prototype.slice.call(document.querySelectorAll(".sev-filter"));
+  var catBoxes = Array.prototype.slice.call(document.querySelectorAll(".cat-filter"));
+  var rows = Array.prototype.slice.call(table.tBodies[0].rows);
+
+  function activeValues(boxes) {
+    var values = [];
+    boxes.forEach(function (box) {
+      if (box.checked) { values.push(box.value); }
+    });
+    return values;
+  }
+
+  function applyFilter() {
+    var severities = activeValues(sevBoxes);
+    var categories = activeValues(catBoxes);
+    rows.forEach(function (row) {
+      var show = severities.indexOf(row.getAttribute("data-severity")) !== -1 &&
+        categories.indexOf(row.getAttribute("data-category")) !== -1;
+      row.classList.toggle("hidden-row", !show);
+    });
+  }
+
+  sevBoxes.concat(catBoxes).forEach(function (box) {
+    box.addEventListener("change", applyFilter);
+  });
+})();
+</script>
+</body>
+</html>

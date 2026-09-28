@@ -1,0 +1,826 @@
+{
+  "$defs": {
+    "Finding": {
+      "additionalProperties": false,
+      "description": "One detection, attributed to its commits/refs and ready for the report and\nfix plan (architecture.md \"Finding model\").",
+      "properties": {
+        "fingerprint": {
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "group_id": {
+          "title": "Group Id",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "severity": {
+          "title": "Severity",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Location"
+        },
+        "location_key": {
+          "title": "Location Key",
+          "type": "string"
+        },
+        "commits": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commits",
+          "type": "array"
+        },
+        "commits_total": {
+          "default": 0,
+          "title": "Commits Total",
+          "type": "integer"
+        },
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "refs_total": {
+          "default": 0,
+          "title": "Refs Total",
+          "type": "integer"
+        },
+        "present_at_export_ref": {
+          "default": false,
+          "title": "Present At Export Ref",
+          "type": "boolean"
+        },
+        "preview": {
+          "default": "",
+          "title": "Preview",
+          "type": "string"
+        },
+        "fix": {
+          "$ref": "#/$defs/FixAction"
+        },
+        "extra": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "required": [
+        "fingerprint",
+        "group_id",
+        "category",
+        "rule_id",
+        "severity",
+        "title",
+        "location",
+        "location_key",
+        "fix"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "FixAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "FixAction",
+      "type": "object"
+    },
+    "InventoryInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "refs": {
+          "title": "Refs",
+          "type": "integer"
+        },
+        "commits": {
+          "title": "Commits",
+          "type": "integer"
+        },
+        "tags": {
+          "title": "Tags",
+          "type": "integer"
+        },
+        "unique_blobs": {
+          "title": "Unique Blobs",
+          "type": "integer"
+        },
+        "total_bytes": {
+          "title": "Total Bytes",
+          "type": "integer"
+        },
+        "unreachable_blobs": {
+          "default": 0,
+          "title": "Unreachable Blobs",
+          "type": "integer"
+        },
+        "ref_list": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ref List",
+          "type": "array"
+        },
+        "missing_objects": {
+          "default": 0,
+          "title": "Missing Objects",
+          "type": "integer"
+        },
+        "lfs_pointers": {
+          "default": 0,
+          "title": "Lfs Pointers",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "refs",
+        "commits",
+        "tags",
+        "unique_blobs",
+        "total_bytes"
+      ],
+      "title": "InventoryInfo",
+      "type": "object"
+    },
+    "Location": {
+      "additionalProperties": false,
+      "description": "Where a finding was found. Only the fields relevant to `kind` are set; the\nrest stay `None`/empty, per architecture.md.",
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "blob": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blob"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line"
+        },
+        "column": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column"
+        },
+        "commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit"
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tag"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field"
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identity"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Location",
+      "type": "object"
+    },
+    "PlanDecideItem": {
+      "additionalProperties": false,
+      "description": "`plan.py` group D: one row per category (licence, large-file) at the export\nref (architecture.md: \"licence category + large-file findings at the export\nref\").",
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "category"
+      ],
+      "title": "PlanDecideItem",
+      "type": "object"
+    },
+    "PlanEntryA": {
+      "additionalProperties": false,
+      "description": "`plan.py` group A: one row per secret `group_id` (architecture.md \"Fix plan\").",
+      "properties": {
+        "secret_id": {
+          "title": "Secret Id",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "preview": {
+          "title": "Preview",
+          "type": "string"
+        },
+        "occurrences": {
+          "title": "Occurrences",
+          "type": "integer"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        },
+        "commits": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commits",
+          "type": "array"
+        },
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "present_at_export_ref": {
+          "title": "Present At Export Ref",
+          "type": "boolean"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "rotated_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rotated Reason"
+        }
+      },
+      "required": [
+        "secret_id",
+        "rule_id",
+        "preview",
+        "occurrences",
+        "present_at_export_ref",
+        "status"
+      ],
+      "title": "PlanEntryA",
+      "type": "object"
+    },
+    "PlanFileGroup": {
+      "additionalProperties": false,
+      "description": "`plan.py` groups B/C: one row per file path, or (`is_path=False`) per location\nkind for non-file items (architecture.md: \"grouped per file path (non-file items\ngrouped under their kind)\").",
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "is_path": {
+          "title": "Is Path",
+          "type": "boolean"
+        },
+        "categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Categories",
+          "type": "array"
+        },
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "fix_text": {
+          "default": "",
+          "title": "Fix Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "is_path",
+        "action"
+      ],
+      "title": "PlanFileGroup",
+      "type": "object"
+    },
+    "PlanModel": {
+      "additionalProperties": false,
+      "description": "architecture.md \"Fix plan\": `plan{A[], B[], C[], D[], next_commands[]}`.\n`identity_notes` is a stage-4 addition beyond that literal shape (recorded as a\ndeviation in STATUS.md): product spec item 12 group D also carries \"names if you\nkeep history\", a plain FYI list of identity strings rather than findings, which\ndoes not fit `PlanDecideItem`'s per-category/fingerprint shape.",
+      "properties": {
+        "A": {
+          "items": {
+            "$ref": "#/$defs/PlanEntryA"
+          },
+          "title": "A",
+          "type": "array"
+        },
+        "B": {
+          "items": {
+            "$ref": "#/$defs/PlanFileGroup"
+          },
+          "title": "B",
+          "type": "array"
+        },
+        "C": {
+          "items": {
+            "$ref": "#/$defs/PlanFileGroup"
+          },
+          "title": "C",
+          "type": "array"
+        },
+        "D": {
+          "items": {
+            "$ref": "#/$defs/PlanDecideItem"
+          },
+          "title": "D",
+          "type": "array"
+        },
+        "identity_notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Identity Notes",
+          "type": "array"
+        },
+        "next_commands": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Next Commands",
+          "type": "array"
+        }
+      },
+      "title": "PlanModel",
+      "type": "object"
+    },
+    "RepoInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "bare": {
+          "title": "Bare",
+          "type": "boolean"
+        },
+        "object_format": {
+          "title": "Object Format",
+          "type": "string"
+        },
+        "export_ref": {
+          "title": "Export Ref",
+          "type": "string"
+        },
+        "export_commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Export Commit"
+        }
+      },
+      "required": [
+        "name",
+        "bare",
+        "object_format",
+        "export_ref"
+      ],
+      "title": "RepoInfo",
+      "type": "object"
+    },
+    "RotatedInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "reason"
+      ],
+      "title": "RotatedInfo",
+      "type": "object"
+    },
+    "ScanInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "started_at": {
+          "title": "Started At",
+          "type": "string"
+        },
+        "finished_at": {
+          "title": "Finished At",
+          "type": "string"
+        },
+        "duration_s": {
+          "title": "Duration S",
+          "type": "number"
+        },
+        "git_version": {
+          "title": "Git Version",
+          "type": "string"
+        },
+        "options": {
+          "$ref": "#/$defs/ScanOptionsInfo"
+        }
+      },
+      "required": [
+        "started_at",
+        "finished_at",
+        "duration_s",
+        "git_version",
+        "options"
+      ],
+      "title": "ScanInfo",
+      "type": "object"
+    },
+    "ScanOptionsInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "include_unreachable": {
+          "default": false,
+          "title": "Include Unreachable",
+          "type": "boolean"
+        },
+        "head_only": {
+          "default": false,
+          "title": "Head Only",
+          "type": "boolean"
+        },
+        "fail_on": {
+          "default": "high",
+          "title": "Fail On",
+          "type": "string"
+        },
+        "jobs": {
+          "default": 0,
+          "title": "Jobs",
+          "type": "integer"
+        },
+        "detect_names": {
+          "default": false,
+          "title": "Detect Names",
+          "type": "boolean"
+        },
+        "show_secrets": {
+          "default": false,
+          "title": "Show Secrets",
+          "type": "boolean"
+        },
+        "config_source": {
+          "default": "defaults",
+          "title": "Config Source",
+          "type": "string"
+        }
+      },
+      "title": "ScanOptionsInfo",
+      "type": "object"
+    },
+    "SummaryInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "by_group": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Group",
+          "type": "object"
+        },
+        "by_category": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Category",
+          "type": "object"
+        },
+        "by_severity": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Severity",
+          "type": "object"
+        },
+        "blocking": {
+          "default": 0,
+          "title": "Blocking",
+          "type": "integer"
+        }
+      },
+      "title": "SummaryInfo",
+      "type": "object"
+    },
+    "SuppressedInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "fingerprint": {
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "group_id": {
+          "title": "Group Id",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pattern"
+        }
+      },
+      "required": [
+        "fingerprint",
+        "group_id",
+        "category",
+        "rule_id",
+        "source"
+      ],
+      "title": "SuppressedInfo",
+      "type": "object"
+    },
+    "ToolInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "go-public",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "ToolInfo",
+      "type": "object"
+    },
+    "WarningInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "WarningInfo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The top-level report object; `report/json.py` writes this straight to JSON,\nand `report/md.py`/`report/html.py` render it. `model_json_schema()` on this\nclass is `schemas/go-public-report-v1.json`'s source of truth.",
+  "properties": {
+    "schema_version": {
+      "default": "go-public-report-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolInfo"
+    },
+    "repo": {
+      "$ref": "#/$defs/RepoInfo"
+    },
+    "scan": {
+      "$ref": "#/$defs/ScanInfo"
+    },
+    "inventory": {
+      "$ref": "#/$defs/InventoryInfo"
+    },
+    "warnings": {
+      "items": {
+        "$ref": "#/$defs/WarningInfo"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "suppressed": {
+      "items": {
+        "$ref": "#/$defs/SuppressedInfo"
+      },
+      "title": "Suppressed",
+      "type": "array"
+    },
+    "rotated": {
+      "items": {
+        "$ref": "#/$defs/RotatedInfo"
+      },
+      "title": "Rotated",
+      "type": "array"
+    },
+    "plan": {
+      "$ref": "#/$defs/PlanModel"
+    },
+    "summary": {
+      "$ref": "#/$defs/SummaryInfo"
+    },
+    "exit_code": {
+      "title": "Exit Code",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "tool",
+    "repo",
+    "scan",
+    "inventory",
+    "plan",
+    "summary",
+    "exit_code"
+  ],
+  "title": "Report",
+  "type": "object"
+}

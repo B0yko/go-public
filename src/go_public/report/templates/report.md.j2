@@ -1,0 +1,128 @@
+# go-public scan report — {{ report.repo.name }}
+
+These are facts to review, not legal conclusions.
+
+Schema: `{{ report.schema_version }}` · Tool: {{ report.tool.name }} {{ report.tool.version }}
+Scanned: {{ report.scan.started_at }} → {{ report.scan.finished_at }} ({{ "%.2f"|format(report.scan.duration_s) }}s) · git {{ report.scan.git_version }}
+Export ref: `{{ report.repo.export_ref }}`{% if report.repo.export_commit %} (`{{ report.repo.export_commit }}`){% endif %} · config: `{{ report.scan.options.config_source }}`
+
+inventory: {{ report.inventory.refs }} refs, {{ report.inventory.commits }} commits, {{ report.inventory.tags }} tags, {{ report.inventory.unique_blobs }} unique blobs, {{ report.inventory.total_bytes }} bytes{% if report.inventory.unreachable_blobs %}, {{ report.inventory.unreachable_blobs }} unreachable blobs{% endif %}
+
+{% if report.warnings %}
+## Warnings
+
+{% for w in report.warnings %}
+- **{{ w.code }}**: {{ w.message }}
+{% endfor %}
+
+{% endif %}
+## Fix plan
+
+### A. Rotate now ({{ report.plan.A|length }})
+
+{% if report.plan.A %}
+| Secret id | Rule | Status | Occurrences | At HEAD | Preview |
+|---|---|---|---|---|---|
+{% for e in report.plan.A %}
+| `{{ e.secret_id }}` | {{ e.rule_id }} | {{ e.status }}{% if e.rotated_reason %} ({{ e.rotated_reason|mdcell }}){% endif %} | {{ e.occurrences }} | {{ "yes" if e.present_at_export_ref else "no" }} | `{{ e.preview|mdcell }}` |
+{% endfor %}
+{% else %}
+None.
+{% endif %}
+
+### B. Fix at HEAD ({{ report.plan.B|length }})
+
+{% if report.plan.B %}
+| Path / kind | Categories | Action | Findings |
+|---|---|---|---|
+{% for g in report.plan.B %}
+| {% if g.is_path %}`{{ g.key|mdcell }}`{% else %}{{ g.key }}{% endif %} | {{ g.categories|join(", ") }} | {{ g.action }} | {{ g.findings|length }} |
+{% endfor %}
+{% else %}
+None.
+{% endif %}
+
+### C. Removed by a squash export ({{ report.plan.C|length }})
+
+{% if report.plan.C %}
+| Path / kind | Categories | Action | Findings |
+|---|---|---|---|
+{% for g in report.plan.C %}
+| {% if g.is_path %}`{{ g.key|mdcell }}`{% else %}{{ g.key }}{% endif %} | {{ g.categories|join(", ") }} | {{ g.action }} | {{ g.findings|length }} |
+{% endfor %}
+{% else %}
+None.
+{% endif %}
+
+### D. Decide ({{ report.plan.D|length }})
+
+{% if report.plan.D %}
+| Category | Findings |
+|---|---|
+{% for d in report.plan.D %}
+| {{ d.category }} | {{ d.findings|length }} |
+{% endfor %}
+{% else %}
+None.
+{% endif %}
+
+{% if report.plan.identity_notes %}
+Names/identities you would still map (via `--mailmap` or the export identity) if you
+choose `--keep-history` instead of a squash export:
+
+{% for name in report.plan.identity_notes %}
+- {{ name|mdcell }}
+{% endfor %}
+
+{% endif %}
+**Next commands:**
+
+{% if report.plan.next_commands %}
+{% for cmd in report.plan.next_commands %}
+```
+{{ cmd }}
+```
+{% endfor %}
+{% else %}
+None — nothing left to act on.
+{% endif %}
+
+## Findings ({{ report.findings|length }})
+
+{% if report.findings %}
+| Severity | Category | Rule | Location | Preview | Fingerprint |
+|---|---|---|---|---|---|
+{% for f in report.findings %}
+| {{ f.severity }} | {{ f.category }} | {{ f.rule_id }} | {{ f.location.kind }}{% if f.location.paths %}: `{{ f.location.paths|join(", ")|mdcell }}`{% endif %} | `{{ f.preview|mdcell }}` | `{{ f.fingerprint }}` |
+{% endfor %}
+{% else %}
+No findings.
+{% endif %}
+
+## Suppressed ({{ report.suppressed|length }})
+
+{% if report.suppressed %}
+| Fingerprint | Category | Rule | Source | Reason |
+|---|---|---|---|---|
+{% for s in report.suppressed %}
+| `{{ s.fingerprint }}` | {{ s.category }} | {{ s.rule_id }} | {{ s.source }} | {{ s.reason|mdcell }} |
+{% endfor %}
+{% else %}
+None.
+{% endif %}
+
+## Rotated ({{ report.rotated|length }})
+
+{% if report.rotated %}
+| id | reason |
+|---|---|
+{% for r in report.rotated %}
+| `{{ r.id }}` | {{ r.reason|mdcell }} |
+{% endfor %}
+{% else %}
+None.
+{% endif %}
+
+---
+
+Exit code: {{ report.exit_code }} (`--fail-on {{ report.scan.options.fail_on }}`, blocking: {{ report.summary.blocking }})
