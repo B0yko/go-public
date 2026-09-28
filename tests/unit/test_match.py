@@ -40,6 +40,12 @@ def test_eval_class_for_finding_splits_generic_from_vendor() -> None:
     assert eval_class_for_finding(_finding(rule_id="generic-entropy")) == "secret-generic"
 
 
+def test_eval_class_for_finding_splits_pii_by_rule_id() -> None:
+    assert eval_class_for_finding(_finding(category="pii", rule_id="pii-email")) == "pii-email"
+    assert eval_class_for_finding(_finding(category="pii", rule_id="pii-phone")) == "pii-phone"
+    assert eval_class_for_finding(_finding(category="pii", rule_id="pii-name")) == "pii-name"
+
+
 def test_matching_blob_finding_satisfies_expected_entry() -> None:
     truth = [_truth("p1", "secret-vendor", "blob", {"blob": "b1", "line": 1})]
     findings = [_finding()]

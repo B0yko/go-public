@@ -32,6 +32,11 @@ def eval_class_for_finding(finding: Finding) -> str:
     """Which truth `eval_class` bucket a finding counts against."""
     if finding.category == "secret":
         return "secret-generic" if finding.rule_id in _GENERIC_SECRET_RULE_IDS else "secret-vendor"
+    if finding.category == "pii":
+        # `detect/pii.py`'s rule ids (pii-email/pii-phone/pii-name) already spell out
+        # the truth eval_class (architecture.md: "PII split into email, phone and
+        # name" for the per-category recall/precision table).
+        return finding.rule_id
     return finding.category
 
 

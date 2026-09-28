@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import random
 
-from go_public.bench.plants import FixtureContext, LocationType, Plant
+from go_public.bench.plants import FixtureContext, LocationType, Plant, blob_id
 from go_public.bench.plants._fictional import (
     DENY_REGEX_VALUE,
     ORG_DOMAIN,
     ORG_TERM,
     TICKET_PREFIX,
 )
+from go_public.bench.truth import ExpectedFinding
 
 _CONTENT_LOCATIONS: tuple[LocationType, ...] = (
     "head",
@@ -56,6 +57,13 @@ def _term_plant(index: int, location_type: LocationType) -> Plant:
 
 def _domain_plant(index: int, location_type: LocationType) -> Plant:
     content = f'homepage = "https://{ORG_DOMAIN}/docs"\n'.encode()
+    # `ORG_DOMAIN` is also configured as `[network] internal_suffixes`... no: it is
+    # itself one of `[deny] domains`, and `detect/paths_network.py`'s internal-host
+    # check independently flags "any host under a deny-list domain" (product spec
+    # item 5) — so this same span is a real secondary network finding, not a false
+    # positive.
+    secondary_kind = "unreachable_blob" if location_type == "unreachable" else "blob"
+    blob = blob_id(content)
     return Plant(
         plant_id=f"org-identifier-domain-{index:02d}",
         category="org-identifier",
@@ -63,6 +71,14 @@ def _domain_plant(index: int, location_type: LocationType) -> Plant:
         content=content,
         eval_class="org-identifier",
         rule_family="deny-domain",
+        expected_extra=[
+            ExpectedFinding(
+                category="network",
+                eval_class="network",
+                kind=secondary_kind,
+                key={"blob": blob, "line": 1},
+            )
+        ],
     )
 
 
@@ -98,6 +114,11 @@ def _path_name_plant() -> Plant:
         location_type="path_name",
         path=f"{slug}/README.md",
         content=b"# project notes\n",
+        # `_blob_commit`'s default commit message embeds the path itself ("chore:
+        # add <path>"), which would put the deny term in the commit message too and
+        # produce an extra, undeclared org-identifier finding there. An explicit,
+        # neutral message keeps this plant's only finding the intended path-kind one.
+        message="chore: add project file",
         eval_class="org-identifier",
         rule_family="deny-term",
     )
