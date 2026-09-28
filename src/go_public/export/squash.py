@@ -31,7 +31,7 @@ from go_public.detect.files import FilesDetector, check_tracked_config
 from go_public.errors import ExportError, GitError, UsageError
 from go_public.export import precheck
 from go_public.export.strip import strip_bytes
-from go_public.git.inventory import build_head_only
+from go_public.git.inventory import build_head_only, repository_roots
 from go_public.git.objects import CatFileBatch
 from go_public.git.runner import GitRunner
 from go_public.model import Finding, severity_rank
@@ -91,11 +91,12 @@ def resolve_commit_date(text: str, *, now: datetime | None = None) -> str:
     return f"@{int(moment.timestamp())} +0000"
 
 
-def validate_out_dir(out: Path, *, source: Path, source_git_dir: Path) -> Path:
+def validate_out_dir(out: Path, *, source: Path, roots: list[Path]) -> Path:
     """`--out` must not exist or be an empty directory, and must lie outside the source
-    repository (working tree and git directory alike). Returns the resolved path."""
+    repository: the given path, the work tree it belongs to and the git directories
+    (`roots`, see `repository_roots`). Returns the resolved path."""
     resolved = out.resolve()
-    for protected in {source.resolve(), source_git_dir.resolve()}:
+    for protected in {source.resolve(), *roots}:
         if resolved == protected or protected in resolved.parents:
             raise UsageError(f"--out must be outside the source repository: {out}")
     if resolved.exists():
@@ -236,15 +237,17 @@ def run_squash(request: SquashRequest, log: Log) -> SquashResult:
         )
     if not request.check_only and request.out is None:
         raise UsageError("--out is required (unless --check)")
-    source_git_dir = Path(source_runner.run(["rev-parse", "--absolute-git-dir"]).decode().strip())
+    roots = repository_roots(source_runner)
     out = (
-        validate_out_dir(request.out, source=request.source, source_git_dir=source_git_dir)
+        validate_out_dir(request.out, source=request.source, roots=roots)
         if request.out is not None
         else None
     )
     if out is not None and not request.check_only:
         # Fail before doing any work when the report location would be refused.
-        resolve_report_dir(repo_name=out.name, scanned_repo=out, override=request.report_dir)
+        resolve_report_dir(
+            repo_name=out.name, scanned_repo=out, override=request.report_dir, protected=roots
+        )
 
     inventory = build_head_only(source_runner, export_ref=request.ref)
     outcome = precheck.run(
@@ -278,7 +281,7 @@ def run_squash(request: SquashRequest, log: Log) -> SquashResult:
     preexisting = out.exists()
     try:
         _build_export(request, source_runner, out, request.author, result, log)
-        _rescan(request, out, request.author, result, log)
+        _rescan(request, out, request.author, result, log, roots)
     except BaseException:
         _remove_partial(out, keep_dir=preexisting)
         raise
@@ -343,7 +346,9 @@ def _build_export(
         .decode()
         .strip()
     )
-    export_runner.run(["update-ref", "refs/heads/main", commit])
+    # The reflog line records a committer: without the export identity here git would
+    # fall back to the OS account name and host name.
+    export_runner.run(["update-ref", "refs/heads/main", commit], env=env)
     result.tree = tree
     result.commit = commit
 
@@ -449,7 +454,12 @@ def _write_blobs(
 
 
 def _rescan(
-    request: SquashRequest, out: Path, author: Identity, result: SquashResult, log: Log
+    request: SquashRequest,
+    out: Path,
+    author: Identity,
+    result: SquashResult,
+    log: Log,
+    source_roots: list[Path],
 ) -> None:
     """Step 7: re-scan the export, unreachable objects included, with the export
     identity allowed; `NOT CLEAN` keeps the directory and exits 1."""
@@ -476,7 +486,9 @@ def _rescan(
         fail_on=request.fail_on,
         include_unreachable=True,
     )
-    result.report_paths = write_reports(assessment.report, out, request.report_dir)
+    result.report_paths = write_reports(
+        assessment.report, out, request.report_dir, protected=source_roots
+    )
     log(f"re-scan report: {result.report_paths['json'].parent}")
     if assessment.report.exit_code:
         result.clean = False

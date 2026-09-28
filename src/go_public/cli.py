@@ -22,7 +22,7 @@ from go_public.detect.gitleaks_config import load_gitleaks_config, rules_check
 from go_public.errors import GoPublicError, UsageError
 from go_public.export import squash as squash_mod
 from go_public.export import strip as strip_mod
-from go_public.git.inventory import Inventory, build
+from go_public.git.inventory import Inventory, build, repository_roots
 from go_public.git.runner import GitRunner, check_git_version
 from go_public.model import SEVERITIES, Finding, repo_display_name
 from go_public.report.build import write_reports
@@ -189,7 +189,9 @@ def scan(
     report_obj = assessment.report
     refined_findings = assessment.findings
 
-    report_paths = write_reports(report_obj, repo_resolved, report_dir)
+    report_paths = write_reports(
+        report_obj, repo_resolved, report_dir, protected=repository_roots(runner)
+    )
 
     if summary_json:
         typer.echo(

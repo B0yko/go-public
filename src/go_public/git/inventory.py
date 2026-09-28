@@ -7,6 +7,7 @@ Everything here reads through a `source`-role :class:`GitRunner`; nothing writes
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from go_public.errors import UnsupportedRepo
 from go_public.git.objects import CatFileBatch, CommitObj, TagObj, parse_commit, parse_tag
@@ -156,6 +157,23 @@ def _check_object_format(runner: GitRunner) -> str:
 
 def _is_bare(runner: GitRunner) -> bool:
     return runner.run(["rev-parse", "--is-bare-repository"]).decode().strip() == "true"
+
+
+def repository_roots(runner: GitRunner) -> list[Path]:
+    """Directories go-public must never write into for this repository: the work tree's
+    top level (the source may be a subdirectory of it), the git directory, and the
+    common git directory (which differs for a linked worktree)."""
+    roots: list[Path] = []
+    top = runner.run(["rev-parse", "--show-toplevel"], check=False).decode().strip()
+    if top:
+        roots.append(Path(top))
+    roots.append(Path(runner.run(["rev-parse", "--absolute-git-dir"]).decode().strip()))
+    common = runner.run(
+        ["rev-parse", "--path-format=absolute", "--git-common-dir"], check=False
+    ).decode()
+    if common.strip():
+        roots.append(Path(common.strip()))
+    return [root.resolve() for root in dict.fromkeys(roots)]
 
 
 def _is_shallow(runner: GitRunner) -> bool:

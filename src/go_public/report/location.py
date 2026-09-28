@@ -8,6 +8,7 @@ one. `go-public allow --rotated` (`config_write.py`) reads that symlink back to 
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -35,17 +36,20 @@ def resolve_report_dir(
     scanned_repo: Path,
     override: Path | None = None,
     when: datetime | None = None,
+    protected: Iterable[Path] = (),
 ) -> Path:
     """The directory this scan's reports go in. Refused (exit 2, via `UsageError`)
     when it would land inside the scanned repository (working tree or bare repo
     directory alike) — product spec item 11: "written outside the scanned working
-    tree"."""
+    tree". `protected` adds further directories that count as the repository (its work
+    tree top level, git directories)."""
     target = (
         override.resolve()
         if override is not None
         else (default_report_root() / repo_name / timestamp_dir_name(when))
     )
-    _refuse_inside_scanned_repo(target, scanned_repo.resolve())
+    for root in (scanned_repo.resolve(), *protected):
+        _refuse_inside_scanned_repo(target, root)
     return target
 
 

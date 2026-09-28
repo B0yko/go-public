@@ -7,6 +7,7 @@ separately testable seam between `cli.py`'s `scan` command and `report/json.py`/
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
@@ -136,7 +137,10 @@ def assemble_report(
 
 
 def write_reports(
-    report_obj: Report, repo_resolved: Path, report_dir: Path | None
+    report_obj: Report,
+    repo_resolved: Path,
+    report_dir: Path | None,
+    protected: Iterable[Path] = (),
 ) -> dict[str, Path]:
     """Write `report.json`/`report.md`/`report.html` for `report_obj` under the
     resolved report location (`--report-dir` override, or the default `$XDG_STATE_
@@ -145,7 +149,7 @@ def write_reports(
     `export/squash.py`'s post-export re-scan, so both write reports the same way."""
     repo_name = repo_display_name(str(repo_resolved))
     target_dir = resolve_report_dir(
-        repo_name=repo_name, scanned_repo=repo_resolved, override=report_dir
+        repo_name=repo_name, scanned_repo=repo_resolved, override=report_dir, protected=protected
     )
     prepare_report_dir(target_dir)
     paths = {
