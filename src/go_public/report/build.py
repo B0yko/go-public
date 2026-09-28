@@ -7,7 +7,7 @@ separately testable seam between `cli.py`'s `scan` command and `report/json.py`/
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from pathlib import Path
 
@@ -72,10 +72,21 @@ def build_inventory_info(inventory: Inventory) -> InventoryInfo:
     )
 
 
-def build_summary(findings: list[Finding], plan: PlanModel, *, fail_on: str) -> SummaryInfo:
+def build_summary(
+    findings: list[Finding],
+    plan: PlanModel,
+    *,
+    fail_on: str,
+    exempt_from_exit: Callable[[Finding], bool] | None = None,
+) -> SummaryInfo:
     by_category = Counter(f.category for f in findings)
     by_severity = Counter(f.severity for f in findings)
-    blocking = sum(1 for f in findings if severity_rank(f.severity) >= severity_rank(fail_on))
+    blocking = sum(
+        1
+        for f in findings
+        if severity_rank(f.severity) >= severity_rank(fail_on)
+        and not (exempt_from_exit is not None and exempt_from_exit(f))
+    )
     return SummaryInfo(
         by_group={
             "A": len(plan.A),
@@ -104,11 +115,13 @@ def assemble_report(
     rotated: list[FingerprintEntry],
     plan: PlanModel,
     fail_on: str,
+    exempt_from_exit: Callable[[Finding], bool] | None = None,
 ) -> Report:
     """Build the full `Report`. `findings` is the refined (post-suppression,
     post-`plan.build_plan` fix-action) list; `exit_code` follows the same rule as
-    `scan`'s own process exit code (0 clean, 1 findings at/above `--fail-on`)."""
-    summary = build_summary(findings, plan, fail_on=fail_on)
+    `scan`'s own process exit code (0 clean, 1 findings at/above `--fail-on`);
+    `exempt_from_exit` names findings that are listed but do not count towards it."""
+    summary = build_summary(findings, plan, fail_on=fail_on, exempt_from_exit=exempt_from_exit)
     scan_info = ScanInfo(
         started_at=_iso(started_at),
         finished_at=_iso(finished_at),

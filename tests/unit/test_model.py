@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 
 import pytest
 from pydantic import ValidationError
@@ -94,3 +95,25 @@ def test_finding_rejects_unknown_field() -> None:
                 "unknown_field": "nope",
             }
         )
+
+
+def test_the_raw_value_is_available_but_never_serialised() -> None:
+    finding = Finding(
+        fingerprint="abc123def456",
+        group_id="fedcba987654",
+        category="secret",
+        rule_id="aws-access-token",
+        severity="critical",
+        title="t",
+        location=Location(kind="blob", blob="deadbeef"),
+        location_key="deadbeef:1:1",
+        fix=FixAction(action="rotate"),
+    )
+    assert finding.raw_value is None
+    finding.attach_value("the-literal-value")
+    assert finding.raw_value == "the-literal-value"
+    assert "the-literal-value" not in finding.model_dump_json()
+    assert "the-literal-value" not in repr(finding)
+    assert "the-literal-value" not in str(finding.model_dump())
+    assert "the-literal-value" not in json.dumps(Finding.model_json_schema())
+    assert finding.model_copy(update={"severity": "high"}).raw_value == "the-literal-value"

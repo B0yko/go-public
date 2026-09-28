@@ -1136,7 +1136,7 @@ def _finding_from_row(
     commits: list[str] = row["commits"]
     refs = _refs_for(row, inventory)
     value = row["value"]
-    return Finding(
+    finding = Finding(
         fingerprint=make_fingerprint(
             rule_id=row["rule_id"], kind=kind, location_key=location_key, value=value
         ),
@@ -1158,3 +1158,5 @@ def _finding_from_row(
         fix=_fix_for(row),
         extra=row["extra"],
     )
+    finding.attach_value(value)
+    return finding

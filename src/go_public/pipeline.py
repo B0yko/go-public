@@ -52,12 +52,14 @@ def assess(
     head_only: bool = False,
     on_inventory: Callable[[Inventory], None] | None = None,
     on_raw_findings: Callable[[list[Finding]], None] | None = None,
+    exempt_from_exit: Callable[[Finding], bool] | None = None,
 ) -> Assessment:
     """Scan `repo_path` (read through `runner`) against `ref` and assemble its report.
 
     `on_inventory` runs right after the inventory is built (the CLI prints the
     inventory line and warnings from it before the slow scan starts); `on_raw_findings`
-    receives the findings before suppression.
+    receives the findings before suppression. `exempt_from_exit` names findings that
+    stay in the report but do not count towards the exit decision.
     """
     started_at = datetime.now(UTC)
     if head_only:
@@ -101,5 +103,6 @@ def assess(
         rotated=config.rotated.fingerprints,
         plan=plan,
         fail_on=fail_on,
+        exempt_from_exit=exempt_from_exit,
     )
     return Assessment(inventory=inventory, findings=refined, report=report)

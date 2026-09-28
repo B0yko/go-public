@@ -35,7 +35,7 @@ from go_public.git.inventory import build_head_only, repository_roots
 from go_public.git.objects import CatFileBatch
 from go_public.git.runner import GitRunner
 from go_public.model import Finding, severity_rank
-from go_public.pipeline import assess
+from go_public.pipeline import Assessment, assess
 from go_public.report.build import write_reports
 from go_public.report.location import resolve_report_dir
 
@@ -283,12 +283,12 @@ def run_squash(request: SquashRequest, log: Log) -> SquashResult:
         _build_export(request, source_runner, out, request.author, result, log)
         _rescan(request, out, request.author, result, log, roots)
     except BaseException:
-        _remove_partial(out, keep_dir=preexisting)
+        remove_partial(out, keep_dir=preexisting)
         raise
     return result
 
 
-def _remove_partial(out: Path, *, keep_dir: bool) -> None:
+def remove_partial(out: Path, *, keep_dir: bool) -> None:
     # `out` was verified empty or absent before anything was written, so everything
     # in it now was written by this run.
     if not out.exists():
@@ -461,18 +461,54 @@ def _rescan(
     log: Log,
     source_roots: list[Path],
 ) -> None:
+    rescan_export(
+        out,
+        author,
+        config=request.config,
+        config_source=request.config_source,
+        scan_options=request.scan_options,
+        git_version=request.git_version,
+        fail_on=request.fail_on,
+        report_dir=request.report_dir,
+        source_roots=source_roots,
+        result=result,
+        log=log,
+    )
+    if result.clean:
+        log(
+            f"To publish: create an empty repository on your host, then inside {out} run "
+            "`git remote add origin <url>` followed by `git push -u origin main`."
+        )
+
+
+def rescan_export(
+    out: Path,
+    author: Identity | None,
+    *,
+    config: Config,
+    config_source: str,
+    scan_options: scan_mod.ScanOptions,
+    git_version: str,
+    fail_on: str,
+    report_dir: Path | None,
+    source_roots: list[Path],
+    result: SquashResult,
+    log: Log,
+    exempt_from_exit: Callable[[Finding], bool] | None = None,
+) -> Assessment:
     """Step 7: re-scan the export, unreachable objects included, with the export
-    identity allowed; `NOT CLEAN` keeps the directory and exits 1."""
-    config = request.config
-    identity_allow = [*config.identity.allow, author.display]
+    identity allowed; `NOT CLEAN` keeps the directory and exits 1. `exempt_from_exit`
+    names findings that are reported but do not decide the outcome (the licence
+    history of a `--keep-history` export)."""
+    identity_allow = [*config.identity.allow, author.display] if author else config.identity.allow
     rescan_config = config.model_copy(
         update={"identity": config.identity.model_copy(update={"allow": identity_allow})}
     )
     options = scan_mod.ScanOptions.from_config(
         rescan_config,
-        gitleaks_config=request.scan_options.gitleaks_config,
-        jobs=request.scan_options.jobs,
-        show_secrets=request.scan_options.show_secrets,
+        gitleaks_config=scan_options.gitleaks_config,
+        jobs=scan_options.jobs,
+        show_secrets=scan_options.show_secrets,
     )
     export_runner = GitRunner(out, role="export")
     assessment = assess(
@@ -480,15 +516,14 @@ def _rescan(
         repo_path=out,
         ref="HEAD",
         config=rescan_config,
-        config_source=request.config_source,
+        config_source=config_source,
         options=options,
-        git_version=request.git_version,
-        fail_on=request.fail_on,
+        git_version=git_version,
+        fail_on=fail_on,
         include_unreachable=True,
+        exempt_from_exit=exempt_from_exit,
     )
-    result.report_paths = write_reports(
-        assessment.report, out, request.report_dir, protected=source_roots
-    )
+    result.report_paths = write_reports(assessment.report, out, report_dir, protected=source_roots)
     log(f"re-scan report: {result.report_paths['json'].parent}")
     if assessment.report.exit_code:
         result.clean = False
@@ -496,16 +531,14 @@ def _rescan(
         remaining = [
             f
             for f in assessment.findings
-            if severity_rank(f.severity) >= severity_rank(request.fail_on)
+            if severity_rank(f.severity) >= severity_rank(fail_on)
+            and not (exempt_from_exit is not None and exempt_from_exit(f))
         ]
-        log(f"NOT CLEAN: {len(remaining)} finding(s) at or above {request.fail_on} remain")
+        log(f"NOT CLEAN: {len(remaining)} finding(s) at or above {fail_on} remain")
         for finding in remaining:
             log(f"  {describe_finding(finding)}")
         log(f"the export was kept for inspection: {out}")
-        return
+        return assessment
     result.clean = True
     log("CLEAN")
-    log(
-        f"To publish: create an empty repository on your host, then inside {out} run "
-        "`git remote add origin <url>` followed by `git push -u origin main`."
-    )
+    return assessment

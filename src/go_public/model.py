@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 #: architecture.md "Finding model" Severity enum, ordered least to most severe.
 SEVERITIES: tuple[str, ...] = ("info", "low", "medium", "high", "critical")
@@ -139,6 +139,19 @@ class Finding(BaseModel):
     preview: str = ""
     fix: FixAction
     extra: dict[str, str | int | float | bool | list[str]] = Field(default_factory=dict)
+
+    # The literal matched text. A private attribute: never part of the model dump, the
+    # JSON, the repr or the schema. Only the history-preserving export reads it, to
+    # replace exactly the values behind unsuppressed findings.
+    _value: str | None = PrivateAttr(default=None)
+
+    @property
+    def raw_value(self) -> str | None:
+        """The literal text behind this finding when the scan produced it in-process."""
+        return self._value
+
+    def attach_value(self, value: str) -> None:
+        self._value = value
 
 
 def repo_display_name(path: str) -> str:
