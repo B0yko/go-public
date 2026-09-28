@@ -11,6 +11,7 @@ from pathlib import Path
 import typer
 
 from go_public import __version__
+from go_public.bench import fixture as fixture_mod
 from go_public.errors import GoPublicError
 from go_public.git.inventory import build, build_head_only
 from go_public.git.runner import GitRunner, check_git_version
@@ -86,6 +87,25 @@ def scan(
     typer.echo(inventory.summary_line())
     for warning in inventory.warnings:
         typer.echo(f"warning: {warning.message}")
+
+
+@app.command()
+@_handle_errors
+def fixture(
+    seed: int = typer.Option(..., "--seed", help="Same seed, same repo."),
+    size: str = typer.Option(..., "--size", help="tiny (runs in CI), small or medium."),
+    no_plants: bool = typer.Option(
+        False, "--no-plants", help="Filler and topology only, under the public identity."
+    ),
+    blind_spots: bool = typer.Option(
+        False, "--blind-spots", help="Also build the blind-spot plants (not implemented yet)."
+    ),
+    out: Path = typer.Option(..., "--out", help="Directory for repo/, truth.jsonl, config."),
+) -> None:
+    """Build a synthetic fixture repository for benchmarking the detectors."""
+    check_git_version()
+    result = fixture_mod.build(seed, size, plants=not no_plants, blind_spots=blind_spots, out=out)
+    typer.echo(f"fixture: {result.repo}")
 
 
 def main() -> None:
