@@ -193,3 +193,47 @@ def test_symlink_and_case_variant_directory_never_write_outside_out(tmp_path: Pa
 
     assert list(outside.iterdir()) == []
     assert out.exists()
+
+
+def _repo_with_evil_filter(tmp_path: Path) -> tuple[Path, Path]:
+    marker = tmp_path / "filter-ran"
+    repo = _basic_repo(tmp_path)
+    (repo / ".gitattributes").write_text("* filter=evil\n")
+    git(repo, "add", ".gitattributes")
+    git(repo, "commit", "-qm", "attrs")
+    git(repo, "config", "filter.evil.clean", f"sh -c 'touch {marker}; cat'")
+    git(repo, "config", "filter.evil.smudge", "cat")
+    git(repo, "config", "filter.evil.required", "true")
+    git(repo, "config", "core.fsmonitor", f"touch {marker}")
+    # make every tracked file look modified to git's stat check
+    for path in repo.rglob("*"):
+        if path.is_file() and ".git" not in path.parts:
+            path.write_bytes(path.read_bytes())
+    marker.unlink(missing_ok=True)
+    return repo, marker
+
+
+def test_scan_never_runs_filter_drivers_from_the_repository_config(tmp_path: Path) -> None:
+    repo, marker = _repo_with_evil_filter(tmp_path)
+
+    runner.invoke(
+        app,
+        [
+            "scan",
+            str(repo),
+            "--config",
+            str(_config(tmp_path)),
+            "--report-dir",
+            str(tmp_path / "r"),
+        ],
+    )
+
+    assert not marker.exists()
+
+
+def test_export_never_runs_filter_drivers_from_the_repository_config(tmp_path: Path) -> None:
+    repo, marker = _repo_with_evil_filter(tmp_path)
+
+    _export(tmp_path, repo)
+
+    assert not marker.exists()

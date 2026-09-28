@@ -89,6 +89,9 @@ _UNSAFE_MARKERS = (
 )
 _NOT_A_REPO_MARKERS = ("not a git repository",)
 
+_FILTER_KEY_RE = r"^filter\..*\.(clean|smudge|process|required)$"
+_FILTER_KEY_PARSE = re.compile(r"^filter\.(.+)\.(?:clean|smudge|process|required)$", re.IGNORECASE)
+
 _MIN_GIT_VERSION = (2, 44)
 _VERSION_RE = re.compile(r"git version (\d+)\.(\d+)(?:\.(\d+))?")
 
@@ -143,7 +146,7 @@ class GitRunner:
         """Run a git subcommand to completion and return its stdout."""
         args = self._prepare(args)
         proc = subprocess.run(
-            self._base_cmd() + args,
+            self._base_cmd(args) + args,
             input=input,
             env=self._build_env(env),
             capture_output=True,
@@ -162,7 +165,7 @@ class GitRunner:
         """Start a long-lived git subprocess (e.g. ``cat-file --batch``)."""
         args = self._prepare(args)
         return subprocess.Popen(
-            self._base_cmd() + args,
+            self._base_cmd(args) + args,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -175,12 +178,40 @@ class GitRunner:
         self._validate(args)
         return self._augment(args)
 
-    def _base_cmd(self) -> list[str]:
+    def _base_cmd(self, args: list[str] | None = None) -> list[str]:
         cmd = ["git", "-c", "core.quotepath=off", "-c", "core.fsmonitor=false"]
+        if args and self._subcommand(args) == "status":
+            cmd += self._filter_overrides()
         if self.git_dir is not None:
             cmd += [f"--git-dir={self.git_dir}"]
         cmd += ["-C", str(self.repo)]
         return cmd
+
+    def _filter_overrides(self) -> list[str]:
+        """`-c` options that switch off every filter driver the repository's config
+        defines. `status` compares stat-dirty files through their clean filter, which
+        would otherwise run a command taken from the repository's own config."""
+        probe = subprocess.run(
+            ["git", "-C", str(self.repo), "config", "--name-only", "--get-regexp", _FILTER_KEY_RE],
+            env=self._build_env(None),
+            capture_output=True,
+            check=False,
+        )
+        drivers = {
+            match.group(1)
+            for line in probe.stdout.decode("utf-8", "replace").splitlines()
+            if (match := _FILTER_KEY_PARSE.match(line.strip()))
+        }
+        overrides: list[str] = []
+        for driver in sorted(drivers):
+            for key, value in (
+                ("clean", ""),
+                ("smudge", ""),
+                ("process", ""),
+                ("required", "false"),
+            ):
+                overrides += ["-c", f"filter.{driver}.{key}={value}"]
+        return overrides
 
     @staticmethod
     def _subcommand(args: list[str]) -> str | None:
