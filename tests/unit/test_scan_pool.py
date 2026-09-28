@@ -15,10 +15,6 @@ from typer.testing import CliRunner
 
 from go_public import scan
 from go_public.cli import app
-from go_public.errors import ScanWorkerError
-from go_public.git.inventory import build
-from go_public.git.runner import GitRunner
-from go_public.scan import ScanOptions
 from tests.conftest import commit_file, init_repo
 from tests.unit import secret_tokens as tok
 
@@ -35,17 +31,43 @@ def _two_file_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def test_failing_worker_initializer_raises_instead_of_hanging(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_failing_worker_initializer_raises_instead_of_hanging(tmp_path: Path) -> None:
+    """Run in a child process with a hard timeout: a regression must fail this test,
+    not hang the suite."""
     repo = _two_file_repo(tmp_path)
-    runner = GitRunner(repo, role="source")
-    inventory = build(runner)
-    monkeypatch.setattr(scan, "_pool_init", _failing_initializer)
+    program = textwrap.dedent(
+        f"""
+        from pathlib import Path
+        from go_public import scan
+        from go_public.errors import ScanWorkerError
+        from go_public.git.inventory import build
+        from go_public.git.runner import GitRunner
+
+
+        def failing(runner, options):
+            raise RuntimeError("worker bootstrap failed")
+
+
+        if __name__ == "__main__":
+            scan._pool_init = failing
+            runner = GitRunner(Path({str(repo)!r}), role="source")
+            try:
+                scan.run(runner, build(runner), scan.ScanOptions(jobs=2))
+            except ScanWorkerError as exc:
+                print("failed cleanly:", exc)
+                raise SystemExit(0)
+            raise SystemExit("scan finished although every worker failed")
+        """
+    )
+    script = tmp_path / "pool_failure.py"
+    script.write_text(program)
     started = time.monotonic()
-    with pytest.raises(ScanWorkerError, match="--jobs 1"):
-        scan.run(runner, inventory, ScanOptions(jobs=2))
-    assert time.monotonic() - started < 30
+    proc = subprocess.run(
+        [sys.executable, str(script)], capture_output=True, text=True, timeout=60, cwd=tmp_path
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "--jobs 1" in proc.stdout
+    assert time.monotonic() - started < 45
 
 
 def test_cli_maps_a_dead_pool_to_exit_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
