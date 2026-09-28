@@ -15,18 +15,40 @@ import re2
 from go_public.detect.base import Detection
 from go_public.detect.constants import (
     MACOS_TEMP_PATH_PREFIX,
+    USER_PATH_PREFIXES,
+    WINDOWS_USER_PATH_FSLASH_PREFIX,
+    WINDOWS_USER_PATH_PREFIX,
     is_private_ip,
 )
 
 _USER_SEGMENT = r"[A-Za-z0-9._-]+"
 
+
+def _windows_prefix_pattern(prefix: str) -> str:
+    """`prefix`'s backslashes, each allowed to appear doubled too (a Windows path
+    JSON-escapes each `\\` as `\\\\`, so the raw text a JSON-encoded blob carries has
+    two backslash characters per separator)."""
+    return str(re2.escape(prefix)).replace("\\\\", r"\\{1,2}")
+
+
 #: `/Users/<user>/`, `/home/<user>/`, `C:\Users\<user>\` (also a doubled backslash,
 #: as it appears JSON-escaped, and the forward-slash spelling some tools use for
-#: Windows paths).
+#: Windows paths) — every prefix comes from `detect/constants.py`, per
+#: conventions.md ("only constants.py may hold ... path prefixes").
 _USER_PATH_RE = re2.compile(
-    r"(?:/Users/|/home/)" + _USER_SEGMENT + r"/"
-    r"|C:\\{1,2}Users\\{1,2}" + _USER_SEGMENT + r"\\{1,2}"
-    r"|C:/Users/" + _USER_SEGMENT + r"/"
+    "(?:"
+    + "|".join(re2.escape(p) for p in USER_PATH_PREFIXES)
+    + ")"
+    + _USER_SEGMENT
+    + "/"
+    + "|"
+    + _windows_prefix_pattern(WINDOWS_USER_PATH_PREFIX)
+    + _USER_SEGMENT
+    + r"\\{1,2}"
+    + "|"
+    + re2.escape(WINDOWS_USER_PATH_FSLASH_PREFIX)
+    + _USER_SEGMENT
+    + "/"
 )
 
 _MACOS_TEMP_RE = re2.compile(re2.escape(MACOS_TEMP_PATH_PREFIX) + r"[\w./-]*")
