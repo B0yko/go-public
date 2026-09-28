@@ -136,3 +136,48 @@ def minimal_report(findings: list[Finding] | None = None) -> Report:
         summary=SummaryInfo(),
         exit_code=0,
     )
+
+
+def commit_entries(
+    repo: Path,
+    entries: list[tuple[str, str, bytes | str]],
+    message: str = "chore: snapshot",
+    *,
+    branch: str = "main",
+    date: str = "2024-01-01T00:00:00+00:00",
+) -> str:
+    """Commit exactly `entries` as `branch`'s tree through plumbing, so a scenario can
+    hold paths a case-insensitive working tree could not (README.md + readme.md),
+    gitlinks, or a bare repository. Each entry is `(mode, path, content_or_oid)`: bytes
+    are written as a blob; a str is used as an object id as-is (gitlinks)."""
+    git_dir = repo / ".git" if (repo / ".git").exists() else repo
+    index = git_dir / "scenario-index.tmp"
+    env = {"GIT_INDEX_FILE": str(index)}
+    for mode, path, payload in entries:
+        if isinstance(payload, bytes):
+            oid = (
+                subprocess.run(
+                    ["git", "-C", str(repo), "hash-object", "-w", "--stdin"],
+                    input=payload,
+                    capture_output=True,
+                    check=True,
+                )
+                .stdout.decode()
+                .strip()
+            )
+        else:
+            oid = payload
+        git(repo, "update-index", "--add", "--cacheinfo", f"{mode},{oid},{path}", env=env)
+    tree = git(repo, "write-tree", env=env).decode().strip()
+    index.unlink(missing_ok=True)
+    ident_env = {
+        "GIT_AUTHOR_NAME": PUBLIC_IDENT["name"],
+        "GIT_AUTHOR_EMAIL": PUBLIC_IDENT["email"],
+        "GIT_AUTHOR_DATE": date,
+        "GIT_COMMITTER_NAME": PUBLIC_IDENT["name"],
+        "GIT_COMMITTER_EMAIL": PUBLIC_IDENT["email"],
+        "GIT_COMMITTER_DATE": date,
+    }
+    commit = git(repo, "commit-tree", tree, "-m", message, env=ident_env).decode().strip()
+    git(repo, "update-ref", f"refs/heads/{branch}", commit)
+    return commit

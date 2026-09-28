@@ -6,19 +6,22 @@ from __future__ import annotations
 
 import functools
 import json
+import os
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
 import typer
 
-from go_public import __version__, config_write, pipeline
+from go_public import __version__, config_write, fileview, pipeline
 from go_public import config as config_mod
 from go_public import scan as scan_mod
 from go_public.bench import fixture as fixture_mod
 from go_public.detect import commit_meta
 from go_public.detect.gitleaks_config import load_gitleaks_config, rules_check
 from go_public.errors import GoPublicError, UsageError
+from go_public.export import squash as squash_mod
+from go_public.export import strip as strip_mod
 from go_public.git.inventory import Inventory, build
 from go_public.git.runner import GitRunner, check_git_version
 from go_public.model import SEVERITIES, Finding, repo_display_name
@@ -227,6 +230,176 @@ def _print_finding_counts(findings: list[Finding]) -> None:
     )
     typer.echo(f"  by category: {category_line}")
     typer.echo(f"  by severity: {severity_line}")
+
+
+@app.command()
+@_handle_errors
+def export(
+    repo: Path = typer.Argument(
+        ..., exists=True, file_okay=False, help="Path to the git repository (bare is fine)."
+    ),
+    out: Path | None = typer.Option(
+        None, "--out", help="New export directory: must not exist or be empty, outside the repo."
+    ),
+    squash: bool = typer.Option(
+        True, "--squash/--keep-history", help="Squash export (default); --keep-history: later."
+    ),
+    ref: str = typer.Option("HEAD", "--ref", help="Export ref."),
+    check: bool = typer.Option(
+        False, "--check", help="Run only the pre-check: create nothing, exit 0 or 1."
+    ),
+    fail_on: str | None = typer.Option(
+        None, "--fail-on", help="Minimum severity that blocks the export (default: [scan] fail_on)."
+    ),
+    force_export: bool = typer.Option(
+        False, "--force-export", help="Export even if the pre-check finds blocking items."
+    ),
+    author: str | None = typer.Option(
+        None, "--author", help='Export identity "Name <email>" (default: [export] author).'
+    ),
+    message: str | None = typer.Option(
+        None, "--message", help="Commit message (default: [export] message)."
+    ),
+    date: str | None = typer.Option(
+        None, "--date", help='"now" or an ISO 8601 timestamp (default: [export] date).'
+    ),
+    auto_exclude: bool = typer.Option(
+        True,
+        "--auto-exclude/--no-auto-exclude",
+        help="Drop sensitive and internal-notes files from the export.",
+    ),
+    strip_metadata: bool = typer.Option(
+        True, "--strip/--no-strip", help="Strip binary metadata in memory before writing blobs."
+    ),
+    set_identity: bool = typer.Option(
+        True,
+        "--set-identity/--no-set-identity",
+        help="Set the export repository's local user.name/user.email to the export identity.",
+    ),
+    config_path: Path | None = typer.Option(
+        None, "--config", exists=True, dir_okay=False, help="TOML config."
+    ),
+    report_dir: Path | None = typer.Option(
+        None, "--report-dir", help="Override the re-scan report location."
+    ),
+) -> None:
+    """Export a clean, single-commit copy of the repository at --ref.
+
+    Runs the pre-check, builds the export in a fresh repository, checks it out and
+    re-scans it. Exits 1 when the pre-check refuses or the export is NOT CLEAN.
+    """
+    if not squash:
+        raise UsageError("--keep-history is not available yet; only the squash export exists")
+    if out is None and not check:
+        raise UsageError("--out is required (unless --check)")
+    git_version = check_git_version()
+    repo_resolved = repo.resolve()
+    runner = GitRunner(repo_resolved, role="source")
+    discovery = config_mod.discover_config(
+        explicit=config_path, repo=repo_resolved, runner=runner, export_ref=ref
+    )
+    config = discovery.config
+    for warning in discovery.warnings:
+        typer.echo(f"warning: {warning}")
+    effective_fail_on = fail_on if fail_on is not None else config.scan.fail_on
+    _check_fail_on(effective_fail_on)
+    author_text = author if author is not None else config.export.author
+    identity = squash_mod.parse_identity(author_text) if author_text.strip() else None
+    request = squash_mod.SquashRequest(
+        source=repo_resolved,
+        out=out,
+        ref=ref,
+        config=config,
+        config_source=discovery.source,
+        scan_options=scan_mod.ScanOptions.from_config(config),
+        git_version=git_version,
+        fail_on=effective_fail_on,
+        author=identity,
+        message=message if message is not None else config.export.message,
+        commit_date=squash_mod.resolve_commit_date(
+            date if date is not None else config.export.date
+        ),
+        auto_exclude=auto_exclude and config.files.auto_exclude,
+        strip_metadata=strip_metadata and config.export.strip_metadata,
+        set_identity=set_identity,
+        force_export=force_export,
+        check_only=check,
+        report_dir=report_dir,
+    )
+    result = squash_mod.run_squash(request, typer.echo)
+    if result.exit_code:
+        raise typer.Exit(code=result.exit_code)
+
+
+@app.command()
+@_handle_errors
+def strip(
+    files: list[Path] = typer.Argument(..., help="Files to strip in place."),
+    check: bool = typer.Option(
+        False, "--check", help="Only list what would be removed; exit 1 if anything is present."
+    ),
+) -> None:
+    """Remove metadata losslessly (JPEG, PNG, WebP, PDF, OOXML) in place."""
+    found = False
+    for path in files:
+        if path.is_symlink() or not path.is_file():
+            raise UsageError(f"not a regular file: {path}")
+        content = path.read_bytes()
+        removable = strip_mod.describe(content)
+        for note in strip_mod.reported_only(content):
+            typer.echo(f"{path}: reported, not removed: {note}")
+        if not removable:
+            continue
+        found = True
+        if check:
+            typer.echo(f"{path}: would remove {', '.join(removable)}")
+            continue
+        path.write_bytes(strip_mod.strip_bytes(content))
+        typer.echo(f"{path}: removed {', '.join(removable)}")
+    if check and found:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+@_handle_errors
+def show(
+    repo: Path = typer.Argument(..., exists=True, file_okay=False, help="Path to the repository."),
+    path: str = typer.Argument(..., help="Repository-relative path of the file."),
+    ref: str = typer.Option("HEAD", "--ref", help="Ref to read the file at."),
+    config_path: Path | None = typer.Option(
+        None, "--config", exists=True, dir_okay=False, help="TOML config."
+    ),
+) -> None:
+    """Print a file at a ref with every secret span masked."""
+    check_git_version()
+    repo_resolved = repo.resolve()
+    runner = GitRunner(repo_resolved, role="source")
+    config = config_mod.discover_config(
+        explicit=config_path, repo=repo_resolved, runner=runner, export_ref=ref
+    ).config
+    text = fileview.show_file(runner, path, ref, scan_mod.ScanOptions.from_config(config))
+    typer.echo(text, nl=False)
+
+
+@app.command()
+@_handle_errors
+def redact(
+    path: Path = typer.Argument(..., help="Working-tree file to edit in place."),
+    finding: str = typer.Option(
+        ..., "--finding", help="Finding fingerprint (for this file's content) or secret group id."
+    ),
+    placeholder: str = typer.Option(..., "--with", help="Replacement text."),
+    config_path: Path | None = typer.Option(
+        None, "--config", exists=True, dir_okay=False, help="TOML config."
+    ),
+) -> None:
+    """Replace one secret in a working-tree file; never touches the index or history."""
+    env_config = os.environ.get("GO_PUBLIC_CONFIG")
+    config = config_mod.load_config(config_path or env_config or None)
+    result = fileview.redact_file(
+        path, finding, placeholder, scan_mod.ScanOptions.from_config(config)
+    )
+    typer.echo(f"redacted 1 secret ({result.rule_id}) at {path}:{result.line}:{result.column}")
 
 
 @app.command()

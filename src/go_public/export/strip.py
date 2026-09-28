@@ -340,6 +340,10 @@ for _prefix, _uri in (
     ET_write.register_namespace(_prefix, _uri)
 
 
+#: Findings `strip` reports but never removes (mirrors `plan.STRIP_EXCLUDED_RULE_IDS`).
+_REPORT_ONLY_RULE_IDS = frozenset({"ooxml-comment-author", "ooxml-revision-author"})
+
+
 def _local(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
@@ -425,3 +429,18 @@ def describe(content: bytes) -> list[str]:
     kind = route_blob(content, max_scan_mb=_NO_SIZE_GATE_MB).kind
     describer = _DESCRIBERS.get(kind)
     return describer(content) if describer else []
+
+
+def reported_only(content: bytes) -> list[str]:
+    """What `content` carries that `strip` reports but never removes (product spec item
+    16: OOXML tracked changes and comments)."""
+    kind = route_blob(content, max_scan_mb=_NO_SIZE_GATE_MB).kind
+    if kind != "ooxml":
+        return []
+    return sorted(
+        {
+            f"{field.name} ({field.rule_id})"
+            for field in extract_fields("ooxml", content)
+            if field.rule_id in _REPORT_ONLY_RULE_IDS
+        }
+    )

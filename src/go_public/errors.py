@@ -35,3 +35,9 @@ class UnsupportedRepo(GoPublicError):
     """The repository is bare-incompatible, sha256, unsafe, or not a repo at all."""
 
     exit_code = 3
+
+
+class ExportError(GoPublicError):
+    """An export could not be completed (for example, metadata stripping failed)."""
+
+    exit_code = 1

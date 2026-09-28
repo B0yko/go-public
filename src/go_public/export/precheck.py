@@ -92,8 +92,12 @@ def blocking_findings(
     config: Config,
     fail_on: str,
     strip_metadata: bool,
+    auto_exclude: bool | None = None,
 ) -> list[Finding]:
-    """Every finding at or above `fail_on` that the export cannot resolve by itself."""
+    """Every finding at or above `fail_on` that the export cannot resolve by itself.
+    `auto_exclude` (the `--no-auto-exclude` switch) defaults to `[files] auto_exclude`."""
+    if auto_exclude is None:
+        auto_exclude = config.files.auto_exclude
     export_exclude_spec = pathspec.PathSpec.from_lines("gitwildmatch", config.export.exclude)
     return [
         finding
@@ -102,7 +106,7 @@ def blocking_findings(
         and not is_resolved_by_export(
             finding,
             export_exclude_spec=export_exclude_spec,
-            auto_exclude=config.files.auto_exclude,
+            auto_exclude=auto_exclude,
             strip_metadata=strip_metadata,
         )
     ]
@@ -116,13 +120,18 @@ def run(
     *,
     fail_on: str,
     strip_metadata: bool,
+    auto_exclude: bool | None = None,
 ) -> PrecheckOutcome:
     """Scan `inventory` (the source repository at the export ref), suppress exactly as
     `go-public scan` would, and compute what still blocks the export."""
     findings = scan_mod.run(runner, inventory, scan_options)
     suppression = suppress_mod.run(findings, config, inventory, runner)
     blocking = blocking_findings(
-        suppression.kept, config=config, fail_on=fail_on, strip_metadata=strip_metadata
+        suppression.kept,
+        config=config,
+        fail_on=fail_on,
+        strip_metadata=strip_metadata,
+        auto_exclude=auto_exclude,
     )
     return PrecheckOutcome(
         inventory=inventory,
