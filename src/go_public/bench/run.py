@@ -577,7 +577,10 @@ def run_compare_head_only(workspace: Workspace) -> tuple[dict[str, Any], str]:
             group = location_group(f_hit)
             total[group] += 1
             full[group] += f_hit.matched
-            head[group] += h_hit.matched
+            # A history-only plant whose text happens to equal a blob at HEAD (several
+            # plants share content) is not "found" by a HEAD-only review: that review
+            # sees a different planted issue, not this one.
+            head[group] += h_hit.matched and h_hit.at_export_ref
     groups: dict[str, dict[str, Any]] = {}
     for group in LOCATION_GROUPS:
         if not total[group]:
@@ -615,7 +618,9 @@ def run_compare_head_only(workspace: Workspace) -> tuple[dict[str, Any], str]:
             _meta_block(data["meta"]),
             "",
             "`--head-only` scans only the export ref's tree, as a working-tree scanner "
-            "would. Counts are expected findings from the truth files.",
+            "would. Counts are expected findings from the truth files; a finding "
+            "counts as found by `--head-only` only when the planted issue itself is "
+            "at the export ref.",
             "",
             _table(
                 [
