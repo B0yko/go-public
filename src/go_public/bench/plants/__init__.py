@@ -38,6 +38,7 @@ LocationType = Literal[
     "binary_field",
     "unreachable",
     "trailer",
+    "licence_transition",
 ]
 
 #: Every location type the API supports, for callers that need to enumerate them.
@@ -46,7 +47,13 @@ LocationType = Literal[
 #: but resolves to kind `trailer`/`{commit, key}` instead of `commit_message`/
 #: `{commit}`, since `detect/commit_meta.py` reports a flagged trailer under its own
 #: location kind (architecture.md's `LocationKind` already names `trailer`) rather
-#: than folding it into the whole-message finding.
+#: than folding it into the whole-message finding. `licence_transition` (stage 3b)
+#: is a second addition: two sequential commits at one path rather than one write, so
+#: a plain marker's single `content` value becomes its "to" state with an empty
+#: "from" state (`Plant.from_content` defaults to `b""`) — harmless (both sides
+#: classify as `unknown`, so no marker ever produces a real `licence-transition`
+#: finding), and keeps this tuple the single source of truth `bench/fixture.py`'s
+#: marker coverage and stage-1b's own tests rely on.
 LOCATION_TYPES: tuple[LocationType, ...] = (
     "head",
     "history_only",
@@ -64,6 +71,7 @@ LOCATION_TYPES: tuple[LocationType, ...] = (
     "binary_field",
     "unreachable",
     "trailer",
+    "licence_transition",
 )
 
 Identity = tuple[str, str]  # (name, email)
@@ -99,6 +107,9 @@ class Plant:
     category: str
     location_type: LocationType
     content: bytes = b""
+    #: `licence_transition` only: the path's content *before* `content` (the
+    #: transition is the second of two commits, `from_content` -> `content`).
+    from_content: bytes = b""
     path: str | None = None
     message: str | None = None
     ref_name: str | None = None
@@ -605,6 +616,47 @@ class FixtureContext:
                 at_export_ref=False,
                 ref=ref,
                 commit=marks[target],
+            )
+
+        self._queue(resolve)
+
+    def _place_licence_transition(self, plant: Plant) -> None:
+        """Two sequential commits at one path: `from_content` establishes what the
+        path holds first, `content` then changes it. Not one of fixture-api.md's
+        original 15 mechanics (every one of those writes a single state); a real
+        `detect/licence.py` scan attributes the transition to the *second* commit
+        (architecture.md "Match keys": `finding.extra["transition_commit"]`), so
+        that is what `bench/match.py`'s `licence_transition` key resolves to, not a
+        blob/line pair. `bench/plants/licence.py` is the only caller.
+        """
+        path = plant.path or f"markers/{plant.plant_id}/LICENSE"
+        ref = "refs/heads/main"
+        from_mark = self.blob(plant.from_content)
+        self.commit(
+            ref,
+            message=plant.message or f"chore: add licence at {path}",
+            files={path: from_mark},
+            author=plant.author,
+        )
+        to_mark = self.blob(plant.content)
+        transition_mark = self.commit(
+            ref,
+            message=f"chore: relicense {path}",
+            files={path: to_mark},
+            author=plant.author,
+        )
+        to_blob = blob_id(plant.content)
+
+        def resolve(marks: dict[str, str], _tags: dict[str, str]) -> ResolvedPlant:
+            commit = marks[transition_mark]
+            return ResolvedPlant(
+                plant=plant,
+                kind="licence_transition",
+                key={"commit": commit},
+                at_export_ref=True,
+                ref=ref,
+                commit=commit,
+                blob=to_blob,
             )
 
         self._queue(resolve)

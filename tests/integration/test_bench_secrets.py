@@ -20,8 +20,9 @@ from go_public.scan import ScanOptions
 
 _SECRET_CLASSES = {"secret-vendor", "secret-generic"}
 
-#: Every eval_class stage 3a implements a detector for (architecture.md "Fixture &
-#: truth"); `licence`/`binary-metadata`/`large-file` are stage 3b's.
+#: Every eval_class go-public implements a detector for (architecture.md "Fixture &
+#: truth"): stage 3a's classes plus stage 3b's `licence`/`binary-metadata`/
+#: `large-file`.
 _ALL_IMPLEMENTED_CLASSES = _SECRET_CLASSES | {
     "pii-email",
     "pii-phone",
@@ -33,6 +34,9 @@ _ALL_IMPLEMENTED_CLASSES = _SECRET_CLASSES | {
     "internal-notes",
     "identity",
     "trailer",
+    "licence",
+    "binary-metadata",
+    "large-file",
 }
 
 

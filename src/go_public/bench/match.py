@@ -5,10 +5,12 @@ A finding matches an expected entry when `category` and `key` agree; `rule_id` i
 never part of the key (a `generic-api-key` and a `generic-entropy` finding at the
 same blob/line both satisfy the same secret expectation). Duplicate findings on one
 expected entry count once; a finding whose `(category, key)` matches no expected
-entry is a false positive in its own eval class. Only `blob`/`unreachable_blob`/
-`binary_field`/`commit_message`/`tag_message` keys are exercised today (the only
-kinds any plant module produces, stage 2b); `path`/`ref_name`/`identity`/`trailer`
-are implemented best-effort for stage 3 to verify once it plants those kinds.
+entry is a false positive in its own eval class. Every kind `_expected_key`/
+`_finding_key` handle is now exercised by a real plant module: `blob`/
+`unreachable_blob`/`binary_field`/`commit_message`/`tag_message` since stage 2b,
+`path`/`ref_name`/`identity`/`trailer` since stage 3a, and `licence_transition`
+(matched by `finding.extra["transition_commit"]`, not by location — two independent
+transitions could carry identical before/after text) since stage 3b.
 """
 
 from __future__ import annotations
@@ -41,6 +43,11 @@ def eval_class_for_finding(finding: Finding) -> str:
 
 
 def _expected_key(kind: str, key: Mapping[str, object]) -> Key:
+    if kind == "licence_transition":
+        # Mirrors `_finding_key`'s own category=="licence" override: matched by
+        # `transition_commit`, not by the location the finding also carries
+        # (architecture.md "Match keys").
+        return (key["commit"],)
     if kind in ("blob", "unreachable_blob"):
         return (key["blob"], key.get("line"))
     if kind == "binary_field":
@@ -57,6 +64,12 @@ def _expected_key(kind: str, key: Mapping[str, object]) -> Key:
 
 
 def _finding_key(finding: Finding) -> Key | None:
+    if finding.category == "licence" and "transition_commit" in finding.extra:
+        # architecture.md "Match keys": "licence transition -> (commit) via
+        # finding.extra['transition_commit']" — the location itself points at the
+        # new content's blob (useful in a report), but two independent transitions to
+        # identical text would otherwise collide on that blob/line.
+        return (finding.extra["transition_commit"],)
     loc = finding.location
     kind = loc.kind
     if kind in ("blob", "unreachable_blob"):

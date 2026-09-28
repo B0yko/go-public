@@ -15,8 +15,11 @@ import tomlkit
 
 from go_public.bench import filler
 from go_public.bench.plants import LOCATION_TYPES, FixtureContext, Identity, Plant, ResolvedPlant
+from go_public.bench.plants import binary_metadata as binary_metadata_plants
 from go_public.bench.plants import identity as identity_plants
 from go_public.bench.plants import internal_notes as internal_notes_plants
+from go_public.bench.plants import large_file as large_file_plants
+from go_public.bench.plants import licence as licence_plants
 from go_public.bench.plants import local_path as local_path_plants
 from go_public.bench.plants import network as network_plants
 from go_public.bench.plants import org_identifier as org_identifier_plants
@@ -30,6 +33,7 @@ from go_public.bench.plants._fictional import (
     DENY_REGEXES,
     DENY_TERMS,
     DENY_TICKET_KEYS,
+    LICENCE_OWNER,
 )
 from go_public.bench.truth import write_truth
 from go_public.errors import UsageError
@@ -49,6 +53,9 @@ _PLANT_MODULES = (
     internal_notes_plants,
     identity_plants,
     trailer_plants,
+    binary_metadata_plants,
+    licence_plants,
+    large_file_plants,
 )
 
 #: Fictional identities only: reserved-for-documentation domains, per conventions.md.
@@ -61,6 +68,21 @@ COLLEAGUE_IDENTITIES: tuple[Identity, ...] = (
 
 _SIZES = {"tiny", "small"}
 _EPOCH = 1_700_000_000  # 2023-11-14T22:13:20Z; a fixed, seed-independent base
+
+#: A baseline top-level licence, present regardless of `plants` (unlike every real
+#: plant category). Without this, a fixture with no licence plants (`--no-plants`,
+#: or any earlier stage's fixture) would legitimately trip `licence-missing-at-head`
+#: (product spec item 7), breaking the Data section's "`--no-plants`... scans to
+#: zero findings" contract; a real repository being scanned almost always has one.
+#: Deliberately carries no "Copyright ... <holder>" line, so it never feeds
+#: `licence-foreign-holder` either — `bench/plants/licence.py`'s own plants are the
+#: real coverage for both rule ids.
+_BASELINE_LICENSE = (
+    b"MIT License\n\n"
+    b"Permission is hereby granted, free of charge, to any person obtaining a copy\n"
+    b"of this software and associated documentation files, to deal in the Software\n"
+    b"without restriction.\n"
+)
 
 
 @dataclass
@@ -157,6 +179,13 @@ def _build_topology(ctx: FixtureContext, rng: random.Random, *, plants: bool) ->
             files={path: blob_mark},
         )
 
+    licence_blob = ctx.blob(_BASELINE_LICENSE)
+    ctx.commit(
+        "refs/heads/main",
+        message="chore: add licence",
+        files={"LICENSE": licence_blob},
+    )
+
     main_tip = ctx.branch_tip["refs/heads/main"]
     feature_author = COLLEAGUE_IDENTITIES[0] if plants else None
     feature_content = filler.python_module(rng, "feature.py")
@@ -248,6 +277,7 @@ def _fixture_config() -> str:
             "ticket_keys": list(DENY_TICKET_KEYS),
         },
         "files": {"warn_mb": 1, "high_mb": 5},
+        "licence": {"owner": LICENCE_OWNER},
         "export": {"author": f"{PUBLIC_IDENTITY[0]} <{PUBLIC_IDENTITY[1]}>"},
     }
     return tomlkit.dumps(doc)
