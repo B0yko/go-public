@@ -4,6 +4,9 @@ provides, plus the defensive "malformed content never crashes" contract.
 
 from __future__ import annotations
 
+import logging
+
+import pytest
 from PIL.ExifTags import Base as ExifTag
 
 from go_public.bench import binaries
@@ -170,3 +173,10 @@ def test_garbage_bytes_never_crash_any_extractor() -> None:
 
 def test_unknown_kind_yields_no_fields() -> None:
     assert binary_meta.extract_fields("archive", b"PK\x03\x04") == []
+
+
+def test_text_mentioning_pdf_header_logs_nothing(caplog: pytest.LogCaptureFixture) -> None:
+    text = b'"""The reader looks for %PDF- near the start."""\n' * 3
+    with caplog.at_level(logging.DEBUG):
+        assert binary_meta.extract_fields("pdf", text) == []
+    assert [r for r in caplog.records if r.name.startswith("pypdf")] == []

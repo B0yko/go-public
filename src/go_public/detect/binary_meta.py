@@ -19,6 +19,7 @@ fewer fields.
 from __future__ import annotations
 
 import io
+import logging
 import struct
 import zipfile
 import zlib
@@ -32,6 +33,10 @@ from PIL import Image
 from PIL.ExifTags import IFD
 from PIL.ExifTags import Base as ExifTag
 from pypdf import PdfReader
+
+# A text file that merely mentions `%PDF-` is routed here; pypdf's parse warnings about it
+# are noise on stderr, and the failure is already handled below.
+logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 
 @dataclass(frozen=True, slots=True)
