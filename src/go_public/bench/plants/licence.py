@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import random
 
-from go_public.bench.plants import FixtureContext, Plant
+from go_public.bench.plants import FixtureContext, Plant, blob_id
 from go_public.bench.plants._fictional import LICENCE_FOREIGN_HOLDER
 from go_public.bench.truth import ExpectedFinding
 
@@ -37,14 +37,17 @@ _APACHE_TEXT = (
 #: a holder other than the fixture's configured `[licence] owner`
 #: (`bench/fixture.py`'s `_fixture_config`), so `licence-foreign-holder` has a real
 #: mismatch to report. "All rights reserved" with no permission-grant phrase is
-#: `detect/licence.py`'s own proprietary heuristic; deliberately avoids the literal
-#: words "Confidential"/"Proprietary" so it does not also trip `detect_notice`
-#: (that detector is exercised by this module's separate notice plant instead).
+#: `detect/licence.py`'s own proprietary heuristic, and — since this is a
+#: `LICENSE`-relevant path and the sentence opens its own line — also a genuine
+#: `detect_notice` hit since stage 4's notice-detector fix (a real co-occurrence, not
+#: a contrived one; see the `expected_extra` below and STATUS.md).
 _PROPRIETARY_TEXT = (
     f"Copyright (c) 2024 {LICENCE_FOREIGN_HOLDER}\n\n"
     "All rights reserved. Internal distribution only. No licence is granted to use, "
     "copy or distribute this software without prior written approval.\n"
 ).encode()
+#: Line 3 (1-based) of `_PROPRIETARY_TEXT` is where "All rights reserved..." opens.
+_PROPRIETARY_TEXT_NOTICE_LINE = 3
 _BSD_TEXT = (
     b"Redistribution and use in source and binary forms, with or without\n"
     b"modification, are permitted provided that the following conditions are met:\n\n"
@@ -88,6 +91,18 @@ def _transition_plant(
                 eval_class="licence",
                 kind="path",
                 key={"path": path},
+            )
+        )
+        # The "to" content is also a genuine `licence-proprietary` notice (see
+        # `_PROPRIETARY_TEXT`'s comment above): a `LICENSE`-relevant path is read
+        # anywhere in the file, and "All rights reserved..." opens its own line with
+        # no permission-grant phrase in the file.
+        expected_extra.append(
+            ExpectedFinding(
+                category="licence",
+                eval_class="licence",
+                kind="blob",
+                key={"blob": blob_id(to_content), "line": _PROPRIETARY_TEXT_NOTICE_LINE},
             )
         )
     return Plant(

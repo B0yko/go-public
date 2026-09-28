@@ -83,10 +83,11 @@ class ScanOptions:
 class LicenceNoticeDetector:
     """Thin wrapper around `detect/licence.py`'s stateless `detect_notice`, so it
     slots into `_TextDetectors` like every other per-text detector (no config knobs
-    of its own yet)."""
+    of its own yet). Blob content only: `_scan_message` never calls this (stage-4.md:
+    a notice is a fact about a file in history, not about commit-message prose)."""
 
-    def detect(self, text: str) -> list[Detection]:
-        detection = licence_detect.detect_notice(text)
+    def detect(self, text: str, *, licence_relevant: bool = False) -> list[Detection]:
+        detection = licence_detect.detect_notice(text, licence_relevant=licence_relevant)
         return [detection] if detection is not None else []
 
 
@@ -233,6 +234,13 @@ def _is_gitmodules(occ_pairs: list[_Occurrence]) -> bool:
     return any(path.rsplit("/", 1)[-1] == ".gitmodules" for path, _commit in occ_pairs)
 
 
+def _is_licence_relevant(occ_pairs: list[_Occurrence]) -> bool:
+    """Whether any path this blob's content is known under is licence-relevant
+    (`detect/licence.py::is_licence_relevant_path`) — the same blob content can
+    legitimately sit at more than one path across history."""
+    return any(licence_detect.is_licence_relevant_path(path) for path, _commit in occ_pairs)
+
+
 # -- row builders --------------------------------------------------------------------
 
 
@@ -293,6 +301,7 @@ def _scan_blob_content(
                 kind=base_kind,
                 blob=blob_id,
                 is_gitmodules=_is_gitmodules(occ_pairs),
+                licence_relevant=_is_licence_relevant(occ_pairs),
             )
         )
     elif route.kind in base.BINARY_KINDS:
@@ -369,6 +378,7 @@ def _scan_unit(
     blob: str,
     field_name: str | None = None,
     is_gitmodules: bool = False,
+    licence_relevant: bool = False,
     extra: tuple[Detection, ...] = (),
 ) -> list[dict[str, Any]]:
     """Run every text detector over one blob/binary-field's content, attributing the
@@ -415,7 +425,7 @@ def _scan_unit(
         detectors.pii.detect(text)
         + detectors.deny.detect(text)
         + detectors.paths_network.detect(text, is_gitmodules=is_gitmodules)
-        + detectors.licence.detect(text)
+        + detectors.licence.detect(text, licence_relevant=licence_relevant)
         + list(extra)
     )
     rows.extend(
@@ -439,11 +449,13 @@ def _scan_message(
     for detection in detectors.secrets.filter_occurrence(content_scan, ctx):
         rows.append(_row(detection, kind=kind, commit=commit, tag=tag, paths=[], commits=commits))
 
+    # No `detectors.licence.detect(text)` here: `detect_notice` (product spec item 7)
+    # is a fact about a *file* in history, never about commit/tag message prose
+    # (stage-4.md's notice-detector fix).
     stateless = (
         detectors.pii.detect(text)
         + detectors.deny.detect(text)
         + detectors.paths_network.detect(text)
-        + detectors.licence.detect(text)
     )
     for detection in stateless:
         rows.append(_row(detection, kind=kind, commit=commit, tag=tag, paths=[], commits=commits))

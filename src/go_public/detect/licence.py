@@ -177,37 +177,86 @@ def extract_copyright_holder(text: str) -> str | None:
     return holder or None
 
 
-#: A notice, not a mention: the word must open the line (after optional leading
-#: whitespace and a single comment marker), the shape of an actual banner ("//
-#: Confidential", "Proprietary and confidential. All rights reserved.") rather than
-#: prose that merely discusses the concept — including this file's own docstrings and
+#: Comment markers `detect_notice` recognises when a line isn't in a licence-relevant
+#: file (stage-4.md's fix: a notice there must look like an actual header banner, not
+#: prose). Checked longest-alternative-safe since none is a prefix of another.
+_COMMENT_PREFIXES: tuple[str, ...] = ("#", "//", "/*", "*", "--", "<!--", ";")
+
+#: The flagged word/phrase must *open* the (already marker-stripped) line, the shape
+#: of an actual banner ("// Confidential", "All rights reserved.") rather than prose
+#: that merely discusses the concept — including this file's own docstrings and
 #: `_PROPRIETARY_KEYWORDS` itself, which a plain substring-anywhere search would
 #: self-flag on go-public's own self-scan.
-_NOTICE_LINE_RE = re2.compile(r"(?im)^[ \t]*(?:#|//|/\*|\*|--)?[ \t]*(Confidential|Proprietary)\b")
+_KEYWORD_AT_LINE_START_RE = re2.compile(r"(?i)^(Confidential|Proprietary)\b")
+_ALL_RIGHTS_AT_LINE_START_RE = re2.compile(r"(?i)^all rights reserved\b")
+
+#: Only the first N lines of a non-licence-relevant file count as its "header block"
+#: (stage-4.md).
+_HEADER_LINES = 30
 
 
-def detect_notice(text: str) -> Detection | None:
-    """A proprietary/confidential notice anywhere in a blob or message (product spec
-    item 7: "anywhere in history..., at high severity"; stage-3.md: "licence files,
-    SPDX/header comment blocks at file top"). Deliberately runs over any text, not
-    just licence files, since a notice can sit at the top of any source file."""
-    match = _NOTICE_LINE_RE.search(text)
-    if match is None:
-        return None
-    start = match.start()
-    line = text.count("\n", 0, start) + 1
-    line_start = text.rfind("\n", 0, start) + 1
-    col = start - line_start + 1
-    line_end = text.find("\n", start)
-    value = text[start : line_end if line_end != -1 else None].strip()
-    return Detection(
-        category="licence",
-        rule_id="licence-proprietary",
-        severity="high",
-        start=start,
-        end=start + len(value),
-        line=line,
-        col=col,
-        value=value[:80],
-        secret=False,
-    )
+def _line_prefix(line: str) -> tuple[int, bool]:
+    """Length of `line`'s leading whitespace plus, when present, one comment marker
+    and the whitespace after it; and whether a marker was found."""
+    i = 0
+    n = len(line)
+    while i < n and line[i] in " \t":
+        i += 1
+    for marker in _COMMENT_PREFIXES:
+        if line.startswith(marker, i):
+            i += len(marker)
+            while i < n and line[i] in " \t":
+                i += 1
+            return i, True
+    return i, False
+
+
+def detect_notice(text: str, *, licence_relevant: bool = False) -> Detection | None:
+    """A proprietary/confidential notice, or a grant-less "all rights reserved"
+    notice (same semantics as `identify_licence_text`'s proprietary heuristic), in
+    *blob* content. `scan.py` never calls this on commit/tag message text: product
+    spec item 7 means a notice found in history's files, not prose about one in a
+    commit message.
+
+    `licence_relevant` (a `LICENSE*`/`LICENCE*`/`COPYING*` file, or one of the three
+    manifests — `is_licence_relevant_path`) is read anywhere in the file, since the
+    whole file *is* the licence text. Anything else is read only in its header block
+    (the first `_HEADER_LINES` lines) and only on a comment line (or an SPDX-style
+    header, which is one), so an ordinary prose line — a Markdown paragraph, a
+    docstring discussing the concept — never matches merely because it opens with the
+    word (stage-4.md: fixes a stage-3 over-reach that flagged any text, including
+    commit messages, anywhere in the file).
+    """
+    lines = text.splitlines()
+    scanned = lines if licence_relevant else lines[:_HEADER_LINES]
+    scope_text = text if licence_relevant else "\n".join(scanned)
+    has_grant = any(phrase in scope_text.lower() for phrase in _PERMISSION_GRANT_PHRASES)
+
+    offset = 0
+    for lineno, line in enumerate(scanned, start=1):
+        line_start = offset
+        offset += len(line) + 1  # `splitlines()` drops the separator; add it back
+        prefix_len, had_marker = _line_prefix(line)
+        if not (licence_relevant or had_marker):
+            continue
+        rest = line[prefix_len:]
+        match = _KEYWORD_AT_LINE_START_RE.match(rest)
+        if match is None and not has_grant:
+            match = _ALL_RIGHTS_AT_LINE_START_RE.match(rest)
+        if match is None:
+            continue
+        value_start = prefix_len + match.start()
+        start = line_start + value_start
+        value = line[value_start:].strip()
+        return Detection(
+            category="licence",
+            rule_id="licence-proprietary",
+            severity="high",
+            start=start,
+            end=start + len(value),
+            line=lineno,
+            col=value_start + 1,
+            value=value[:80],
+            secret=False,
+        )
+    return None

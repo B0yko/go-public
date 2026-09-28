@@ -43,14 +43,23 @@ transition; a source file's own SPDX header describing *that file's* licence is 
 different fact from "the project's licence changed", and conflating the two would
 turn every vendored file with its own SPDX header into a spurious transition.
 
-`detect_notice` (the proprietary/confidential check) runs over every blob and
-message's text, not just licence-relevant paths, since stage-3.md asks for coverage
-of "licence files, SPDX/header comment blocks at file top" — a notice can open any
-source file. It requires the flagged word to *open* a line (after optional
-whitespace and a single comment marker), not merely appear as a substring, so
+`detect_notice` (the proprietary/confidential check) runs over blob content only,
+never commit/tag message text (stage-4.md: a notice is a fact about a file in
+history, not about prose in a commit message — the initial stage-3b version ran over
+any text and over-reached). It requires the flagged word to *open* a line, so
 `_PROPRIETARY_KEYWORDS`'s own definition and this file's docstring do not self-flag
 on go-public's self-scan, and so a sentence that discusses the concept in passing
-("...explains proprietary licences...") is not confused with an actual banner.
+("...explains proprietary licences...") is not confused with an actual banner. Where
+it is allowed to open a line depends on the path: a licence-relevant file
+(`LICENSE*`/`LICENCE*`/`COPYING*`, or one of the three manifests) is read anywhere,
+since the whole file *is* the licence text; anything else is read only in its header
+block (the first 30 lines) and only on a comment line (`#`, `//`, `/*`, ` *`, `--`,
+`<!--`, `;`) — an SPDX-style header already starts with one of these — so an ordinary
+Markdown paragraph or docstring that happens to open with the word never matches. The
+same "all rights reserved with no permission-grant phrase" heuristic
+`identify_licence_text` uses for whole-file classification also feeds this
+line-anchored check, scoped to the same text `detect_notice` actually reads (the
+whole file when licence-relevant, else just the header block).
 
 Copyright-holder extraction is a single regex (`Copyright ... <holder>`) run only
 against paths `is_licence_file_path` recognises, matching product spec item 7's
@@ -71,11 +80,15 @@ concern, not a general document scan).
   (STATUS.md): the Data section's "`--no-plants` scans to zero findings" contract
   would otherwise never hold for any fixture, since no filler template names a
   licence file.
-- The proprietary-notice regex intentionally trades some recall (a notice that never
-  opens a line, e.g. buried mid-paragraph) for precision (no false hits on this very
-  file's own vocabulary, or on the Data section's committed prose about the feature).
-- `bench/plants/licence.py`'s own transition plants double as `detect_notice`'s test
-  data: one transition's "to" text is deliberately proprietary-classified via the
-  "all rights reserved, no grant phrase" path rather than the literal
-  "confidential"/"proprietary" words, so it does not also trip `detect_notice` on the
-  same blob and require a second expected finding for one plant.
+- The proprietary-notice check intentionally trades some recall (a notice that never
+  opens a line, e.g. buried mid-paragraph, or one past line 30 of an unrelated file)
+  for precision (no false hits on this very file's own vocabulary, on the Data
+  section's committed prose about the feature, or — since stage 4 — on any commit
+  message discussing the feature; before that fix, this repository's own history
+  self-flagged two commit messages that merely used the word "proprietary" in prose,
+  recorded as a stage-3 deviation in STATUS.md and now resolved).
+- `bench/plants/licence.py`'s Apache-2.0 -> proprietary transition plant's "to" text
+  is both `licence-transition`-classified and, since it sits in a `LICENSE`-relevant
+  file and its "All rights reserved..." sentence opens its own line, a genuine
+  `detect_notice` hit — a real co-occurrence on real content, so the plant declares
+  both expected findings rather than being reworded to dodge the second one.

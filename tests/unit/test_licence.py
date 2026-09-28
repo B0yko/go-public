@@ -157,8 +157,45 @@ def test_detect_notice_ignores_prose_discussing_the_concept() -> None:
     assert licence.detect_notice(text) is None
 
 
-def test_detect_notice_on_a_later_line_reports_that_line() -> None:
-    text = "line one\nline two\nProprietary and confidential.\n"
+def test_detect_notice_on_a_later_comment_line_reports_that_line() -> None:
+    text = "line one\nline two\n// Proprietary and confidential.\n"
     detection = licence.detect_notice(text)
     assert detection is not None
     assert detection.line == 3
+
+
+def test_detect_notice_ignores_a_markdown_body_line_with_no_comment_marker() -> None:
+    """stage-4.md's notice-detector fix: a plain-prose line that opens with the word
+    (no comment marker, not a licence-relevant path) is not a notice."""
+    text = "Some heading\n\nProprietary and confidential.\nMore text.\n"
+    assert licence.detect_notice(text) is None
+
+
+def test_detect_notice_ignores_lines_past_the_header_block() -> None:
+    text = "\n".join([f"line {i}" for i in range(1, 31)] + ["// Confidential notice"])
+    assert licence.detect_notice(text) is None
+
+
+def test_detect_notice_reads_a_licence_relevant_file_anywhere_with_no_marker() -> None:
+    text = "\n".join([f"line {i}" for i in range(1, 40)] + ["Confidential and internal."])
+    detection = licence.detect_notice(text, licence_relevant=True)
+    assert detection is not None
+    assert detection.line == 40
+
+
+def test_detect_notice_all_rights_reserved_without_grant_in_licence_file() -> None:
+    text = "Copyright 2024 Someone.\n\nAll rights reserved. No further rights granted.\n"
+    detection = licence.detect_notice(text, licence_relevant=True)
+    assert detection is not None
+    assert detection.line == 3
+    assert detection.value.startswith("All rights reserved")
+
+
+def test_detect_notice_all_rights_reserved_with_grant_is_not_flagged() -> None:
+    text = "Copyright 2024 Someone.\n\nAll rights reserved except as licensed under this file.\n"
+    assert licence.detect_notice(text, licence_relevant=True) is None
+
+
+def test_detect_notice_all_rights_reserved_needs_a_comment_marker_elsewhere() -> None:
+    text = "All rights reserved by the author, informally speaking.\n"
+    assert licence.detect_notice(text) is None

@@ -563,6 +563,43 @@ def test_licence_transition_is_reported_with_from_to_and_commit(tmp_path: Path) 
     assert finding.present_at_export_ref is True
 
 
+def test_proprietary_word_in_a_commit_message_is_never_flagged(tmp_path: Path) -> None:
+    """stage-4.md's notice-detector fix: `licence-proprietary` is a fact about blob
+    content, never about a commit message discussing the word."""
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hello\n", "feat: a")
+    empty_commit(repo, "docs: mention that Proprietary code must never be committed here")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    findings = scan.run(runner, inventory)
+    assert not any(f.rule_id == "licence-proprietary" for f in findings)
+
+
+def test_proprietary_word_in_markdown_body_outside_header_is_not_flagged(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    body = "\n".join([f"line {i}" for i in range(1, 5)] + ["Proprietary and confidential."])
+    commit_file(repo, "README.md", body + "\n", "docs: readme")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    findings = scan.run(runner, inventory)
+    assert not any(f.rule_id == "licence-proprietary" for f in findings)
+
+
+def test_proprietary_notice_in_a_header_comment_is_flagged(tmp_path: Path) -> None:
+    content = "// Proprietary and confidential.\n// internal draft\n"
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "module.py", content, "feat: module")
+    runner = GitRunner(repo, role="source")
+    inventory = build(runner)
+
+    finding = _only(scan.run(runner, inventory), "licence-proprietary")
+    assert finding.category == "licence"
+    assert finding.location.kind == "blob"
+    assert finding.location.paths == ["module.py"]
+
+
 def test_repo_with_no_licence_file_reports_missing_at_head(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "repo")
     commit_file(repo, "a.txt", "hello\n", "feat: a")
