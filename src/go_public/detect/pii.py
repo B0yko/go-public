@@ -30,6 +30,16 @@ _EMAIL_RE = re2.compile(
 #: of `[pii] phone_regions`.
 _INTERNATIONAL_REGION = "ZZ"
 
+#: A cheap, deliberately permissive prefilter for `_detect_phones` (stage-3.md:
+#: "prefilter candidate digit runs with re2 for speed"): an optional leading `+`,
+#: then a run of digits and common phone punctuation (space, dot, dash, parens) at
+#: least 7 characters long, ending in a digit. Every format `phonenumbers` matches
+#: at `Leniency.VALID` — national or international, with or without separators —
+#: has at least this many digit-ish characters, so this never produces a false
+#: negative; it only skips the real `PhoneNumberMatcher` parsing when there is no
+#: phone-shaped run at all.
+_CANDIDATE_DIGIT_RUN_RE = re2.compile(r"\+?\d[\d\s().-]{5,}\d")
+
 
 def _line_col(text: str, offset: int) -> tuple[int, int]:
     line = text.count("\n", 0, offset) + 1
@@ -106,6 +116,12 @@ class PiiDetector:
         return out
 
     def _detect_phones(self, text: str) -> list[Detection]:
+        # Cheap re2 prefilter: `PhoneNumberMatcher` does real parsing work per
+        # region, so skip it outright on text with no digit run long enough to be
+        # any phone number at all (never a false negative: every supported format,
+        # national or "+", needs at least this many consecutive digits somewhere).
+        if not _CANDIDATE_DIGIT_RUN_RE.search(text):
+            return []
         seen: dict[tuple[int, int], Detection] = {}
         for region in self._regions:
             matcher = phonenumbers.PhoneNumberMatcher(

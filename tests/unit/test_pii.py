@@ -47,6 +47,10 @@ def test_configured_name_is_detected_whole_word_case_insensitive() -> None:
     assert detector.detect("alexrivera99 is a handle") == []
 
 
+def test_text_with_no_digits_finds_no_phone() -> None:
+    assert _rule_ids("no digits here at all", phone_regions=("US", "GB", "DE")) == []
+
+
 def test_order_number_digit_run_is_not_a_phone() -> None:
     # A hard negative from the Data section: an order-number-shaped run of digits
     # must not be mistaken for a phone number.
