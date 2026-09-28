@@ -34,14 +34,15 @@ from typing import Any
 
 from go_public import __version__, pipeline
 from go_public.bench import fixture as fixture_mod
-from go_public.bench.match import ExpectedHit, expected_hits, match
+from go_public.bench.match import ExpectedHit, expected_hits, finding_key, match
 from go_public.bench.plants import blind_spots
 from go_public.bench.truth import TruthEntry, read_truth
 from go_public.config import load_config
 from go_public.errors import GoPublicError, UsageError
+from go_public.export import history as history_mod
 from go_public.export import squash as squash_mod
 from go_public.git.runner import GitRunner, check_git_version
-from go_public.model import Finding, Report
+from go_public.model import Finding, Report, severity_rank
 from go_public.scan import ScanOptions
 
 #: The evaluated classes, in table order (architecture.md "Fixture & truth").
@@ -747,6 +748,11 @@ class ExportOutcome:
     blocking: int
     findings: list[Finding]
     notes: list[str] = field(default_factory=list)
+    #: Findings the mode leaves in place by design, by reason; they are not part of
+    #: `findings`.
+    by_design: dict[str, int] = field(default_factory=dict)
+    #: Whether blob ids survive the export (squash) or change with the rewrite.
+    stable_blob_ids: bool = True
 
 
 ExportRunner = Callable[[Workspace, Fixture, Path], ExportOutcome]
@@ -785,9 +791,64 @@ def _export_squash(workspace: Workspace, fx: Fixture, work: Path) -> ExportOutco
     )
 
 
-#: Export modes `--export-verify` runs; a later mode (`keep-history`) registers here
-#: and gets the same columns.
-EXPORT_MODES: dict[str, ExportRunner] = {"squash": _export_squash}
+def by_design_reason(finding: Finding) -> str | None:
+    """Why a kept history still carries this finding, when it does by design: licence
+    history is kept as it was, and only blobs at or above the size limit are dropped."""
+    if history_mod.is_licence_history(finding):
+        return "licence history"
+    if finding.rule_id == "large-file-warn":
+        return "large file below the size limit"
+    if finding.rule_id == "lfs-pointer":
+        return "LFS pointer"
+    return None
+
+
+def _export_keep_history(workspace: Workspace, fx: Fixture, work: Path) -> ExportOutcome:
+    config = load_config(fx.result.config_path)
+    log: list[str] = []
+    request = history_mod.HistoryRequest(
+        source=fx.result.repo,
+        out=work / "export",
+        ref="HEAD",
+        config=config,
+        config_source="fixture",
+        scan_options=ScanOptions.from_config(config, jobs=workspace.options.jobs),
+        git_version=workspace.git_version,
+        fail_on="low",
+        author=squash_mod.parse_identity(config.export.author),
+        include_tags=True,
+        report_dir=work / "export-report",
+    )
+    result = history_mod.run_history(request, log.append)
+    if result.out is None or "json" not in result.report_paths:
+        return ExportOutcome(
+            refused=True,
+            clean=None,
+            blocking=len(result.blocking),
+            findings=[],
+            notes=[f"{f.category}/{f.rule_id}" for f in result.blocking],
+            stable_blob_ids=False,
+        )
+    report = Report.model_validate_json(result.report_paths["json"].read_text(encoding="utf-8"))
+    kept = [f for f in report.findings if by_design_reason(f) is None]
+    by_design = Counter(r for f in report.findings if (r := by_design_reason(f)) is not None)
+    # `clean` here means nothing but the by-design items remains at `--fail-on low`.
+    clean = not any(severity_rank(f.severity) >= severity_rank("low") for f in kept)
+    return ExportOutcome(
+        refused=False,
+        clean=clean,
+        blocking=len(result.blocking),
+        findings=kept,
+        by_design=dict(by_design),
+        stable_blob_ids=False,
+    )
+
+
+#: Export modes `--export-verify` runs, each with the same columns.
+EXPORT_MODES: dict[str, ExportRunner] = {
+    "squash": _export_squash,
+    "keep-history": _export_keep_history,
+}
 
 _TREE_KINDS = frozenset({"blob", "path", "binary_field"})
 
@@ -815,6 +876,63 @@ def _finding_stable_keys(findings: list[Finding]) -> set[tuple[str, Any]]:
     return keys
 
 
+_BLOB_KINDS = frozenset({"blob", "unreachable_blob", "binary_field"})
+
+
+def _rewrite_residuals(
+    before_findings: list[Finding],
+    hits: list[ExpectedHit],
+    history_hits: list[ExpectedHit],
+    export_findings: list[Finding],
+) -> tuple[int, int, int]:
+    """`(history residual, residual true, residual false positives)` for an export whose
+    blob ids changed (a rewritten history): blob findings are matched to the truth
+    through their paths, paths and identities through their stable keys, and message-like
+    findings through their category and location kind."""
+    truth_keys = {(h.category, h.key) for h in hits}
+    true_source = [
+        f
+        for f in before_findings
+        if (key := finding_key(f)) is not None and (f.category, key) in truth_keys
+    ]
+    true_paths = {(f.category, p) for f in true_source for p in f.location.paths}
+    true_kinds = {(f.category, f.location.kind) for f in true_source}
+    paths_by_key: defaultdict[tuple[str, Any], set[str]] = defaultdict(set)
+    for f in true_source:
+        paths_by_key[(f.category, finding_key(f))].update(f.location.paths)
+    export_paths = {(f.category, p) for f in export_findings for p in f.location.paths}
+    export_kinds = {(f.category, f.location.kind) for f in export_findings}
+    export_stable = _finding_stable_keys(export_findings)
+    all_stable = {k for h in hits if (k := _stable_key(h)) is not None}
+
+    history_residual = 0
+    for h in history_hits:
+        if h.kind in _BLOB_KINDS:
+            gone = not any(
+                (h.category, p) in export_paths for p in paths_by_key[(h.category, h.key)]
+            )
+        elif (stable := _stable_key(h)) is not None:
+            gone = stable not in export_stable
+        else:
+            gone = (h.category, h.kind) not in export_kinds
+        history_residual += 0 if gone else 1
+
+    residual_true = residual_fp = 0
+    for f in export_findings:
+        kind = f.location.kind
+        if kind in _BLOB_KINDS:
+            is_true = any((f.category, p) in true_paths for p in f.location.paths)
+        elif kind in ("path", "identity"):
+            is_true = next(iter(_finding_stable_keys([f])), None) in all_stable
+        else:
+            is_true = (f.category, kind) in true_kinds
+        if is_true:
+            residual_true += 1
+        else:
+            residual_fp += 1
+    return history_residual, residual_true, residual_fp
+
+
 def _verify_seed(workspace: Workspace, seed: int, mode: str) -> dict[str, Any]:
     fx = workspace.fixture(seed, scripted_fix=True)
     fix = fx.result.fix
@@ -828,10 +946,14 @@ def _verify_seed(workspace: Workspace, seed: int, mode: str) -> dict[str, Any]:
 
     hits = expected_hits(fx.truth, before_findings, eval_classes=set(EVAL_CLASSES))
     history_hits = [h for h in hits if not (h.kind in _TREE_KINDS and h.at_export_ref)]
-    rescan_keys = _finding_stable_keys(outcome.findings)
-    history_residual = sum(
-        1 for h in history_hits if (k := _stable_key(h)) is not None and (k[0], k[1]) in rescan_keys
-    )
+    if not outcome.stable_blob_ids:
+        # What a kept history carries by design is listed on its own, not scored.
+        design_keys = {
+            (f.category, key)
+            for f in before_findings
+            if by_design_reason(f) is not None and (key := finding_key(f)) is not None
+        }
+        history_hits = [h for h in history_hits if (h.category, h.key) not in design_keys]
 
     rescan_at: defaultdict[str, set[str]] = defaultdict(set)
     for f in outcome.findings:
@@ -846,20 +968,32 @@ def _verify_seed(workspace: Workspace, seed: int, mode: str) -> dict[str, Any]:
         if auto_path not in rescan_at[h.category]:
             auto_gone += 1
 
-    all_truth_keys = {k for h in hits if (k := _stable_key(h)) is not None}
-    residual_true = residual_fp = 0
-    for key in _finding_stable_keys(outcome.findings):
-        if key in all_truth_keys:
-            residual_true += 1
-        else:
-            residual_fp += 1
-    # Findings that carry no stable key (a message, tag or ref finding in the export)
-    # cannot match a source truth entry: they are residual false positives.
-    residual_fp += sum(
-        1
-        for f in outcome.findings
-        if f.location.kind not in ("blob", "unreachable_blob", "binary_field", "path", "identity")
-    )
+    if outcome.stable_blob_ids:
+        rescan_keys = _finding_stable_keys(outcome.findings)
+        history_residual = sum(
+            1
+            for h in history_hits
+            if (k := _stable_key(h)) is not None and (k[0], k[1]) in rescan_keys
+        )
+        all_truth_keys = {k for h in hits if (k := _stable_key(h)) is not None}
+        residual_true = residual_fp = 0
+        for key in rescan_keys:
+            if key in all_truth_keys:
+                residual_true += 1
+            else:
+                residual_fp += 1
+        # Findings that carry no stable key (a message, tag or ref finding in the export)
+        # cannot match a source truth entry: they are residual false positives.
+        residual_fp += sum(
+            1
+            for f in outcome.findings
+            if f.location.kind
+            not in ("blob", "unreachable_blob", "binary_field", "path", "identity")
+        )
+    else:
+        history_residual, residual_true, residual_fp = _rewrite_residuals(
+            before_findings, hits, history_hits, outcome.findings
+        )
     return {
         "seed": seed,
         "source_findings": len(before_findings),
@@ -875,6 +1009,8 @@ def _verify_seed(workspace: Workspace, seed: int, mode: str) -> dict[str, Any]:
         "residual_true": residual_true,
         "residual_false_positives": residual_fp,
         "residual_rules": sorted({f"{f.category}/{f.rule_id}" for f in outcome.findings}),
+        "left_by_design": sum(outcome.by_design.values()),
+        "left_by_design_reasons": dict(sorted(outcome.by_design.items())),
         "immutable": fingerprint_before == fingerprint_after,
     }
 
@@ -894,6 +1030,7 @@ def run_export_verify(workspace: Workspace) -> tuple[dict[str, Any], str, bool]:
                 "head_auto_eliminated",
                 "residual_true",
                 "residual_false_positives",
+                "left_by_design",
             )
         }
         ok = all(s["immutable"] and not s["refused"] for s in seeds) and total["residual_true"] == 0
@@ -928,6 +1065,7 @@ def run_export_verify(workspace: Workspace) -> tuple[dict[str, Any], str, bool]:
                 f"{s['head_auto_eliminated']}/{s['head_auto_total']}",
                 s["residual_true"],
                 s["residual_false_positives"],
+                s["left_by_design"] if mode == "keep-history" else "-",
                 "yes" if s["immutable"] else "NO",
                 "refused" if s["refused"] else ("clean" if s["clean"] else "NOT CLEAN"),
             ]
@@ -941,6 +1079,7 @@ def run_export_verify(workspace: Workspace) -> tuple[dict[str, Any], str, bool]:
                 f"{t['head_auto_eliminated']}/{t['head_auto_total']}",
                 t["residual_true"],
                 t["residual_false_positives"],
+                t["left_by_design"] if mode == "keep-history" else "-",
                 "yes" if block["immutable_all"] else "NO",
                 "pass" if block["pass"] else "FAIL",
             ]
@@ -953,12 +1092,24 @@ def run_export_verify(workspace: Workspace) -> tuple[dict[str, Any], str, bool]:
                     "HEAD auto-resolved eliminated",
                     "Residual true",
                     "Residual false positives",
+                    "Left by design",
                     "Source unchanged",
                     "Export",
                 ],
                 rows,
             )
         )
+        if mode == "keep-history":
+            reasons: Counter[str] = Counter()
+            for seed_block in block["seeds"]:
+                reasons.update(seed_block["left_by_design_reasons"])
+            listed = ", ".join(f"{r}: {n}" for r, n in sorted(reasons.items())) or "none"
+            lines += [
+                "",
+                "Left by design: licence history (kept as it was, needs a decision), blobs "
+                "under the size limit that is dropped, and LFS pointers. They are listed in "
+                f"the re-scan report and not scored. This run: {listed}.",
+            ]
     return data, "\n".join(lines) + "\n", all_ok
 
 

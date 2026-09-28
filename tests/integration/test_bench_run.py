@@ -91,6 +91,25 @@ def test_export_verify_squash_eliminates_everything(tmp_path: Path) -> None:
     assert seed["immutable"] is True and seed["clean"] is True and not seed["refused"]
 
 
+def test_export_verify_keep_history_reports_the_same_columns(tmp_path: Path) -> None:
+    code, output, out = _bench(tmp_path, "--seeds", "0", "--export-verify", "--gate")
+    assert code == 0, output
+    data = json.loads((out / "export-verify-tiny-0.json").read_text())
+    assert list(data["modes"]) == ["squash", "keep-history"]
+    block = data["modes"]["keep-history"]
+    seed = block["seeds"][0]
+    assert seed["history_only_eliminated"] == seed["history_only_total"] > 0
+    assert seed["head_auto_eliminated"] == seed["head_auto_total"] > 0
+    assert seed["residual_true"] == 0 and seed["residual_false_positives"] == 0
+    assert seed["immutable"] is True and seed["clean"] is True and not seed["refused"]
+    # Licence history and blobs under the size limit stay by design, listed on their own.
+    assert seed["left_by_design"] > 0
+    assert "licence history" in seed["left_by_design_reasons"]
+    assert block["pass"] is True
+    text = (out / "export-verify-tiny-0.md").read_text()
+    assert "## keep-history" in text and "Left by design" in text
+
+
 def test_the_scripted_fix_is_what_makes_the_export_possible(tmp_path: Path) -> None:
     """Without the fix commit the pre-check refuses: the verify run is not vacuous."""
     options = bench_run.BenchOptions(seed_spec="0", size="tiny", out=tmp_path / "r", jobs=1)

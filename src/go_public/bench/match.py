@@ -63,6 +63,11 @@ def _expected_key(kind: str, key: Mapping[str, object]) -> Key:
     raise AssertionError(f"unhandled match kind: {kind!r}")
 
 
+def finding_key(finding: Finding) -> Key | None:
+    """The match key of `finding` (None when its kind is not scored)."""
+    return _finding_key(finding)
+
+
 def _finding_key(finding: Finding) -> Key | None:
     if finding.category == "licence" and "transition_commit" in finding.extra:
         # architecture.md "Match keys": "licence transition -> (commit) via
