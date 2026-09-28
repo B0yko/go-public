@@ -1,0 +1,17 @@
+{
+  "name": "go-public",
+  "owner": { "name": "Andrii Boiko" },
+  "metadata": {
+    "description": "go-public: audit a private git repository and produce a clean export before you open-source it."
+  },
+  "plugins": [
+    {
+      "name": "go-public",
+      "source": ".",
+      "version": "0.1.0",
+      "description": "Audit a private git repository and produce a clean export before you open-source it, with a guided /go-public workflow.",
+      "category": "security",
+      "tags": ["open-source", "secrets", "audit", "git", "release"]
+    }
+  ]
+}

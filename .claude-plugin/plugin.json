@@ -1,0 +1,10 @@
+{
+  "name": "go-public",
+  "version": "0.1.0",
+  "description": "Audit a private git repository and produce a clean export before you open-source it, with a guided /go-public workflow.",
+  "author": { "name": "Andrii Boiko" },
+  "homepage": "https://github.com/B0yko/go-public",
+  "repository": "https://github.com/B0yko/go-public",
+  "license": "Apache-2.0",
+  "keywords": ["open-source", "secrets", "audit", "git", "release", "privacy"]
+}

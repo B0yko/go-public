@@ -1,0 +1,63 @@
+#!/bin/sh
+# Wrapper used by the go-public skill for Claude Code.
+#
+# Runs go-public from PATH only when its version equals the plugin version (read from
+# .claude-plugin/plugin.json next to this script). Otherwise it runs the plugin's own
+# source through uvx, and failing that the tagged release on GitHub. It makes no network
+# call itself; uvx may.
+#
+# Exit codes besides go-public's own (0-3): 127 when uv is missing, 126 when go-public
+# could not be started from any source.
+
+set -u
+
+script_dir=$(cd "$(dirname "$0")" && pwd -P)
+plugin_root=$(dirname "$script_dir")
+manifest="$plugin_root/.claude-plugin/plugin.json"
+
+version=$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest" 2>/dev/null | head -n 1)
+if [ -z "$version" ]; then
+  echo "go-public wrapper: cannot read the plugin version from $manifest" >&2
+  exit 126
+fi
+
+# 1. go-public on PATH, but only at exactly the plugin version (and never this wrapper).
+on_path=$(command -v go-public 2>/dev/null || true)
+if [ -n "$on_path" ] && [ ! "$on_path" -ef "$0" ]; then
+  if [ "$("$on_path" --version 2>/dev/null)" = "go-public $version" ]; then
+    exec "$on_path" "$@"
+  fi
+fi
+
+# 2. uvx from the plugin directory, then from the tagged GitHub release.
+if command -v uvx >/dev/null 2>&1; then
+  runner="uvx"
+elif command -v uv >/dev/null 2>&1; then
+  runner="uv tool run"
+else
+  {
+    echo "go-public wrapper: uv is required to run go-public and was not found."
+    echo "Install it (https://docs.astral.sh/uv/getting-started/installation/), for example:"
+    echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+    echo "  brew install uv"
+    echo "Then start the session again."
+  } >&2
+  exit 127
+fi
+
+# Probe first: after this succeeds, a non-zero exit is go-public's own verdict, not a
+# failure to start.
+# shellcheck disable=SC2086  # $runner is a fixed command name, split on purpose
+if $runner --from "$plugin_root" go-public --version >/dev/null 2>&1; then
+  # shellcheck disable=SC2086
+  exec $runner --from "$plugin_root" go-public "$@"
+fi
+git_source="git+https://github.com/B0yko/go-public@v$version"
+# shellcheck disable=SC2086
+if $runner --from "$git_source" go-public --version >/dev/null 2>&1; then
+  # shellcheck disable=SC2086
+  exec $runner --from "$git_source" go-public "$@"
+fi
+
+echo "go-public wrapper: could not start go-public $version from PATH, $plugin_root or $git_source" >&2
+exit 126
