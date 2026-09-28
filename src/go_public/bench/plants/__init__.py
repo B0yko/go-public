@@ -13,12 +13,12 @@ Only `git/runner.py` may run git directly; this module only ever calls it throug
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
 from go_public.bench.truth import ExpectedFinding, TruthEntry
+from go_public.git.objects import blob_id as blob_id  # re-exported for bench/plants/*.py
 from go_public.git.runner import GitRunner
 
 LocationType = Literal[
@@ -79,17 +79,6 @@ Identity = tuple[str, str]  # (name, email)
 #: A ref only fast-import needs, never reachable from any branch once resolved:
 #: its holding branch is deleted after the commit it needs has been made.
 _ORPHAN_PREFIX = "refs/heads/_fixture/orphan-"
-
-
-def blob_id(content: bytes) -> str:
-    """The blob object id git would assign this content, without asking git.
-
-    sha1(f"blob {len(content)}\\0" + data) — architecture.md "Fixture & truth":
-    never assume cross-platform blob ids, but this hash *is* the git blob id on
-    every platform, since it only depends on the bytes we chose ourselves.
-    """
-    header = f"blob {len(content)}\0".encode()
-    return hashlib.sha1(header + content).hexdigest()  # noqa: S324 (git's own object hash)
 
 
 @dataclass

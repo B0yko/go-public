@@ -7,6 +7,7 @@ commit metadata and blob content.
 
 from __future__ import annotations
 
+import hashlib
 import re
 import subprocess
 from dataclasses import dataclass, field
@@ -17,6 +18,15 @@ if TYPE_CHECKING:
 
 _IDENT_RE = re.compile(r"^(.*) <([^>]*)> (\d+) ([+-]\d{4})$")
 _TRAILER_RE = re.compile(r"^([A-Za-z][A-Za-z0-9-]*):[ \t]*(.*)$")
+
+
+def blob_id(content: bytes) -> str:
+    """The blob object id git would assign this content, without asking git:
+    `sha1(f"blob {len(content)}\\0" + data)`. Used wherever a blob id is needed for
+    content we already hold in memory and never wrote to any repository (fixture
+    plants; `go-public redact`'s fingerprint recompute against a working-tree file)."""
+    header = f"blob {len(content)}\0".encode()
+    return hashlib.sha1(header + content).hexdigest()  # noqa: S324 (git's own object hash)
 
 
 @dataclass(frozen=True)

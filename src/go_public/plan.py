@@ -19,6 +19,7 @@ Secrets appear in A and in B or C, per their own `present_at_export_ref`.
 
 from __future__ import annotations
 
+import shlex
 from collections import defaultdict
 
 from go_public.model import (
@@ -31,17 +32,28 @@ from go_public.model import (
 )
 
 #: `strip` can remove exactly these binary-metadata rule families (product spec item
-#: 16: JPEG/PNG/WebP/PDF/OOXML).
-_STRIPPABLE_RULE_PREFIXES = ("exif-", "png-", "pdf-", "ooxml-")
+#: 16: JPEG/PNG/WebP/PDF/OOXML) — except `STRIP_EXCLUDED_RULE_IDS` below, which strip
+#: never touches.
+STRIPPABLE_RULE_PREFIXES = ("exif-", "png-", "pdf-", "ooxml-")
+
+#: OOXML tracked-change/comment authors: item 16 is explicit that `strip` reports
+#: these but never removes them ("Tracked changes and comments are reported, never
+#: auto-removed"), unlike every other `ooxml-*`/`exif-*`/`png-*`/`pdf-*` rule id.
+STRIP_EXCLUDED_RULE_IDS = frozenset({"ooxml-comment-author", "ooxml-revision-author"})
+
 _LARGE_FILE_DECIDE_RULE_IDS = frozenset(
     {"large-file-warn", "large-file-high", "large-file-github-limit"}
 )
 
-#: `export`/`strip` do not exist in the CLI yet (later stages); `next_commands` only
-#: ever names a subcommand this stage actually ships, so the "every next command
-#: exists in the CLI" test (stage-4.md) holds today rather than only once those later
-#: stages land. Recorded as a deviation in STATUS.md.
 _PLACEHOLDER_REASON = "describe how/why this was resolved"
+
+
+def is_strip_resolvable(rule_id: str) -> bool:
+    """Whether `go-public strip` can remove this binary-metadata rule id's field in
+    place (product spec item 16). Shared with `export/precheck.py`, which treats a
+    strip-resolvable finding at the export ref as resolved by the export itself when
+    metadata stripping is on."""
+    return rule_id.startswith(STRIPPABLE_RULE_PREFIXES) and rule_id not in STRIP_EXCLUDED_RULE_IDS
 
 
 def build_plan(
@@ -59,7 +71,7 @@ def build_plan(
     c_entries = _group_file(refined, buckets, "C")
     d_entries = _group_d(refined, buckets)
     identity_notes = _identity_notes(refined)
-    next_commands = _next_commands(a_entries)
+    next_commands = _next_commands(a_entries, b_entries)
 
     plan = PlanModel(
         A=a_entries,
@@ -112,8 +124,14 @@ def _fix_action_for(finding: Finding, bucket: str) -> FixAction | None:
         return FixAction(
             action="exclude", text="Add to [export] exclude (on by default via auto_exclude)."
         )
-    if finding.rule_id.startswith(_STRIPPABLE_RULE_PREFIXES):
+    if is_strip_resolvable(finding.rule_id):
         return FixAction(action="strip", text="Run `go-public strip` on this file.")
+    if finding.rule_id in STRIP_EXCLUDED_RULE_IDS:
+        return FixAction(
+            action="edit-line",
+            text="Tracked changes/comments are reported, never auto-removed by strip: "
+            "edit the document to remove them.",
+        )
     if finding.location.kind == "path":
         return FixAction(action="rename-path", text="Rename this path before exporting.")
     return FixAction(action="edit-line", text="Edit this line before exporting.")
@@ -214,10 +232,18 @@ def _identity_notes(findings: list[Finding]) -> list[str]:
     return sorted(identities)
 
 
-def _next_commands(a_entries: list[PlanEntryA]) -> list[str]:
+def _next_commands(a_entries: list[PlanEntryA], b_entries: list[PlanFileGroup]) -> list[str]:
+    """Every open secret first (rotate before anything else), then one `go-public
+    strip` line per distinct B-group path whose action is `strip` — the extension
+    point stage 4's STATUS.md flagged once `go-public strip` existed (stage 5).
+    `export`/`export --check` are not emitted yet: unlike a fingerprint or a path,
+    naming a concrete `--out` directory here would need a repo-specific argument
+    `build_plan` does not take (STATUS.md deviation)."""
     commands = [
         f'go-public allow {entry.secret_id} --rotated --reason "{_PLACEHOLDER_REASON}"'
         for entry in a_entries
         if entry.status == "open"
     ]
+    strip_paths = sorted({g.key for g in b_entries if g.is_path and g.action == "strip"})
+    commands += [f"go-public strip {shlex.quote(path)}" for path in strip_paths]
     return commands

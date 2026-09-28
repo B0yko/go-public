@@ -250,3 +250,36 @@ def test_empty_findings_produce_an_empty_plan() -> None:
     assert plan.identity_notes == []
     assert plan.next_commands == []
     assert refined == []
+
+
+def test_next_commands_names_a_strip_line_per_strippable_path() -> None:
+    finding = _finding(
+        fingerprint="fp1",
+        category="binary-metadata",
+        rule_id="exif-gps",
+        kind="blob",
+        blob="b1",
+        paths=["photo.jpg"],
+        present_at_export_ref=True,
+    )
+
+    plan, _ = build_plan([finding])
+
+    assert plan.next_commands == ["go-public strip photo.jpg"]
+
+
+def test_ooxml_comment_and_revision_authors_are_not_marked_strip() -> None:
+    for rule_id in ("ooxml-comment-author", "ooxml-revision-author"):
+        finding = _finding(
+            fingerprint=f"fp-{rule_id}",
+            category="binary-metadata",
+            rule_id=rule_id,
+            kind="binary_field",
+            paths=["doc.docx"],
+            present_at_export_ref=True,
+        )
+
+        plan, refined = build_plan([finding])
+
+        assert refined[0].fix.action == "edit-line"
+        assert plan.B[0].action == "edit-line"
