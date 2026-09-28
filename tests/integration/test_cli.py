@@ -6,6 +6,7 @@ import json
 import random
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from go_public import __version__
@@ -200,3 +201,172 @@ def test_scan_debug_json_writes_findings(tmp_path: Path) -> None:
     assert len(findings) == 1
     assert findings[0]["rule_id"] == "npm-access-token"
     assert token not in debug_json.read_text()
+
+
+# -- stage 4: reports, --summary-json, --report-dir, config.scan.fail_on, allow/init --
+
+
+def test_scan_writes_json_md_html_reports_to_the_default_location(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hi\n", "feat: a")
+    _commit_licence(repo)
+    config = _allow_public_identity_config(tmp_path)
+    result = runner.invoke(app, ["scan", str(repo), "--config", str(config)])
+    assert result.exit_code == 0
+    assert "reports written to " in result.stdout
+    report_dir = Path(result.stdout.rsplit("reports written to ", 1)[1].strip())
+    assert (report_dir / "report.json").is_file()
+    assert (report_dir / "report.md").is_file()
+    assert (report_dir / "report.html").is_file()
+    assert (report_dir.parent / "latest").resolve() == report_dir
+
+
+def test_scan_report_dir_override_is_honored(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hi\n", "feat: a")
+    _commit_licence(repo)
+    config = _allow_public_identity_config(tmp_path)
+    out = tmp_path / "my-reports"
+    result = runner.invoke(
+        app, ["scan", str(repo), "--config", str(config), "--report-dir", str(out)]
+    )
+    assert result.exit_code == 0
+    assert (out / "report.json").is_file()
+
+
+def test_scan_report_dir_inside_scanned_repo_is_refused(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hi\n", "feat: a")
+    result = runner.invoke(app, ["scan", str(repo), "--report-dir", str(repo / "reports")])
+    assert result.exit_code == 2
+
+
+def test_scan_summary_json_prints_only_json_on_stdout(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    token = tok.aws_access_key(random.Random(46))
+    commit_file(repo, "config.txt", f'access_key = "{token}"\n', "feat: add config")
+    _commit_licence(repo)
+    config = _allow_public_identity_config(tmp_path)
+    result = runner.invoke(app, ["scan", str(repo), "--config", str(config), "--summary-json"])
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["groups"]["A"] == 1
+    assert payload["by_category"]["secret"] == 1
+    assert payload["blocking"] == 1
+    assert payload["exit_code"] == 1
+    assert Path(payload["reports"]["json"]).is_file()
+    assert token not in result.stdout
+
+
+def test_scan_quiet_suppresses_human_readable_output(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hi\n", "feat: a")
+    _commit_licence(repo)
+    config = _allow_public_identity_config(tmp_path)
+    result = runner.invoke(app, ["scan", str(repo), "--config", str(config), "--quiet"])
+    assert result.exit_code == 0
+    assert result.stdout == ""
+
+
+def test_scan_honors_config_fail_on_without_the_flag(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "repo")
+    value = tok.generic_high_entropy_value(random.Random(47))
+    commit_file(repo, "config.txt", f'password = "{value}"\n', "feat: add password")
+    _commit_licence(repo)
+    config = tmp_path / "go-public.toml"
+    config.write_text(
+        '[identity]\nallow = ["Pat Public <pat@example.com>"]\n[scan]\nfail_on = "critical"\n'
+    )
+    result = runner.invoke(app, ["scan", str(repo), "--config", str(config)])
+    assert result.exit_code == 0  # a high-severity generic-entropy finding, fail_on=critical
+
+
+def test_allow_appends_fingerprint_to_xdg_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    xdg = tmp_path / "xdg"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    result = runner.invoke(
+        app, ["allow", "abc123", "--reason", "known test value", "--repo", str(repo)]
+    )
+    assert result.exit_code == 0
+    written = xdg / "go-public" / f"{repo.name}.toml"
+    assert written.is_file()
+    assert "abc123" in written.read_text()
+    assert "known test value" in written.read_text()
+
+
+def test_allow_without_reason_exits_2(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    result = runner.invoke(app, ["allow", "abc123", "--reason", " ", "--repo", str(repo)])
+    assert result.exit_code == 2
+
+
+def test_allow_rotated_resolves_group_id_from_latest_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    xdg_config = tmp_path / "xdg-config"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg_config))
+
+    repo = init_repo(tmp_path / "repo")
+    token = tok.aws_access_key(random.Random(48))
+    commit_file(repo, "config.txt", f'access_key = "{token}"\n', "feat: add config")
+    _commit_licence(repo)
+    identity_config = _allow_public_identity_config(tmp_path)
+    scan_result = runner.invoke(app, ["scan", str(repo), "--config", str(identity_config)])
+    assert scan_result.exit_code == 1
+
+    debug_json = tmp_path / "debug.json"
+    runner.invoke(
+        app, ["scan", str(repo), "--config", str(identity_config), "--debug-json", str(debug_json)]
+    )
+    fingerprint = json.loads(debug_json.read_text())[0]["fingerprint"]
+
+    result = runner.invoke(
+        app,
+        ["allow", fingerprint, "--reason", "rotated in vault", "--rotated", "--repo", str(repo)],
+    )
+    assert result.exit_code == 0
+    written = xdg_config / "go-public" / f"{repo.name}.toml"
+    assert "rotated in vault" in written.read_text()
+
+
+def test_allow_rotated_refuses_non_secret_finding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hi\n", "feat: a")  # no licence -> licence-missing-at-head finding
+    debug_json = tmp_path / "debug.json"
+    runner.invoke(app, ["scan", str(repo), "--debug-json", str(debug_json)])
+    fingerprint = next(
+        f["fingerprint"]
+        for f in json.loads(debug_json.read_text())
+        if f["rule_id"] == "licence-missing-at-head"
+    )
+
+    result = runner.invoke(
+        app, ["allow", fingerprint, "--reason", "n/a", "--rotated", "--repo", str(repo)]
+    )
+    assert result.exit_code == 2
+
+
+def test_init_writes_template_with_identities_and_refuses_overwrite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    repo = init_repo(tmp_path / "repo")
+    commit_file(repo, "a.txt", "hi\n", "feat: a")
+
+    result = runner.invoke(app, ["init", str(repo)])
+    assert result.exit_code == 0
+    written = tmp_path / "xdg" / "go-public" / "repo.toml"
+    assert written.is_file()
+    assert "Pat Public <pat@example.com>" in written.read_text()
+    assert str(repo.resolve()) in written.read_text()
+
+    again = runner.invoke(app, ["init", str(repo)])
+    assert again.exit_code == 2
