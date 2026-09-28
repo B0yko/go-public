@@ -116,7 +116,7 @@ def run(
     for finding in findings:
         decision = _suppress_by_config(finding, fingerprint_reasons)
         if decision is None and config.allowlist.paths:
-            decision = _suppress_by_path(finding, path_spec)
+            decision = _suppress_by_path(finding, path_spec, config.allowlist.paths)
         if decision is None and finding.category == "identity" and finding.location.identity:
             decision = _suppress_by_identity(finding, identity_allow)
         if decision is None:
@@ -154,12 +154,16 @@ def _suppress_by_config(
 
 
 def _suppress_by_path(
-    finding: Finding, path_spec: pathspec.PathSpec[pathspec.pattern.Pattern]
+    finding: Finding,
+    path_spec: pathspec.PathSpec[pathspec.pattern.Pattern],
+    raw_patterns: list[str],
 ) -> SuppressedFinding | None:
     if finding.location.kind not in ("blob", "path") or not finding.location.paths:
         return None
-    if not all(path_spec.match_file(path) for path in finding.location.paths):
+    checks = [path_spec.check_file(path) for path in finding.location.paths]
+    if not all(check.include for check in checks):
         return None
+    patterns = sorted({raw_patterns[c.index] for c in checks if c.index is not None})
     return SuppressedFinding(
         fingerprint=finding.fingerprint,
         group_id=finding.group_id,
@@ -167,6 +171,7 @@ def _suppress_by_path(
         rule_id=finding.rule_id,
         source="path-glob",
         reason="every path matches an [allowlist].paths entry",
+        pattern=", ".join(patterns) or None,
     )
 
 

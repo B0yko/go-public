@@ -96,6 +96,7 @@ def test_path_glob_suppresses_only_when_every_path_matches(tmp_path: Path) -> No
     suppressed_fps = {s.fingerprint for s in result.suppressed}
     assert suppressed_fps == {"fp-a"}
     assert kept_fps == {"fp-b"}
+    assert [s.pattern for s in result.suppressed] == ["vendor/**"]
 
 
 def test_identity_allow_suppresses_identity_finding(tmp_path: Path) -> None:
