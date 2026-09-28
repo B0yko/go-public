@@ -4,10 +4,12 @@ export directory, and places the source repository must never be written to."""
 from __future__ import annotations
 
 import getpass
+import os
 import re
 import socket
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from go_public.cli import app
@@ -237,3 +239,64 @@ def test_export_never_runs_filter_drivers_from_the_repository_config(tmp_path: P
     _export(tmp_path, repo)
 
     assert not marker.exists()
+
+
+def test_hostile_user_git_environment_leaves_no_trace_in_the_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hooks = tmp_path / "user-hooks"
+    template = tmp_path / "user-template"
+    (template / "hooks").mkdir(parents=True)
+    (template / "hooks" / "post-checkout").write_text("#!/bin/sh\ntouch hook-ran\n")
+    (template / "info").mkdir()
+    (template / "description").write_text("user template description\n")
+    hooks.mkdir()
+    (hooks / "post-checkout").write_text("#!/bin/sh\ntouch hook-ran\n")
+    (hooks / "post-checkout").chmod(0o755)
+    (template / "hooks" / "post-checkout").chmod(0o755)
+    home = Path(os.environ["HOME"])
+    user_config = (
+        "[user]\n\tname = Somebody Else\n\temail = else@example.com\n"
+        f"[init]\n\ttemplateDir = {template}\n"
+        f"[core]\n\thooksPath = {hooks}\n"
+        "[commit]\n\tgpgsign = true\n"
+        '[remote "origin"]\n\turl = https://example.invalid/x.git\n'
+    )
+    (home / ".gitconfig").write_text(user_config)
+    (home / ".config" / "git").mkdir(parents=True, exist_ok=True)
+    (home / ".config" / "git" / "config").write_text(user_config)
+    repo = _basic_repo(tmp_path)
+    hostile_env = {
+        "GIT_AUTHOR_NAME": "Env Author",
+        "GIT_AUTHOR_EMAIL": "env-author@example.com",
+        "GIT_COMMITTER_NAME": "Env Committer",
+        "GIT_COMMITTER_EMAIL": "env-committer@example.com",
+        "GIT_TEMPLATE_DIR": str(template),
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "core.hooksPath",
+        "GIT_CONFIG_VALUE_0": str(hooks),
+        "GIT_DIR": str(tmp_path / "nowhere"),
+        "GIT_WORK_TREE": str(tmp_path / "nowhere"),
+        "EMAIL": "env-email@example.com",
+    }
+    for name, value in hostile_env.items():
+        monkeypatch.setenv(name, value)
+
+    code, output, out = _export(tmp_path, repo)
+
+    for name in hostile_env:
+        monkeypatch.delenv(name)
+    assert code == 0, output
+    assert not (out / "hook-ran").exists()
+    assert not list((out / ".git" / "hooks").glob("*"))
+    config = (out / ".git" / "config").read_text()
+    for needle in ("hooksPath", "templateDir", "Somebody", "else@example", "invalid", "origin"):
+        assert needle not in config
+    assert not (out / ".git" / "description").exists()
+    raw = git(out, "cat-file", "-p", "HEAD").decode()
+    assert "Pub Lic <pub@example.com>" in raw
+    for needle in ("Env ", "env-", "Somebody", "else@example"):
+        assert needle not in raw
+    for log in (out / ".git" / "logs").rglob("*"):
+        if log.is_file():
+            assert "Env " not in log.read_text() and "env-" not in log.read_text()
