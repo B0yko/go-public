@@ -12,11 +12,14 @@ import typer
 
 from go_public import __version__
 from go_public.bench import fixture as fixture_mod
+from go_public.detect.gitleaks_config import load_gitleaks_config, rules_check
 from go_public.errors import GoPublicError
 from go_public.git.inventory import build, build_head_only
 from go_public.git.runner import GitRunner, check_git_version
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, pretty_exceptions_enable=False)
+rules_app = typer.Typer(add_completion=False, no_args_is_help=True)
+app.add_typer(rules_app, name="rules", help="Inspect the gitleaks-format rule set.")
 
 
 def _handle_errors[F: Callable[..., None]](func: F) -> F:
@@ -106,6 +109,29 @@ def fixture(
     check_git_version()
     result = fixture_mod.build(seed, size, plants=not no_plants, blind_spots=blind_spots, out=out)
     typer.echo(f"fixture: {result.repo}")
+
+
+@rules_app.command("check")
+@_handle_errors
+def rules_check_cmd(
+    gitleaks_config: Path | None = typer.Option(
+        None,
+        "--gitleaks-config",
+        exists=True,
+        dir_okay=False,
+        help="Defaults to the bundled rules.",
+    ),
+) -> None:
+    """Compile the rule set and report how many rules and allowlist regexes loaded."""
+    config = load_gitleaks_config(gitleaks_config)
+    for warning in config.warnings:
+        typer.echo(f"warning: {warning}")
+    result = rules_check(config)
+    typer.echo(result.summary_line())
+    for failure in result.failures:
+        typer.echo(f"failed to compile: {failure.context}: {failure.pattern!r}: {failure.message}")
+    if result.failures:
+        raise typer.Exit(code=1)
 
 
 def main() -> None:

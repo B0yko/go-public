@@ -76,3 +76,26 @@ def test_fixture_unsupported_size_exits_2(tmp_path: Path) -> None:
         app, ["fixture", "--seed", "0", "--size", "small", "--out", str(tmp_path / "fixture")]
     )
     assert result.exit_code == 2
+
+
+def test_rules_check_prints_bundled_summary() -> None:
+    result = runner.invoke(app, ["rules", "check"])
+    assert result.exit_code == 0
+    assert "222 rules: 221 content regexes, 1 path-only; 49 allowlist regexes compiled" in (
+        result.stdout
+    )
+
+
+def test_rules_check_unknown_key_exits_2(tmp_path: Path) -> None:
+    bad_config = tmp_path / "bad.toml"
+    bad_config.write_text('title = "x"\nbogus = true\n')
+    result = runner.invoke(app, ["rules", "check", "--gitleaks-config", str(bad_config)])
+    assert result.exit_code == 2
+
+
+def test_rules_check_reports_compile_failures_exit_1(tmp_path: Path) -> None:
+    bad_config = tmp_path / "bad.toml"
+    bad_config.write_text('[[rules]]\nid = "r1"\npath = "ok"\nregex = "(unclosed"\n')
+    result = runner.invoke(app, ["rules", "check", "--gitleaks-config", str(bad_config)])
+    assert result.exit_code == 1
+    assert "failed to compile" in result.stdout
