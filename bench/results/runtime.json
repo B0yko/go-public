@@ -1,0 +1,120 @@
+{
+  "mode": "runtime",
+  "date_utc": "2026-09-28T21:52:32Z",
+  "hardware": "Mac Studio M4 Max, 128 GB",
+  "git_version": "2.50.1",
+  "go_public_version": "0.1.0",
+  "detector_commit": "unknown",
+  "seeds": [
+    100
+  ],
+  "size": "medium",
+  "command": "go-public bench --seeds 100 --size medium --runtime --repeat 3",
+  "repeat": 3,
+  "target_seconds": 60.0,
+  "cpu_count": 16,
+  "targets": [
+    {
+      "label": "Synthetic medium fixture, seed 100",
+      "gated": true,
+      "scan_default_jobs": {
+        "wall_s_median": 5.2,
+        "wall_s_runs": [
+          5.13,
+          5.2,
+          5.35
+        ],
+        "peak_rss_mb_median": 183.2,
+        "peak_rss_mb_runs": [
+          183.7,
+          183.2,
+          183.1
+        ],
+        "load_avg_start": [
+          12.46,
+          14.34,
+          15.11
+        ],
+        "load_avg_end": [
+          14.34,
+          15.11,
+          15.91
+        ],
+        "blobs_per_s": 2317.1,
+        "jobs": "default",
+        "inventory": {
+          "commits": 3017,
+          "branches": 4,
+          "tags": 30,
+          "annotated_tags": 6,
+          "unique_blobs": 12049,
+          "total_blob_bytes": 196646607,
+          "unreachable_blobs": 0,
+          "scan_duration_s": 5.05516,
+          "findings": 0
+        }
+      },
+      "scan_jobs_1": {
+        "wall_s_median": 34.84,
+        "wall_s_runs": [
+          34.84,
+          34.73,
+          35.01
+        ],
+        "peak_rss_mb_median": 191.0,
+        "peak_rss_mb_runs": [
+          191.0,
+          190.9,
+          192.3
+        ],
+        "load_avg_start": [
+          15.91,
+          12.56,
+          10.95
+        ],
+        "load_avg_end": [
+          12.56,
+          10.95,
+          9.91
+        ],
+        "blobs_per_s": 345.8,
+        "jobs": 1,
+        "inventory": {
+          "commits": 3017,
+          "branches": 4,
+          "tags": 30,
+          "annotated_tags": 6,
+          "unique_blobs": 12049,
+          "total_blob_bytes": 196646607,
+          "unreachable_blobs": 0,
+          "scan_duration_s": 34.738467,
+          "findings": 0
+        }
+      },
+      "squash_export": {
+        "wall_s_median": 24.43,
+        "wall_s_runs": [
+          17.59,
+          24.43,
+          24.85
+        ],
+        "peak_rss_mb_median": 167.4,
+        "peak_rss_mb_runs": [
+          167.4,
+          167.2,
+          168.1
+        ],
+        "load_avg_start": [
+          9.91,
+          11.75,
+          11.81
+        ],
+        "load_avg_end": [
+          11.75,
+          11.81,
+          12.09
+        ]
+      }
+    }
+  ]
+}
