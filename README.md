@@ -1,14 +1,40 @@
-# go-public
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/img/logo-light.svg">
+    <img alt="go-public" src="docs/img/logo-light.svg" width="360">
+  </picture>
+</p>
 
-Audit a private git repository before you open-source it: `go-public` scans every ref, commit, message, author and binary for secrets, personal data, organisation identifiers, local paths, file metadata and licence history, then writes a clean export and scans that again. CLI and Claude Code plugin.
+<h3 align="center">Audit a private git repository before you open-source it.</h3>
 
-![The HTML report of go-public demo: title, warnings and the first rows of fix-plan group A](docs/img/report.png)
+<p align="center">
+  Scans every ref, commit, message, author and binary for secrets, personal data, organisation identifiers, local paths, file metadata and licence history, then writes a clean export and scans that again.<br>
+  A CLI and a Claude Code plugin.
+</p>
 
-The screenshot is the HTML report for `go-public demo`, a synthetic repository built at run time. The report is one self-contained file with no network requests. Below the fix plan it lists every finding, with severity and category filters, in a light or dark theme.
+<p align="center">
+  <a href="https://github.com/B0yko/go-public/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/B0yko/go-public/ci.yml?branch=main&amp;label=CI"></a>
+  <a href="https://github.com/B0yko/go-public/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/B0yko/go-public?sort=semver&amp;label=release"></a>
+  <a href="pyproject.toml"><img alt="Python 3.12" src="https://img.shields.io/badge/python-3.12-3776ab"></a>
+  <a href="LICENSE"><img alt="Licence: Apache-2.0" src="https://img.shields.io/badge/licence-Apache--2.0-blue"></a>
+</p>
+
+<p align="center">
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#results-and-benchmarks">Results</a> ·
+  <a href="#claude-code-plugin">Plugin</a>
+</p>
 
 ## Why
 
-Most pre-release checks look at the files at HEAD. These leaks sit elsewhere:
+Making a repository public publishes its whole history. A key that was deleted months ago, a forgotten branch or tag, a colleague's email in a `Co-authored-by` trailer, GPS coordinates in a screenshot: a review of the files at HEAD sees none of them, and `git push --mirror` publishes all of them.
+
+`go-public` audits everything that would be published and turns the findings into a fix plan that a person reviews. Once HEAD is fixed, it writes a clean export to a new directory and scans that again before you push. It never pushes and never rewrites the source repository.
+
+<details>
+<summary>Where these leaks hide</summary>
 
 - A credential that was committed and deleted later is still in history, and stays valid until it is rotated.
 - A `.env`, a private key, a database dump or an HTTP archive (`.har` files hold cookies) that was committed once and removed.
@@ -18,40 +44,44 @@ Most pre-release checks look at the files at HEAD. These leaks sit elsewhere:
 - Photos and screenshots with EXIF GPS or owner fields, PNG text chunks holding a path, PDFs with an Author field, and Office files whose properties, comments and tracked changes name people and the company.
 - Earlier commits under a different licence, or with an "All rights reserved" or "Confidential" header. Every published commit keeps the licence it carried.
 
-`go-public` checks all of these across every ref and every commit, lets you decide what to do with each finding, and then writes a clean copy and verifies it.
+</details>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/report-dark.png">
+  <img alt="The HTML report of go-public demo: title, warnings and the first rows of fix-plan group A" src="docs/img/report.png">
+</picture>
+
+<sub>The HTML report for `go-public demo`, a synthetic repository built at run time. One self-contained file with no network requests; below the fix plan it lists every finding, with severity and category filters, in a light or dark theme.</sub>
 
 ## Quickstart
 
-You need `uv` and `git` 2.44 or newer. Nothing else is installed by hand. `uvx` comes with uv and is short for `uv tool run`.
+You need `uv` and `git` 2.44 or newer. `uvx` comes with uv and is short for `uv tool run`.
 
 ```sh
-# 1. Try it on a synthetic repository that the command builds for you.
+# Try it on a synthetic repository with planted leaks.
 uvx --from git+https://github.com/B0yko/go-public go-public demo
 
-# 2. Write a config for your repository. It goes outside the repository.
-uvx --from git+https://github.com/B0yko/go-public go-public init ~/code/my-app
+# Your repository: write a config (kept outside it), then scan every ref, commit and blob.
+uvx --from git+https://github.com/B0yko/go-public go-public init ~/my-app
+uvx --from git+https://github.com/B0yko/go-public go-public scan ~/my-app --include-unreachable
 
-# 3. Scan every ref, commit and blob, including unreachable blobs.
-uvx --from git+https://github.com/B0yko/go-public go-public scan ~/code/my-app --include-unreachable
-
-# 4. Check that an export would be clean, then write it to a new directory.
-uvx --from git+https://github.com/B0yko/go-public go-public export ~/code/my-app --check
-uvx --from git+https://github.com/B0yko/go-public go-public export ~/code/my-app --out ~/code/my-app-public --author "Jane Doe <jane@example.com>"
+# Check that an export would be clean, then write it to a new directory and re-scan it.
+uvx --from git+https://github.com/B0yko/go-public go-public export ~/my-app --check
+uvx --from git+https://github.com/B0yko/go-public go-public export ~/my-app \
+    --out ~/my-app-public --author "Jane Doe <jane@example.com>"
 ```
 
-`demo` prints where the reports are and leaves the demo repository and its config in a temporary directory, so you can try `export` on it. `init` prints the path of the config it wrote; add your public identity and your deny-list there (see [Configuration](#configuration)). `scan` prints an inventory line, the finding counts and the report location. Open `report.html` in a browser. `export` refuses when findings that it cannot fix by itself remain, and prints them.
+`demo` prints where the reports are and leaves the demo repository and its config in a temporary directory, so you can try `export` on it. `init` prints the path of the config it wrote; add your public identity and your deny-list there (see [Configuration](#configuration)). `scan` prints an inventory line, the finding counts and the report location; open `report.html` in a browser. `export` refuses when findings that it cannot fix by itself remain, and prints them.
 
-To publish, create a new repository from the export:
+Publish the export as a new repository, never the private one (see [Publishing](#publishing)):
 
 ```sh
-gh repo create my-app-public --public --source ~/code/my-app-public --push
+gh repo create my-app-public --public --source ~/my-app-public --push
 ```
-
-Do not make the existing private repository public. See [Publishing](#publishing).
 
 ### Claude Code plugin
 
-The plugin walks you through the same steps: config, scan, rotation of secrets, edits at HEAD, export. Inside Claude Code:
+The plugin walks you through the same loop: config, scan, rotation of secrets, edits at HEAD, export. Inside Claude Code:
 
 ```
 /plugin marketplace add B0yko/go-public
@@ -61,23 +91,43 @@ The plugin walks you through the same steps: config, scan, rotation of secrets, 
 
 `/go-public [repo-path]` runs the workflow in `skills/go-public/SKILL.md`. The skill never prints a file or line that carries a secret; it works from `go-public` output, `go-public show` and `go-public redact`. Its wrapper uses a `go-public` on your `PATH` when the version matches, and otherwise runs the plugin's own copy through `uvx`.
 
+## At a glance
+
+<!-- BEGIN generated:at-a-glance -->
+
+| Measure | Result | For comparison |
+|---|---|---|
+| [Recall, held-out seeds 2-6](#recall-and-precision-on-held-out-seeds) | 1.000 | 595/595 expected findings; lowest class 1.000 |
+| [Precision, held-out seeds 2-6](#recall-and-precision-on-held-out-seeds) | 1.000 | 0 false positives; lowest class 1.000 |
+| [Recall, full scan vs HEAD only](#what-a-head-only-review-misses) | 1.000 | `--head-only`: 0.336 (200/595) |
+| [Secret recall vs gitleaks 8.30.1](#against-gitleaks) | 1.000 | `gitleaks git`: 0.692 (90/130), in its scope 90/100; `gitleaks dir`: 0.192 (25/130) |
+| [Wall time, same fixtures](#against-gitleaks) | 9.22 s | `gitleaks git`: 1.34 s |
+| [Export: history-only findings removed](#export-verification) | 515/515 | squash, 0 residual; keep-history 470/470; source unchanged: yes |
+| [Precision, real-world sample](#real-world-noise) | 1.000 | 50/50 critical/high findings from psf/requests and pallets/flask, labels by the author |
+| [Full scan, synthetic medium](#runtime) | 5.15 s | 184 MB peak RSS; 12,049 unique blobs, 197 MB; target 60 s |
+
+From the results files of 2026-09-29 (UTC) on Mac Studio M4 Max, 128 GB, detector commit `a07fcb42037e`.
+
+<!-- END generated:at-a-glance -->
+
+The fixture generator and the detectors were written by the same author, so the synthetic scores are an upper bound. The HEAD-only comparison, the gitleaks baseline, the export verification and the real-world sample look at the detectors from outside the fixtures.
+
 ## How it works
 
-```
-refs ──► inventory ──► unique blobs ──► worker pool (cat-file per shard) ──► detectors ─┐
-   └──► commits/tags ──► messages · identities · trailers · ref names · paths ─────────┤
-                                                                                        ▼
-                          attribution (commits, refs, at-export-ref) ──► suppressions ──► fix plan ──► md/html/json
-export: pre-check ─► select entries + exclude ─► strip in memory ─► hash-object/write-tree/commit-tree ─► checkout ─► re-scan (incl. unreachable)
+```mermaid
+flowchart LR
+    scan["<b>Scan</b><br/>every ref and blob"] --> review["<b>Review</b><br/>the fix plan"]
+    review --> fix["<b>Fix at HEAD</b><br/>rotate, edit, strip"]
+    fix --> export["<b>Export</b><br/>a clean copy"]
+    export --> rescan["<b>Re-scan</b><br/>the export"]
+    rescan -->|clean| publish(["<b>Publish</b><br/>as a new repo"])
+    rescan -.->|NOT CLEAN| fix
 ```
 
-- **Inventory.** Every ref (branches, tags, remote-tracking refs, notes, stash, `refs/replace/*`, `refs/original/*`, anything else), every commit and annotated tag, and every unique blob. `--include-unreachable` also scans every blob in the object database that no ref reaches, which covers dangling and reflog-only blobs. The messages and identities of unreachable commits are not read.
-- **Blobs are scanned once.** Content is addressed by hash, so each unique blob goes through the detectors one time, and each finding is then attributed to every commit and path where the blob appears. Messages, identities, trailers, ref names and paths are separate scan units. `--head-only` scans only the tree at the export ref, as a working-tree scanner would.
-- **Detectors.** Secrets (the gitleaks v8.30.1 rule set plus a generic detector for high-entropy values in assignments), emails, phone numbers and names, organisation identifiers from your deny-list, local paths and private network identifiers, binary metadata (JPEG, PNG, WebP, TIFF, PDF, OOXML), licence history, large files, sensitive and internal-notes files, commit metadata. Binary files are found by magic bytes, and the values extracted from them go through the text detectors.
-- **Git access is read-only.** Every git call goes through one runner with a list of allowed subcommands (the one exception is the git-filter-repo child process of `--keep-history`, which works on a fresh clone and never on the source). The runner bound to the source repository allows read commands only, and `push`, `fetch` and `remote` are on no list. The source repository is never changed.
-- **The report is local and private.** It is written outside the repository, by default to `$XDG_STATE_HOME/go-public/<repo-name>/<UTC timestamp>/` (`~/.local/state` when the variable is unset) with a `latest` link, in a directory with mode 0700 and files with mode 0600. Writing it inside the scanned working tree is refused. It names the repository by its directory name and shows secrets only as their first four characters, their length and a SHA-256 prefix.
-- **Export.** The export is built directly in a new object store: one commit with the tree at the export ref, binary metadata stripped in memory before a blob is written (a file that needs no change keeps its blob id), and nothing from the source repository's config, hooks or remotes. Then the export is scanned again, including unreachable blobs, and if anything at or above `--fail-on` is left, `go-public` prints `NOT CLEAN` and keeps the directory for inspection.
-- **History mode.** `export --keep-history` clones the export ref's branch (a branch is required: a detached HEAD or a tag is a usage error) and rewrites it with git-filter-repo. All identities become the export identity (or follow `--mailmap`), configured trailers are stripped, excluded and sensitive paths are removed from every commit, literal values behind findings are replaced with `***REMOVED***` in blobs and messages, binary metadata is stripped in every commit, blobs at or above `files.high_mb` are dropped, and the branch is named `main`. Tags come only with `--include-tags`, minus tags whose names contain a deny term. Commit ids change, signatures are dropped, and licence history is kept as it was.
+- **Everything that would be published is scanned.** Every ref (branches, tags, remote-tracking refs, notes, stash, `refs/replace/*`, `refs/original/*`), every commit and annotated tag, every unique blob, and with `--include-unreachable` every blob no ref reaches.
+- **The source repository is read-only.** Git runs through one runner with an allowlist of subcommands per role: the source gets read commands only, and `push`, `fetch` and `remote` are on no list.
+- **The report is local and private.** It is written outside the repository, and secrets appear only as a short prefix, a length and a hash prefix unless you pass `--show-secrets`.
+- **The export is built fresh and verified.** It goes to a new directory with nothing from the source's config, hooks or remotes, and is scanned again before `go-public` calls it clean.
 
 ### The fix plan
 
@@ -92,21 +142,58 @@ The report opens with a plan of four groups, closes the plan with the next comma
 
 `go-public allow <fingerprint> --reason "<text>"` writes an allowlist entry to your config, and a reason is required. `go-public allow <secret-id> --rotated --reason "<text>"` records a secret as rotated; group A then shows it as done. A rotated entry never suppresses the finding in group B and never stops an export from removing the value. Path globs in `allowlist.paths` and inline `go-public:allow <reason>` comments also suppress findings. Every suppression and rotation record is listed in the report, so it stays auditable.
 
-Default severities: critical for vendor-format secrets, private-key blocks and a tracked config with deny entries; high for generic high-entropy secrets, organisation identifiers, personal data, GPS in images, proprietary or confidential notices and blobs of 100 MiB or more; medium for identities, trailers with a name or email, local paths, network identifiers, person and organisation fields in binaries, internal notes, licence transitions and blobs of 50 MiB or more; low for blobs of 5 MiB or more and software fields in binary metadata; info for timezone offsets, unscanned archives, LFS pointers and a missing licence at HEAD. Sensitive files are critical when they are private keys, key stores or `.env` files (`id_rsa*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `.env`, `.env.*`) and high otherwise.
+<details>
+<summary>Default severities</summary>
+
+- **Critical:** vendor-format secrets, private-key blocks, and a tracked config with deny entries.
+- **High:** generic high-entropy secrets, organisation identifiers, personal data, GPS in images, proprietary or confidential notices, and blobs of 100 MiB or more.
+- **Medium:** identities, trailers with a name or email, local paths, network identifiers, person and organisation fields in binaries, internal notes, licence transitions, and blobs of 50 MiB or more.
+- **Low:** blobs of 5 MiB or more and software fields in binary metadata.
+- **Info:** timezone offsets, unscanned archives, LFS pointers, and a missing licence at HEAD.
+
+Sensitive files are critical when they are private keys, key stores or `.env` files (`id_rsa*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `.env`, `.env.*`) and high otherwise.
+
+</details>
+
+<details>
+<summary>Inside the scan and the export</summary>
+
+```
+refs ─► inventory ─► unique blobs ─► worker pool (cat-file per shard) ─► detectors ────┐
+ └─► commits, tags ─► messages · identities · trailers · ref names · paths ────────────┤
+                                                                                       │
+report (md · html · json) ◄─ fix plan ◄─ suppressions ◄─ attribution (commits, refs) ◄─┘
+
+export: pre-check ─► select entries, apply excludes ─► strip metadata in memory
+        ─► hash-object · write-tree · commit-tree ─► checkout ─► re-scan (incl. unreachable)
+```
+
+- **Inventory.** Every ref (branches, tags, remote-tracking refs, notes, stash, `refs/replace/*`, `refs/original/*`, anything else), every commit and annotated tag, and every unique blob. `--include-unreachable` also scans every blob in the object database that no ref reaches, which covers dangling and reflog-only blobs. The messages and identities of unreachable commits are not read.
+- **Blobs are scanned once.** Content is addressed by hash, so each unique blob goes through the detectors one time, and each finding is then attributed to every commit and path where the blob appears. Messages, identities, trailers, ref names and paths are separate scan units. `--head-only` scans only the tree at the export ref, as a working-tree scanner would.
+- **Detectors.** Secrets (the gitleaks v8.30.1 rule set plus a generic detector for high-entropy values in assignments), emails, phone numbers and names, organisation identifiers from your deny-list, local paths and private network identifiers, binary metadata (JPEG, PNG, WebP, TIFF, PDF, OOXML), licence history, large files, sensitive and internal-notes files, commit metadata. Binary files are found by magic bytes, and the values extracted from them go through the text detectors.
+- **Git access is read-only.** Every git call goes through one runner with a list of allowed subcommands (the one exception is the git-filter-repo child process of `--keep-history`, which works on a fresh clone and never on the source). The runner bound to the source repository allows read commands only, and `push`, `fetch` and `remote` are on no list. The source repository is never changed.
+- **Where the report goes.** By default to `$XDG_STATE_HOME/go-public/<repo-name>/<UTC timestamp>/` (`~/.local/state` when the variable is unset) with a `latest` link, in a directory with mode 0700 and files with mode 0600. Writing it inside the scanned working tree is refused. It names the repository by its directory name and shows secrets only as their first four characters, their length and a SHA-256 prefix.
+- **Export.** The export is built directly in a new object store: one commit with the tree at the export ref, binary metadata stripped in memory before a blob is written (a file that needs no change keeps its blob id), and nothing from the source repository's config, hooks or remotes. Then the export is scanned again, including unreachable blobs, and if anything at or above `--fail-on` is left, `go-public` prints `NOT CLEAN` and keeps the directory for inspection.
+- **History mode.** `export --keep-history` clones the export ref's branch (a branch is required: a detached HEAD or a tag is a usage error) and rewrites it with git-filter-repo. All identities become the export identity (or follow `--mailmap`), configured trailers are stripped, excluded and sensitive paths are removed from every commit, literal values behind findings are replaced with `***REMOVED***` in blobs and messages, binary metadata is stripped in every commit, blobs at or above `files.high_mb` are dropped, and the branch is named `main`. Tags come only with `--include-tags`, minus tags whose names contain a deny term. Commit ids change, signatures are dropped, and licence history is kept as it was.
+
+</details>
 
 ## Other tools
 
 Each of these does one part well. `go-public` uses gitleaks's rules for secrets and does not replace the others.
 
-- [gitleaks](https://github.com/gitleaks/gitleaks) and [trufflehog](https://github.com/trufflesecurity/trufflehog) look for credentials, and both scan full git history. gitleaks is fast and configurable and can decode encoded values and open archives when asked to; trufflehog can check a candidate credential against the provider's API, which `go-public` never does because it makes no network calls. [detect-secrets](https://github.com/Yelp/detect-secrets) keeps a baseline and blocks new secrets before they are committed; it is not a history audit.
-- [GitHub secret scanning](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning) covers history and also issues, pull requests, wikis and gists, and [push protection](https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection) blocks a push that contains a supported secret. Both work on GitHub, after the repository is there. Turn them on for the new repository as well.
-- [git-filter-repo](https://github.com/newren/git-filter-repo) and the [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) rewrite history and remove what you tell them to remove. They do not tell you what to remove.
-- [Copybara](https://github.com/google/copybara) moves code between repositories with configured transformations. The transformations are yours to write.
-- [exiftool](https://exiftool.org/) and [mat2](https://0xacab.org/jvoisin/mat2) read or remove metadata from files. They work on files you point them at, not on a repository's history.
-- [ScanCode](https://github.com/aboutcode-org/scancode-toolkit), [licensee](https://github.com/licensee/licensee) and [REUSE](https://reuse.software/) identify licences and check licensing in a source tree.
-- [Presidio](https://presidio.dataprivacystack.org/) finds personal data in text and images with named-entity recognition, patterns and validators.
+| Tool | What it does well |
+|---|---|
+| [gitleaks](https://github.com/gitleaks/gitleaks), [trufflehog](https://github.com/trufflesecurity/trufflehog) | Look for credentials, and both scan full git history. gitleaks is fast and configurable and can decode encoded values and open archives when asked to; trufflehog can check a candidate credential against the provider's API, which `go-public` never does because it makes no network calls. |
+| [detect-secrets](https://github.com/Yelp/detect-secrets) | Keeps a baseline and blocks new secrets before they are committed. It is not a history audit. |
+| [GitHub secret scanning](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning), [push protection](https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection) | Secret scanning covers history and also issues, pull requests, wikis and gists; push protection blocks a push that contains a supported secret. Both work on GitHub, after the repository is there. Turn them on for the new repository as well. |
+| [git-filter-repo](https://github.com/newren/git-filter-repo), [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) | Rewrite history and remove what you tell them to remove. They do not tell you what to remove. |
+| [Copybara](https://github.com/google/copybara) | Moves code between repositories with configured transformations. The transformations are yours to write. |
+| [exiftool](https://exiftool.org/), [mat2](https://0xacab.org/jvoisin/mat2) | Read or remove metadata from the files you point them at, not across a repository's history. |
+| [ScanCode](https://github.com/aboutcode-org/scancode-toolkit), [licensee](https://github.com/licensee/licensee), [REUSE](https://reuse.software/) | Identify licences and check licensing in a source tree. |
+| [Presidio](https://presidio.dataprivacystack.org/) | Finds personal data in text and images with named-entity recognition, patterns and validators. |
 
-The gap `go-public` fills is the combination. It audits the non-secret categories (personal data, organisation identifiers, paths, metadata, licences, commit metadata) across all of history, not just secrets; it puts a review step in the middle, so a person decides what each finding means; and it verifies the export by scanning it again. Its secret rules are gitleaks's, so where it finds secrets that gitleaks does not, the reason is coverage (messages, unreachable objects, replaced history), not better patterns. See the comparison below.
+The gap `go-public` fills is the combination. It audits the non-secret categories (personal data, organisation identifiers, paths, metadata, licences, commit metadata) across all of history, not only secrets; it puts a review step in the middle, so a person decides what each finding means; and it verifies the export by scanning it again. Its secret rules are gitleaks's, so where it finds secrets that gitleaks does not, the reason is coverage (messages, unreachable objects, replaced history), not better patterns. See [Against gitleaks](#against-gitleaks).
 
 ## Configuration
 
@@ -148,6 +235,9 @@ The first of these that exists wins:
 Every path glob (`files.sensitive_files`, `files.internal_notes`, `export.exclude`, `allowlist.paths`) uses gitignore semantics (`pathspec`'s `gitwildmatch`), matched against repository-relative paths with `/` separators. A pattern that starts with `!` negates, and the last matching pattern wins.
 
 ### Every key
+
+<details>
+<summary>Every key, with its type, default and meaning</summary>
 
 <!-- BEGIN generated:config-reference -->
 
@@ -248,7 +338,12 @@ flag = [
 
 Rows in `allowlist.fingerprints` and `rotated.fingerprints` are TOML tables such as `{ id = "3f2a9c1b7d0e", reason = "public test vector" }`.
 
+</details>
+
 ### Command-line reference
+
+<details>
+<summary>Every command and its flags</summary>
 
 | Command | What it does |
 |---|---|
@@ -264,6 +359,8 @@ Rows in `allowlist.fingerprints` and `rotated.fingerprints` are TOML tables such
 | `rules check` | Compile the rule set and print how many rules and allowlist regexes loaded. |
 
 `--gitleaks-config` accepts your own gitleaks-format TOML, with `[extend]`, rule allowlists and the other keys of the pinned release; unknown keys exit 2. The global gitleaks allowlist applies only to the secret rules, because it skips images, PDFs, docx files and lockfiles, which the other detectors must still read.
+
+</details>
 
 ### Exit codes
 
@@ -290,6 +387,11 @@ Every table below is produced by `go-public bench` and committed under `bench/re
 The fixture generator and the detectors were written by the same author, so the synthetic scores below are an upper bound. That is why the comparison with a HEAD-only scan, the gitleaks baseline, the export verification and the real-world noise run exist: they look at the detectors from outside the fixtures.
 
 ### Recall and precision on held-out seeds
+
+Per-class recall and precision on synthetic repositories that were scanned once, after the detector freeze, with the plant counts, the per-seed minimum and the gate of each class.
+
+<details>
+<summary>Method and the per-class table</summary>
 
 Fixtures are synthetic repositories built from a seed and never committed, and the table gives the plant counts. Secret plants follow each provider's documented token format, and every plant-shaped string is assembled at run time. Each plant is placed at one location: HEAD, deleted later, a side branch, a tag, notes, stash, a remote-tracking ref, a replace ref, `refs/original/`, a commit or tag message, a ref name, a path, a binary field, or an unreachable object. The detectors were tuned on seeds 0 and 1 only. Seeds 2 to 6 were run once, after the freeze. The first attempt stopped while building the fixtures, before any scan, because a phone-number helper of the fixture generator could fail to find a value for some seeds. The fix changed only that helper, and only for draws that would have failed, so the fixtures of seeds that did not fail are unchanged. No held-out number had been seen at that point.
 
@@ -325,7 +427,11 @@ All gates pass.
 
 <!-- END generated:results-synthetic -->
 
+</details>
+
 ### What a HEAD-only review misses
+
+The headline figure: the share of planted issues that a scan of the files at the export ref finds, by location, next to the full scan of the same fixtures.
 
 <!-- BEGIN generated:results-head-only -->
 
@@ -355,6 +461,11 @@ Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0;
 <!-- END generated:results-head-only -->
 
 ### Against gitleaks
+
+Secret plants only, on the same held-out fixtures, against gitleaks over all refs and against `gitleaks dir` over a checkout of HEAD.
+
+<details>
+<summary>Commands, recall by location, wall time and blind-spot secrets</summary>
 
 <!-- BEGIN generated:results-gitleaks -->
 
@@ -452,11 +563,16 @@ The four blind-spot plants that hold a secret (built without the main plant set)
 
 <!-- END generated:results-gitleaks -->
 
+</details>
+
 `go-public`'s secret rules are derived from gitleaks's, so these differences come from coverage, not from the patterns. gitleaks is better at decoding (base64, hex, percent-encoding) and at opening archives, and it is much faster on fixtures this small. `go-public` covers places the gitleaks documentation does not claim: commit and tag messages and unreachable objects.
 
 ### Export verification
 
-For each seed: scan, a scripted fix at HEAD, export, re-scan.
+For each seed: scan, a scripted fix at HEAD, export, re-scan. The source repository is checked for changes after every run.
+
+<details>
+<summary>Squash and history-preserving exports, per seed</summary>
 
 <!-- BEGIN generated:results-export -->
 
@@ -492,7 +608,14 @@ Left by design: licence history (kept as it was, needs a decision), blobs under 
 
 <!-- END generated:results-export -->
 
+</details>
+
 ### Real-world noise
+
+What a scan of two public repositories' full histories reports, and the precision on a labelled sample of its critical and high findings.
+
+<details>
+<summary>Repositories, findings per 1,000 unique blobs and the labelled sample</summary>
 
 The two repositories are cloned only when you run this command, into a directory you choose, and are never vendored. Each clone is bare, single-branch and taken at one release tag, so it holds the full history up to that tag and nothing after it. The tags, commit ids and clone sizes are in the table. The detectors were tuned on these two repositories before the sample was labelled, so the noise figures are a measure of what remains, not an independent test of the patterns that were fixed. The labels are by the author, and the labels file in `bench/labels/` holds fingerprints, rule ids, verdicts and one-line reasons, never a matched value.
 
@@ -596,9 +719,16 @@ Overall: 50 true positives, 0 false positives among 50 labelled findings; precis
 
 <!-- END generated:results-real-world -->
 
-Read the counts as what a scan of a public repository's history reports, not as leaks: the histories carry their maintainers' email addresses on purpose. In the by-rule tables the high counts are mostly email addresses and the info counts are timezone offsets. The two known false-positive patterns that remain are listed under Limitations.
+</details>
+
+Read the counts as what a scan of a public repository's history reports, not as leaks: the histories carry their maintainers' email addresses on purpose. In the by-rule tables the high counts are mostly email addresses and the info counts are timezone offsets. The two known false-positive patterns that remain are listed under [Limitations](#limitations).
 
 ### Runtime
+
+Wall time and peak memory of a full scan and a squash export on the synthetic `medium` repository, and of a full scan of `pallets/flask`, with the default `--jobs` and with `--jobs 1`.
+
+<details>
+<summary>Runtime tables</summary>
 
 <!-- BEGIN generated:results-runtime -->
 
@@ -635,9 +765,14 @@ Full scan with the default `--jobs`: 5.15 s, which meets the 60 s target.
 
 The synthetic `medium` fixture is built with 40 binary files (32 PNG and 8 JPEG noise images without metadata; a test counts them from the generator, `MediumShape.binaries` in `src/go_public/bench/medium.py`), and text files of Python, JavaScript and Markdown.
 
+</details>
+
 ### Self-scan
 
-`go-public scan . --include-unreachable --fail-on medium`, with the committed `.go-public.toml`, runs over this repository in the `self-scan` job of the CI workflow, on a checkout with full history. At the export ref the scan reports no findings. The config allowlists two paths and the maintainer's public commit identity, and nothing else. Every entry has its reason:
+`go-public scan . --include-unreachable --fail-on medium`, with the committed `.go-public.toml`, runs over this repository in the `self-scan` job of the CI workflow, on a checkout with full history. At the export ref the scan reports no findings. The config allowlists two paths and the maintainer's public commit identity, and nothing else. Every entry has its reason.
+
+<details>
+<summary>The committed <code>.go-public.toml</code></summary>
 
 <!-- BEGIN generated:self-scan-config -->
 
@@ -668,9 +803,29 @@ paths = [
 
 <!-- END generated:self-scan-config -->
 
+</details>
+
 ## Limitations
 
-- **Blind spots.** Some things a static, offline scanner does not find. The bench builds a plant of each kind and measures the recall, on seeds 0 and 1:
+- **Blind spots.** A secret split across string concatenation, a base64-encoded secret, a secret inside a zip file, text inside an image, a deny term written with spaced letters and GPS coordinates in an XMP sidecar are not found. A generic secret on a very long (minified) line is found only when gitleaks's generic rule matches it, because the assignment detector skips lines longer than 1,000 characters. The bench builds a plant of each kind and measures the recall, on seeds 0 and 1 (table below).
+- **Synthetic scores are an upper bound.** See the note under [Results](#results-and-benchmarks). The HEAD-only comparison, the gitleaks baseline and the real-world run are there to check that.
+- **Real-world labels are by one person**, the author. The labels file holds fingerprints only. Two false-positive patterns remain known on the real-world clones: a URL password that contains a space is read as an email, and one VAT-like number in a certificate bundle is read as a phone number.
+- **Phone numbers are a trade-off.** `phonenumbers` accepts many bare digit runs (ids, counters, lockfile sizes) as valid national numbers, so a national-format candidate needs a separator or a trunk prefix, and numeric data such as coordinate tables is dropped. A bare, unseparated national number, or one with fewer than ten digits, can be missed. Numbers written with `+` are detected whatever `pii.phone_regions` says, unless they are glued to more digits. Lockfiles are not searched for phone numbers.
+- **No named-entity recognition.** Names are found only from `deny.names` and, with `--detect-names`, from the identities in history. A name that is in neither is not found.
+- **Archives other than OOXML are not scanned.** A zip or jar file is reported as an info-level finding and its content is not read. Other archive formats (tar, gzip, 7z) are treated as opaque binary files and are not reported at all. Encoded values (base64, hex) are not decoded.
+- **Hosted surfaces are not scanned.** Issues, pull requests, wikis, release assets and Actions logs of an existing remote are outside the repository. This is why the export goes to a new repository.
+- **Images are not read as text.** Text inside an image is not found (there is no OCR), and neither are audio or video metadata or HEIC files.
+- **Submodules and LFS.** Submodule contents are not scanned and gitlinks are never exported, in either export mode. `.gitmodules` is an ordinary file: it is scanned (a submodule URL on a private host is reported) and exported like one. LFS pointer files are reported, and the LFS objects are not in the repository.
+- **Shallow and partial clones** are scanned as they are, with a warning. A missing object is reported as missing and never fetched.
+- **SHA-256 repositories** exit with code 3 for now.
+- **Windows is untested.** No test or run has been done there.
+- **Wheels.** `google-re2` ships prebuilt wheels for Python 3.12 (cp312) on macOS 13, 14 and 15 (arm64 and x86_64), manylinux (aarch64 and x86_64) and Windows (win32, amd64, arm64). On any other platform it is built from source and needs a C++ toolchain.
+- **Licence detection uses key phrases** for a fixed list of licences, and reports anything else as unknown. Its findings are facts to review.
+- **Keep-history mode** changes commit ids, drops signatures and keeps licence history as it was.
+- **The GitHub noreply address** has the form `<id>+<username>@users.noreply.github.com`. Use it as the export identity if you do not want to publish an email address.
+
+<details>
+<summary>Measured recall on the blind-spot plants</summary>
 
 <!-- BEGIN generated:results-blind-spots -->
 
@@ -696,22 +851,7 @@ Overall: 1 of 14 detected (recall 0.071).
 
 <!-- END generated:results-blind-spots -->
 
-  A secret split across string concatenation, a base64-encoded secret, a secret inside a zip file, text inside an image, a deny term written with spaced letters and GPS coordinates in an XMP sidecar are not found. A generic secret on a very long (minified) line is found only when gitleaks's generic rule matches it, because the assignment detector skips lines longer than 1,000 characters.
-- **Synthetic scores are an upper bound.** See the note under Results. The HEAD-only comparison, the gitleaks baseline and the real-world run are there to check that.
-- **Real-world labels are by one person**, the author. The labels file holds fingerprints only. Two false-positive patterns remain known on the real-world clones: a URL password that contains a space is read as an email, and one VAT-like number in a certificate bundle is read as a phone number.
-- **Phone numbers are a trade-off.** `phonenumbers` accepts many bare digit runs (ids, counters, lockfile sizes) as valid national numbers, so a national-format candidate needs a separator or a trunk prefix, and numeric data such as coordinate tables is dropped. A bare, unseparated national number, or one with fewer than ten digits, can be missed. Numbers written with `+` are detected whatever `pii.phone_regions` says, unless they are glued to more digits. Lockfiles are not searched for phone numbers.
-- **No named-entity recognition.** Names are found only from `deny.names` and, with `--detect-names`, from the identities in history. A name that is in neither is not found.
-- **Archives other than OOXML are not scanned.** A zip or jar file is reported as an info-level finding and its content is not read. Other archive formats (tar, gzip, 7z) are treated as opaque binary files and are not reported at all. Encoded values (base64, hex) are not decoded.
-- **Hosted surfaces are not scanned.** Issues, pull requests, wikis, release assets and Actions logs of an existing remote are outside the repository. This is why the export goes to a new repository.
-- **Images are not read as text.** Text inside an image is not found (there is no OCR), and neither are audio or video metadata or HEIC files.
-- **Submodules and LFS.** Submodule contents are not scanned and gitlinks are never exported, in either export mode. `.gitmodules` is an ordinary file: it is scanned (a submodule URL on a private host is reported) and exported like one. LFS pointer files are reported, and the LFS objects are not in the repository.
-- **Shallow and partial clones** are scanned as they are, with a warning. A missing object is reported as missing and never fetched.
-- **SHA-256 repositories** exit with code 3 for now.
-- **Windows is untested.** No test or run has been done there.
-- **Wheels.** `google-re2` ships prebuilt wheels for Python 3.12 (cp312) on macOS 13, 14 and 15 (arm64 and x86_64), manylinux (aarch64 and x86_64) and Windows (win32, amd64, arm64). On any other platform it is built from source and needs a C++ toolchain.
-- **Licence detection uses key phrases** for a fixed list of licences, and reports anything else as unknown. Its findings are facts to review.
-- **Keep-history mode** changes commit ids, drops signatures and keeps licence history as it was.
-- **The GitHub noreply address** has the form `<id>+<username>@users.noreply.github.com`. Use it as the export identity if you do not want to publish an email address.
+</details>
 
 ## Roadmap
 

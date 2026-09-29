@@ -353,6 +353,61 @@ def test_blind_spot_table_equals_the_json() -> None:
     )
 
 
+def test_at_a_glance_equals_the_json() -> None:
+    rows = _table(_block("at-a-glance"), "Measure", "Result", "For comparison")
+    cells = {re.sub(r"^\[([^\]]+)\]\(#[a-z-]+\)$", r"\1", r[0]): r[1:] for r in rows}
+
+    def row(prefix: str) -> list[str]:
+        (match,) = [cells[k] for k in cells if k.startswith(prefix)]
+        return match
+
+    def rate(found: int, total: int) -> str:
+        return f"{found / total:.3f} ({found}/{total})"
+
+    classes = list(_json("synthetic-small-2-6")["classes"].values())
+    tp, fn, fp = (sum(c[k] for c in classes) for k in ("tp", "fn", "fp"))
+    assert row("Recall, held-out")[0] == f"{tp / (tp + fn):.3f}"
+    assert row("Recall, held-out")[1] == (
+        f"{tp}/{tp + fn} expected findings; lowest class {min(c['recall'] for c in classes):.3f}"
+    )
+    assert row("Precision, held-out")[0] == f"{tp / (tp + fp):.3f}"
+    assert row("Precision, held-out")[1] == (
+        f"{fp} false positives; lowest class {min(c['precision'] for c in classes):.3f}"
+    )
+
+    head = _json("head-only-compare-small-2-6")["overall"]
+    assert row("Recall, full scan")[0] == f"{head['full_found'] / head['expected']:.3f}"
+    assert row("Recall, full scan")[1] == (
+        f"`--head-only`: {rate(head['head_only_found'], head['expected'])}"
+    )
+
+    gitleaks = _json("gitleaks-small-2-6")
+    summary, timing = gitleaks["summary"], gitleaks["timing"]
+    total = summary["expected"]
+    assert row("Secret recall")[0] == f"{summary['go_public']['found'] / total:.3f}"
+    assert f"`gitleaks git`: {rate(summary['git']['found'], total)}" in row("Secret recall")[1]
+    assert f"`gitleaks dir`: {rate(summary['dir']['found'], total)}" in row("Secret recall")[1]
+    assert row("Wall time")[0] == f"{timing['go_public']['wall_s_total_median']:.2f} s"
+    assert row("Wall time")[1].endswith(f"{timing['git']['wall_s_total_median']:.2f} s")
+
+    modes = _json("export-verify-small-2-6")["modes"]
+    squash, keep = modes["squash"]["total"], modes["keep-history"]["total"]
+    assert row("Export")[0] == f"{squash['history_only_eliminated']}/{squash['history_only_total']}"
+    assert row("Export")[1].startswith(f"squash, {squash['residual_true']} residual")
+    assert f"{keep['history_only_eliminated']}/{keep['history_only_total']}" in row("Export")[1]
+
+    p = _json("real-world")["precision"]["overall"]
+    assert row("Precision, real-world")[0] == f"{p['precision']:.3f}"
+    assert row("Precision, real-world")[1].startswith(f"{p['tp']}/{p['labelled']} ")
+
+    medium = next(t for t in _json("runtime")["targets"] if t["gated"])["scan_default_jobs"]
+    assert row("Full scan, synthetic medium")[0] == f"{medium['wall_s_median']:.2f} s"
+    assert row("Full scan, synthetic")[1].startswith(
+        f"{medium['peak_rss_mb_median']:.0f} MB peak RSS"
+    )
+    assert f"{medium['inventory']['unique_blobs']:,} unique blobs" in row("Full scan, synthetic")[1]
+
+
 def test_every_block_names_its_command_and_the_frozen_detector_commit() -> None:
     frozen = _json("synthetic-small-2-6")["meta"]["detector_commit"]
     for name in SYNC.BLOCKS:
@@ -503,9 +558,20 @@ def test_the_readme_lists_every_flag_of_scan_and_export(command: str) -> None:
 # -- statements the README must make ------------------------------------------------
 
 
+def test_the_readme_opens_with_the_logo_in_both_themes() -> None:
+    hero = _readme().partition("\n## ")[0]
+    assert hero.startswith('<p align="center">')
+    assert 'alt="go-public"' in hero
+    for theme in ("light", "dark"):
+        path = f"docs/img/logo-{theme}.svg"
+        assert f'media="(prefers-color-scheme: {theme})" srcset="{path}"' in hero, theme
+        svg = (ROOT / path).read_text(encoding="utf-8")
+        assert svg.startswith("<svg ") and "<!--" not in svg and "<metadata" not in svg, path
+    assert "Audit a private git repository before you open-source it." in hero
+
+
 def test_the_readme_has_its_sections_and_install_commands() -> None:
     text = _readme()
-    assert text.startswith("# go-public\n")
     for heading in (
         "Quickstart",
         "How it works",
@@ -603,16 +669,18 @@ def test_the_readme_names_and_links_the_alternatives() -> None:
 
 
 def test_the_screenshot_is_referenced_and_committed() -> None:
-    match = re.search(r"!\[[^\]]+\]\((docs/img/[^)]+)\)", _readme())
-    assert match
-    assert (ROOT / match.group(1)).is_file()
+    """The report screenshot comes in a light and a dark variant, picked by the reader's theme."""
+    shots = set(re.findall(r'(?:src|srcset)="(docs/img/report[^"]*)"', _readme()))
+    assert shots == {"docs/img/report.png", "docs/img/report-dark.png"}
+    for shot in shots:
+        assert (ROOT / shot).is_file(), shot
 
 
 def test_the_host_product_name_appears_only_in_the_intro_and_install_section() -> None:
     name = "Clau" + "de Code"
     text = _readme()
     intro, _, rest = text.partition("\n## ")
-    assert name in intro.splitlines()[2]  # the one-line description under the title
+    assert name in intro  # the description under the logo
     allowed = ("Quickstart",)
     for section in ("## " + rest).split("\n## ")[0:]:
         heading = section.splitlines()[0].removeprefix("## ").strip()

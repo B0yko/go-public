@@ -11,6 +11,7 @@ Each block is rendered from a committed source and never edited by hand:
 
 * result blocks come from `bench/results/*.md` (the files `go-public bench` writes),
   with the command, date, hardware, versions and detector commit taken from the same file;
+* `at-a-glance` picks the headline figures out of the JSON results files next to them;
 * `config-reference` comes from the `Config` model in `src/go_public/config.py`;
 * `self-scan-config` is the committed `.go-public.toml`.
 
@@ -23,6 +24,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 import tomllib
@@ -31,6 +33,7 @@ import typing
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
@@ -303,9 +306,121 @@ def self_scan_config() -> str:
     return "```toml\n" + text.rstrip("\n") + "\n```"
 
 
+# -- headline figures --------------------------------------------------------------
+
+
+def _json(stem: str) -> dict[str, Any]:
+    data: dict[str, Any] = json.loads((RESULTS / f"{stem}.json").read_text(encoding="utf-8"))
+    return data
+
+
+def _rate(found: int, total: int) -> str:
+    return f"{found / total:.3f} ({found}/{total})"
+
+
+def _seed_range(seeds: list[int]) -> str:
+    if seeds == list(range(seeds[0], seeds[-1] + 1)) and len(seeds) > 1:
+        return f"seeds {seeds[0]}-{seeds[-1]}"
+    return "seeds " + ", ".join(str(s) for s in seeds)
+
+
+def at_a_glance() -> str:
+    """One row per headline figure, each linked to the section with the full table."""
+    synthetic = _json("synthetic-small-2-6")
+    head_only = _json("head-only-compare-small-2-6")["overall"]
+    gitleaks = _json("gitleaks-small-2-6")
+    export = _json("export-verify-small-2-6")["modes"]
+    real_world = _json("real-world")
+    runtime = _json("runtime")
+
+    classes = list(synthetic["classes"].values())
+    tp = sum(c["tp"] for c in classes)
+    fn = sum(c["fn"] for c in classes)
+    fp = sum(c["fp"] for c in classes)
+    lowest_recall = min(c["recall"] for c in classes)
+    lowest_precision = min(c["precision"] for c in classes)
+    seeds = _seed_range(synthetic["meta"]["seeds"])
+
+    summary = gitleaks["summary"]
+    total = summary["expected"]
+    timing = gitleaks["timing"]
+    version = gitleaks["meta"]["gitleaks_version"]
+    squash = export["squash"]["total"]
+    keep = export["keep-history"]["total"]
+    precision = real_world["precision"]["overall"]
+    repos = " and ".join(r["repo"] for r in real_world["repos"])
+    severities = "/".join(real_world["sample"]["severities"])
+    medium = next(t for t in runtime["targets"] if t["gated"])
+    scan = medium["scan_default_jobs"]
+    inventory = scan["inventory"]
+    immutable = all(m["immutable_all"] for m in export.values())
+
+    held_out = "#recall-and-precision-on-held-out-seeds"
+    expected = head_only["expected"]
+    rows = [
+        (
+            f"[Recall, held-out {seeds}]({held_out})",
+            f"{tp / (tp + fn):.3f}",
+            f"{tp}/{tp + fn} expected findings; lowest class {lowest_recall:.3f}",
+        ),
+        (
+            f"[Precision, held-out {seeds}]({held_out})",
+            f"{tp / (tp + fp):.3f}",
+            f"{fp} false positives; lowest class {lowest_precision:.3f}",
+        ),
+        (
+            "[Recall, full scan vs HEAD only](#what-a-head-only-review-misses)",
+            f"{head_only['full_found'] / expected:.3f}",
+            f"`--head-only`: {_rate(head_only['head_only_found'], expected)}",
+        ),
+        (
+            f"[Secret recall vs gitleaks {version}](#against-gitleaks)",
+            f"{summary['go_public']['found'] / total:.3f}",
+            f"`gitleaks git`: {_rate(summary['git']['found'], total)}, in its scope "
+            f"{summary['git']['found_in_git_scope']}/{summary['expected_in_gitleaks_git_scope']}; "
+            f"`gitleaks dir`: {_rate(summary['dir']['found'], total)}",
+        ),
+        (
+            "[Wall time, same fixtures](#against-gitleaks)",
+            f"{timing['go_public']['wall_s_total_median']:.2f} s",
+            f"`gitleaks git`: {timing['git']['wall_s_total_median']:.2f} s",
+        ),
+        (
+            "[Export: history-only findings removed](#export-verification)",
+            f"{squash['history_only_eliminated']}/{squash['history_only_total']}",
+            f"squash, {squash['residual_true']} residual; keep-history "
+            f"{keep['history_only_eliminated']}/{keep['history_only_total']}; "
+            f"source unchanged: {'yes' if immutable else 'NO'}",
+        ),
+        (
+            "[Precision, real-world sample](#real-world-noise)",
+            f"{precision['precision']:.3f}",
+            f"{precision['tp']}/{precision['labelled']} {severities} findings from {repos}, "
+            "labels by the author",
+        ),
+        (
+            "[Full scan, synthetic medium](#runtime)",
+            f"{scan['wall_s_median']:.2f} s",
+            f"{scan['peak_rss_mb_median']:.0f} MB peak RSS; "
+            f"{inventory['unique_blobs']:,} unique blobs, "
+            f"{inventory['total_blob_bytes'] / 1e6:.0f} MB; "
+            f"target {runtime['target_seconds']:.0f} s",
+        ),
+    ]
+    table = ["| Measure | Result | For comparison |", "|---|---|---|"]
+    table += [f"| {a} | {b} | {c} |" for a, b, c in rows]
+    meta = synthetic["meta"]
+    note = (
+        f"From the results files of {meta['date_utc'][:10]} (UTC) on {meta['hardware']}, "
+        f"detector commit `{meta['detector_commit'][:12]}`."
+    )
+    return "\n".join(table) + "\n\n" + note
+
+
 # -- the blocks ------------------------------------------------------------------
 
 BLOCKS: dict[str, Callable[[], str]] = {
+    "at-a-glance": at_a_glance,
     "config-reference": config_reference,
     "self-scan-config": self_scan_config,
     "results-synthetic": _results("synthetic-small-2-6", Part("")),
