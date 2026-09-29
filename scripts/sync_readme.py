@@ -101,9 +101,21 @@ def render_part(sections: dict[str, list[str]], part: Part) -> str:
     return text
 
 
+def _reproducible(command: str) -> str:
+    """The recorded command plus what a literal run needs. `bench` requires `--out`, and the
+    runtime run that produced the flask row also passed `--real-world-dir`; the results file
+    records neither."""
+    if not command.startswith("go-public bench") or "--out" in command:
+        return command
+    if "--runtime" in command and "--real-world-dir" not in command:
+        command += " --real-world-dir <dir>"
+    return command + " --out <results-dir>"
+
+
 def provenance(meta: dict[str, str]) -> str:
     """The command that reproduces a table and the run it came from."""
     command = meta["Command"].strip("`")
+    command = _reproducible(command)
     parts = [
         f"{meta['Date (UTC)'][:10]} (UTC)",
         meta["Hardware"],
@@ -146,7 +158,10 @@ KEY_DOCS: dict[str, str] = {
     ),
     "deny.domains": "Domains, including subdomains, email domains and URLs.",
     "deny.regex": "Raw regular expressions (RE2 syntax).",
-    "deny.names": "People who must not appear. Searched like terms.",
+    "deny.names": (
+        "People who must not appear. Matched case-insensitively as whole words in all content, "
+        "with no variants (`John Roe` does not match `john-roe`). Needs no flag."
+    ),
     "deny.ticket_keys": "Ticket project keys: `FALCON` matches `FALCON-123`.",
     "secrets.gitleaks_config": (
         "Path to a gitleaks-format TOML to use instead of the bundled v8.30.1 rules "
@@ -175,7 +190,8 @@ KEY_DOCS: dict[str, str] = {
     ),
     "licence.owner": "Expected copyright holder. Other holders in licence files are reported.",
     "scan.max_scan_mb": (
-        "Text blobs larger than this many MiB are not read; they are only reported as large files."
+        "Text blobs larger than this many MiB are not read. With the defaults they are still "
+        "reported as large files (`files.warn_mb`)."
     ),
     "scan.jobs": "Worker processes for blob scanning. 0 means the CPU count.",
     "scan.fail_on": (

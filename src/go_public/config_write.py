@@ -124,7 +124,7 @@ _TEMPLATE_TABLES: tuple[tuple[str, tuple[tuple[str, object, str], ...]], ...] = 
             ("terms", [], "organisation names/abbreviations/client names/codenames"),
             ("domains", [], "internal or client domains"),
             ("regex", [], "raw regexes for anything else"),
-            ("names", [], "people who must never appear (with --detect-names)"),
+            ("names", [], "people who must never appear (whole-word, case-insensitive)"),
             ("ticket_keys", [], 'project keys, e.g. ["FALCON"] matches FALCON-123'),
         ),
     ),

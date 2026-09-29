@@ -31,7 +31,7 @@ uvx --from git+https://github.com/B0yko/go-public go-public demo
 # 2. Write a config for your repository. It goes outside the repository.
 uvx --from git+https://github.com/B0yko/go-public go-public init ~/code/my-app
 
-# 3. Scan every ref, commit and blob, including unreachable objects.
+# 3. Scan every ref, commit and blob, including unreachable blobs.
 uvx --from git+https://github.com/B0yko/go-public go-public scan ~/code/my-app --include-unreachable
 
 # 4. Check that an export would be clean, then write it to a new directory.
@@ -71,28 +71,28 @@ refs ──► inventory ──► unique blobs ──► worker pool (cat-file 
 export: pre-check ─► select entries + exclude ─► strip in memory ─► hash-object/write-tree/commit-tree ─► checkout ─► re-scan (incl. unreachable)
 ```
 
-- **Inventory.** Every ref (branches, tags, remote-tracking refs, notes, stash, `refs/replace/*`, `refs/original/*`, anything else), every commit and annotated tag, and every unique blob. `--include-unreachable` also reads every object in the object database, which covers dangling and reflog-only objects.
+- **Inventory.** Every ref (branches, tags, remote-tracking refs, notes, stash, `refs/replace/*`, `refs/original/*`, anything else), every commit and annotated tag, and every unique blob. `--include-unreachable` also scans every blob in the object database that no ref reaches, which covers dangling and reflog-only blobs. The messages and identities of unreachable commits are not read.
 - **Blobs are scanned once.** Content is addressed by hash, so each unique blob goes through the detectors one time, and each finding is then attributed to every commit and path where the blob appears. Messages, identities, trailers, ref names and paths are separate scan units. `--head-only` scans only the tree at the export ref, as a working-tree scanner would.
 - **Detectors.** Secrets (the gitleaks v8.30.1 rule set plus a generic detector for high-entropy values in assignments), emails, phone numbers and names, organisation identifiers from your deny-list, local paths and private network identifiers, binary metadata (JPEG, PNG, WebP, TIFF, PDF, OOXML), licence history, large files, sensitive and internal-notes files, commit metadata. Binary files are found by magic bytes, and the values extracted from them go through the text detectors.
-- **Git access is read-only.** Every git call goes through one runner with a list of allowed subcommands. The runner bound to the source repository allows read commands only, and `push`, `fetch` and `remote` are on no list. The source repository is never changed.
+- **Git access is read-only.** Every git call goes through one runner with a list of allowed subcommands (the one exception is the git-filter-repo child process of `--keep-history`, which works on a fresh clone and never on the source). The runner bound to the source repository allows read commands only, and `push`, `fetch` and `remote` are on no list. The source repository is never changed.
 - **The report is local and private.** It is written outside the repository, by default to `$XDG_STATE_HOME/go-public/<repo-name>/<UTC timestamp>/` (`~/.local/state` when the variable is unset) with a `latest` link, in a directory with mode 0700 and files with mode 0600. Writing it inside the scanned working tree is refused. It names the repository by its directory name and shows secrets only as their first four characters, their length and a SHA-256 prefix.
-- **Export.** The export is built directly in a new object store: one commit with the tree at the export ref, binary metadata stripped in memory before a blob is written (a file that needs no change keeps its blob id), and nothing from the source repository's config, hooks or remotes. Then the export is scanned again, including unreachable objects, and if anything at or above `--fail-on` is left, `go-public` prints `NOT CLEAN` and keeps the directory for inspection.
-- **History mode.** `export --keep-history` clones the export ref's branch and rewrites it with git-filter-repo. All identities become the export identity (or follow `--mailmap`), configured trailers are stripped, excluded and sensitive paths are removed from every commit, literal values behind findings are replaced with `***REMOVED***` in blobs and messages, binary metadata is stripped in every commit, blobs at or above `files.high_mb` are dropped, and the branch is named `main`. Tags come only with `--include-tags`, minus tags whose names contain a deny term. Commit ids change, signatures are dropped, and licence history is kept as it was.
+- **Export.** The export is built directly in a new object store: one commit with the tree at the export ref, binary metadata stripped in memory before a blob is written (a file that needs no change keeps its blob id), and nothing from the source repository's config, hooks or remotes. Then the export is scanned again, including unreachable blobs, and if anything at or above `--fail-on` is left, `go-public` prints `NOT CLEAN` and keeps the directory for inspection.
+- **History mode.** `export --keep-history` clones the export ref's branch (a branch is required: a detached HEAD or a tag is a usage error) and rewrites it with git-filter-repo. All identities become the export identity (or follow `--mailmap`), configured trailers are stripped, excluded and sensitive paths are removed from every commit, literal values behind findings are replaced with `***REMOVED***` in blobs and messages, binary metadata is stripped in every commit, blobs at or above `files.high_mb` are dropped, and the branch is named `main`. Tags come only with `--include-tags`, minus tags whose names contain a deny term. Commit ids change, signatures are dropped, and licence history is kept as it was.
 
 ### The fix plan
 
-The report ends in a plan with four groups, and then prints the exact next commands.
+The report opens with a plan of four groups, closes the plan with the next commands to run (written for the repository as the current directory), and then lists every finding.
 
 | Group | Contents |
 |---|---|
 | A. Rotate now | Every secret that ever existed anywhere in history, each marked open or rotated. |
-| B. Fix at HEAD | Findings present at the export ref, grouped per file, each with an action: edit a line, delete the file, run `go-public strip`, or add the path to `export.exclude`. |
+| B. Fix at HEAD | Findings present at the export ref, grouped per file, each with an action: edit a line, rename a path, run `go-public strip`, or leave the file out with `export.exclude`. |
 | C. Removed by a squash export | Findings found only in history, messages, identities, trailers or other refs. |
-| D. Decide | Licence history, large files at HEAD, and names if you keep history. |
+| D. Decide | Licence findings (history and current files), large files at HEAD, and names if you keep history. |
 
 `go-public allow <fingerprint> --reason "<text>"` writes an allowlist entry to your config, and a reason is required. `go-public allow <secret-id> --rotated --reason "<text>"` records a secret as rotated; group A then shows it as done. A rotated entry never suppresses the finding in group B and never stops an export from removing the value. Path globs in `allowlist.paths` and inline `go-public:allow <reason>` comments also suppress findings. Every suppression and rotation record is listed in the report, so it stays auditable.
 
-Default severities: critical for vendor-format secrets, private-key blocks and a tracked config with deny entries; high for generic high-entropy secrets, organisation identifiers, personal data, GPS in images, proprietary or confidential notices and blobs of 100 MiB or more; medium for identities, trailers with a name or email, local paths, network identifiers, person and organisation fields in binaries, internal notes, licence transitions and blobs of 50 MiB or more; low for blobs of 5 MiB or more and software fields in binary metadata; info for timezone offsets, unscanned archives, LFS pointers and a missing licence at HEAD.
+Default severities: critical for vendor-format secrets, private-key blocks and a tracked config with deny entries; high for generic high-entropy secrets, organisation identifiers, personal data, GPS in images, proprietary or confidential notices and blobs of 100 MiB or more; medium for identities, trailers with a name or email, local paths, network identifiers, person and organisation fields in binaries, internal notes, licence transitions and blobs of 50 MiB or more; low for blobs of 5 MiB or more and software fields in binary metadata; info for timezone offsets, unscanned archives, LFS pointers and a missing licence at HEAD. Sensitive files are critical when they are private keys, key stores or `.env` files (`id_rsa*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `.env`, `.env.*`) and high otherwise.
 
 ## Other tools
 
@@ -158,7 +158,7 @@ Every path glob (`files.sensitive_files`, `files.internal_notes`, `export.exclud
 | `deny.terms` | list of str | `[]` | Organisation names, codenames, clients. Case-insensitive; variants are generated (`Acme Corp` also matches `acme-corp`, `acme_corp`, `acmecorp`, `AcmeCorp`) and a match needs a boundary on each side. |
 | `deny.domains` | list of str | `[]` | Domains, including subdomains, email domains and URLs. |
 | `deny.regex` | list of str | `[]` | Raw regular expressions (RE2 syntax). |
-| `deny.names` | list of str | `[]` | People who must not appear. Searched like terms. |
+| `deny.names` | list of str | `[]` | People who must not appear. Matched case-insensitively as whole words in all content, with no variants (`John Roe` does not match `john-roe`). Needs no flag. |
 | `deny.ticket_keys` | list of str | `[]` | Ticket project keys: `FALCON` matches `FALCON-123`. |
 | `secrets.gitleaks_config` | str | `""` | Path to a gitleaks-format TOML to use instead of the bundled v8.30.1 rules (the `--gitleaks-config` flag does the same). Empty means the bundled rules. |
 | `secrets.generic_entropy` | float | `4.0` | Minimum Shannon entropy, in bits per character, for go-public's own assignment-context detector (`generic-entropy`). |
@@ -168,7 +168,7 @@ Every path glob (`files.sensitive_files`, `files.internal_notes`, `export.exclud
 | `paths.allowed_prefixes` | list of str | `["/home/runner/", "/Users/Shared/", "/usr/", "/opt/", "/tmp/"]` | Absolute-path prefixes that are not reported as local paths. Other absolute paths that reveal a user name are. |
 | `network.internal_suffixes` | list of str | see below | Host suffixes treated as internal hostnames. Hosts under a `deny.domains` entry are always flagged. |
 | `licence.owner` | str | `""` | Expected copyright holder. Other holders in licence files are reported. |
-| `scan.max_scan_mb` | int | `10` | Text blobs larger than this many MiB are not read; they are only reported as large files. |
+| `scan.max_scan_mb` | int | `10` | Text blobs larger than this many MiB are not read. With the defaults they are still reported as large files (`files.warn_mb`). |
 | `scan.jobs` | int | `0` | Worker processes for blob scanning. 0 means the CPU count. |
 | `scan.fail_on` | str | `"high"` | Lowest severity that makes `scan` exit 1 and blocks an export: `critical`, `high`, `medium`, `low` or `info`. The `--fail-on` flag overrides it. |
 | `files.sensitive_files` | list of str | see below | Globs for files that are sensitive by name (keys, `.env`, dumps, HTTP archives). Reported, and dropped from an export when `files.auto_exclude` is on. |
@@ -253,7 +253,7 @@ Rows in `allowlist.fingerprints` and `rotated.fingerprints` are TOML tables such
 | Command | What it does |
 |---|---|
 | `scan <repo>` | Inventory, detectors, suppressions, fix plan, reports. Flags: `--ref`, `--config`, `--gitleaks-config`, `--include-unreachable`, `--head-only`, `--fail-on`, `--jobs`, `--detect-names`, `--show-secrets`, `--summary-json`, `--report-dir`, `--quiet`. |
-| `export <repo> --out <dir>` | Pre-check, then a clean export, then a re-scan. `--squash` (default) or `--keep-history`. Flags: `--check`, `--ref`, `--fail-on`, `--fail-on-licence`, `--force-export`, `--author`, `--message`, `--date`, `--no-auto-exclude`, `--no-strip`, `--no-set-identity`, `--include-tags`, `--mailmap`, `--config`, `--report-dir`. |
+| `export <repo> --out <dir>` | Pre-check, then a clean export, then a re-scan. `--squash` (default) or `--keep-history`; `--include-tags`, `--mailmap` and `--fail-on-licence` need `--keep-history`. Flags: `--check`, `--ref`, `--fail-on`, `--fail-on-licence`, `--force-export`, `--author`, `--message`, `--date`, `--no-auto-exclude`, `--no-strip`, `--no-set-identity`, `--include-tags`, `--mailmap`, `--config`, `--report-dir`. |
 | `strip <files...>` | Remove metadata losslessly, in place (JPEG, PNG, WebP, PDF, OOXML). `--check` lists what would be removed and exits 1 if anything is present. |
 | `show <repo> <path>` | Print a file at a ref with every secret span masked. |
 | `redact <path> --finding <fingerprint> --with <text>` | Replace one secret in a working-tree file. It never touches the index or history. |
@@ -291,12 +291,12 @@ The fixture generator and the detectors were written by the same author, so the 
 
 ### Recall and precision on held-out seeds
 
-Fixtures are synthetic repositories built from a seed and never committed, and the table gives the plant counts. Secret plants follow each provider's documented token format, and every plant-shaped string is assembled at run time. Each plant is placed at one location: HEAD, deleted later, a side branch, a tag, notes, stash, a remote-tracking ref, a replace ref, `refs/original/`, a commit or tag message, a ref name, a path, a binary field, or an unreachable object. The detectors were tuned on seeds 0 and 1 only. Seeds 2 to 6 were run once, after the freeze.
+Fixtures are synthetic repositories built from a seed and never committed, and the table gives the plant counts. Secret plants follow each provider's documented token format, and every plant-shaped string is assembled at run time. Each plant is placed at one location: HEAD, deleted later, a side branch, a tag, notes, stash, a remote-tracking ref, a replace ref, `refs/original/`, a commit or tag message, a ref name, a path, a binary field, or an unreachable object. The detectors were tuned on seeds 0 and 1 only. Seeds 2 to 6 were run once, after the freeze. The first attempt stopped while building the fixtures, before any scan, because a phone-number helper of the fixture generator could fail to find a value for some seeds. The fix changed only that helper, and only for draws that would have failed, so the fixtures of seeds that did not fail are unchanged. No held-out number had been seen at that point.
 
 <!-- BEGIN generated:results-synthetic -->
 
 ```sh
-go-public bench --seeds 2-6 --size small
+go-public bench --seeds 2-6 --size small --out <results-dir>
 ```
 
 Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
@@ -330,7 +330,7 @@ All gates pass.
 <!-- BEGIN generated:results-head-only -->
 
 ```sh
-go-public bench --seeds 2-6 --size small --compare-head-only
+go-public bench --seeds 2-6 --size small --compare-head-only --out <results-dir>
 ```
 
 Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
@@ -359,7 +359,7 @@ Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0;
 <!-- BEGIN generated:results-gitleaks -->
 
 ```sh
-go-public bench --seeds 2-6 --size small --gitleaks <gitleaks-binary>
+go-public bench --seeds 2-6 --size small --gitleaks <gitleaks-binary> --out <results-dir>
 ```
 
 Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`; gitleaks 8.30.1 (official darwin_arm64 release, default config).
@@ -461,7 +461,7 @@ For each seed: scan, a scripted fix at HEAD, export, re-scan.
 <!-- BEGIN generated:results-export -->
 
 ```sh
-go-public bench --seeds 2-6 --size small --export-verify
+go-public bench --seeds 2-6 --size small --export-verify --out <results-dir>
 ```
 
 Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
@@ -499,7 +499,7 @@ The two repositories are cloned only when you run this command, into a directory
 <!-- BEGIN generated:results-real-world -->
 
 ```sh
-go-public bench --real-world-dir <dir> --labels bench/labels/real-world.jsonl
+go-public bench --real-world-dir <dir> --labels bench/labels/real-world.jsonl --out <results-dir>
 ```
 
 Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
@@ -603,7 +603,7 @@ Read the counts as what a scan of a public repository's history reports, not as 
 <!-- BEGIN generated:results-runtime -->
 
 ```sh
-go-public bench --seeds 100 --size medium --runtime --repeat 3
+go-public bench --seeds 100 --size medium --runtime --repeat 3 --real-world-dir <dir> --out <results-dir>
 ```
 
 Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
@@ -633,11 +633,11 @@ Full scan with the default `--jobs`: 5.15 s, which meets the 60 s target.
 
 <!-- END generated:results-runtime -->
 
-The synthetic `medium` fixture is built with 40 binary files (PNG and JPEG noise without metadata; `MediumShape.binaries` in `src/go_public/bench/medium.py`), and text files of Python, JavaScript and Markdown.
+The synthetic `medium` fixture is built with 40 binary files (32 PNG and 8 JPEG noise images without metadata; a test counts them from the generator, `MediumShape.binaries` in `src/go_public/bench/medium.py`), and text files of Python, JavaScript and Markdown.
 
 ### Self-scan
 
-`go-public scan . --include-unreachable --fail-on medium`, with the committed `.go-public.toml`, runs over this repository in the `self-scan` job of the CI workflow, on a checkout with full history. At the export ref the scan reports no findings. The config allowlists two paths and nothing else, and every entry has its reason:
+`go-public scan . --include-unreachable --fail-on medium`, with the committed `.go-public.toml`, runs over this repository in the `self-scan` job of the CI workflow, on a checkout with full history. At the export ref the scan reports no findings. The config allowlists two paths and the maintainer's public commit identity, and nothing else. Every entry has its reason:
 
 <!-- BEGIN generated:self-scan-config -->
 
@@ -675,7 +675,7 @@ paths = [
 <!-- BEGIN generated:results-blind-spots -->
 
 ```sh
-go-public bench --seeds 0,1 --size small --blind-spots
+go-public bench --seeds 0,1 --size small --blind-spots --out <results-dir>
 ```
 
 Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
@@ -699,12 +699,12 @@ Overall: 1 of 14 detected (recall 0.071).
   A secret split across string concatenation, a base64-encoded secret, a secret inside a zip file, text inside an image, a deny term written with spaced letters and GPS coordinates in an XMP sidecar are not found. A generic secret on a very long (minified) line is found only when gitleaks's generic rule matches it, because the assignment detector skips lines longer than 1,000 characters.
 - **Synthetic scores are an upper bound.** See the note under Results. The HEAD-only comparison, the gitleaks baseline and the real-world run are there to check that.
 - **Real-world labels are by one person**, the author. The labels file holds fingerprints only. Two false-positive patterns remain known on the real-world clones: a URL password that contains a space is read as an email, and one VAT-like number in a certificate bundle is read as a phone number.
-- **Phone numbers are a trade-off.** `phonenumbers` accepts many bare digit runs (ids, counters, lockfile sizes) as valid national numbers, so a national-format candidate needs a separator or a trunk prefix, and numeric data such as coordinate tables is dropped. A bare, unseparated national number, or one with fewer than ten digits, can be missed. Numbers written with `+` are always detected.
+- **Phone numbers are a trade-off.** `phonenumbers` accepts many bare digit runs (ids, counters, lockfile sizes) as valid national numbers, so a national-format candidate needs a separator or a trunk prefix, and numeric data such as coordinate tables is dropped. A bare, unseparated national number, or one with fewer than ten digits, can be missed. Numbers written with `+` are detected whatever `pii.phone_regions` says, unless they are glued to more digits. Lockfiles are not searched for phone numbers.
 - **No named-entity recognition.** Names are found only from `deny.names` and, with `--detect-names`, from the identities in history. A name that is in neither is not found.
-- **Archives other than OOXML are not scanned.** A zip, jar or tar file is reported as an info-level finding and its content is not read. Encoded values (base64, hex) are not decoded.
+- **Archives other than OOXML are not scanned.** A zip or jar file is reported as an info-level finding and its content is not read. Other archive formats (tar, gzip, 7z) are treated as opaque binary files and are not reported at all. Encoded values (base64, hex) are not decoded.
 - **Hosted surfaces are not scanned.** Issues, pull requests, wikis, release assets and Actions logs of an existing remote are outside the repository. This is why the export goes to a new repository.
-- **Images are not read as text.** Text inside an image is not found (there is no OCR), and neither are audio or video metadata, HEIC or RAW files.
-- **Submodules and LFS.** Submodule contents are not scanned and gitlinks are never exported. LFS pointer files are reported, and the LFS objects are not in the repository.
+- **Images are not read as text.** Text inside an image is not found (there is no OCR), and neither are audio or video metadata or HEIC files.
+- **Submodules and LFS.** Submodule contents are not scanned and gitlinks are never exported, in either export mode. `.gitmodules` is an ordinary file: it is scanned (a submodule URL on a private host is reported) and exported like one. LFS pointer files are reported, and the LFS objects are not in the repository.
 - **Shallow and partial clones** are scanned as they are, with a warning. A missing object is reported as missing and never fetched.
 - **SHA-256 repositories** exit with code 3 for now.
 - **Windows is untested.** No test or run has been done there.

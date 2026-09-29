@@ -27,7 +27,7 @@ uv run mypy src
 uv run python scripts/sync_readme.py --check
 ```
 
-The tests use no network. They run with an isolated `HOME` and without any `GIT_*` variable of yours, so your git config cannot change a result. Tests may build scenario repositories with plain `subprocess` calls to git; the package itself reaches git only through `go_public.git.runner`, which has an allowlist of subcommands per role. The source repository is read-only by construction, and a test asserts that nothing in the package calls `git push`.
+The tests use no network. They run with an isolated `HOME` and without any `GIT_*` variable of yours, so your git config cannot change a result. Tests may build scenario repositories with plain `subprocess` calls to git; the package itself reaches git only through `go_public.git.runner`, which has an allowlist of subcommands per role (the one exception is the git-filter-repo child process of `export --keep-history`, which works on a fresh clone and never on the source). The source repository is read-only by construction, and a test asserts that nothing in the package calls `git push`.
 
 `README.md` carries generated blocks (the configuration table and every results table). Do not edit them by hand: `uv run python scripts/sync_readme.py` rewrites them from `bench/results/` and the config model, and a test fails when they differ.
 
@@ -40,13 +40,13 @@ The tests use no network. They run with an isolated `HOME` and without any `GIT_
 - Trailer names such as `Co-authored-by` may appear in config values and docs, but no commit message may carry a trailer with a name or email.
 - Only `src/go_public/detect/constants.py` (the private ranges and path prefixes the detectors compare against) and `src/go_public/rules/gitleaks.toml` (the vendored rule set) are allowlisted, in the committed `.go-public.toml`, each with a reason. Do not add entries to make a test pass; assemble the string at run time instead.
 
-The self-scan runs `go-public scan . --include-unreachable --fail-on medium`. Run it yourself before you open a pull request:
+The self-scan runs `go-public scan . --include-unreachable --fail-on medium`. Run it yourself before you open a pull request. It also reads the identities of your own commits, so it reports them unless they are on the allowlist; add `--head-only` to check the files alone:
 
 ```sh
 uv run go-public scan . --include-unreachable --fail-on medium
 ```
 
-The committed config allowlists the maintainer's public identity only. On a pull request CI scans the tree at the tip of the pull request (`--head-only`), because your own commit identities are identity findings by definition. Use a GitHub noreply address for your commits if you do not want your email address in a public history, and make commits with `TZ=UTC git commit` if you want timezone offsets out of it (they are reported at info level).
+The committed config allows the maintainer's public identity and no other. On a pull request CI scans only the tree it checks out, the merge of your branch into its base (`--head-only`), because your own commit identities are identity findings by definition. Use a GitHub noreply address for your commits if you do not want your email address in a public history, and make commits with `TZ=UTC git commit` if you want timezone offsets out of it (they are reported at info level).
 
 ## Changing a detector
 
@@ -64,7 +64,7 @@ Architecture decisions are recorded as short notes in `docs/adr/` (context, deci
 ## Pull requests
 
 - Keep a change small and focused, with tests. Use [conventional commit](https://www.conventionalcommits.org/) messages (`fix(pii): ...`, `feat(export): ...`).
-- Do not add `Signed-off-by` or `Co-authored-by` trailers: they are flagged as personal data by the tool's own self-scan.
+- Do not add `Signed-off-by` or `Co-authored-by` trailers with a name or email: the tool's own self-scan reports them (as trailer findings at medium severity).
 - Everything in the repository is in English.
 - Keep plans and scratch notes out of the repository.
 

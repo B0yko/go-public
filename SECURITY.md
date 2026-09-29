@@ -11,7 +11,7 @@ Use GitHub private vulnerability reporting: open the **Security** tab of this re
 What counts as a vulnerability in `go-public`:
 
 - It prints or writes a secret in full when `--show-secrets` was not given (the report and the console show the first four characters, the length and a SHA-256 prefix).
-- It changes the source repository, pushes, creates a remote, or makes a network connection. `scan`, `export`, `strip`, `show`, `redact`, `fixture` and `demo` are read-only on the source and offline by design; only `bench --real-world-dir` clones two public repositories.
+- It changes the source repository, pushes, creates a remote, or makes a network connection. `scan`, `export`, `show`, `fixture` and `demo` never write to the source repository (objects, refs, config, index or working tree), and no command runs `git push`, `git fetch` or `git remote`. `strip` and `redact` edit only the files you name. All of them work offline by design; only `bench --real-world-dir` clones two public repositories.
 - A crafted repository makes it run code: through a hook, `core.fsmonitor`, a filter or textconv driver, a transport, or a malformed file (image, PDF, OOXML, archive) it reads.
 - The export writes outside the directory you gave it, or keeps content that its own re-scan should have caught in a way the documentation says it does not.
 - A report is written somewhere readable by other users, or inside the scanned working tree.

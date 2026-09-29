@@ -366,6 +366,48 @@ def test_every_block_names_its_command_and_the_frozen_detector_commit() -> None:
         assert re.search(r"Run on \d{4}-\d{2}-\d{2} \(UTC\)", block), name
 
 
+def test_every_bench_command_in_the_results_blocks_can_be_run_literally() -> None:
+    """`bench` requires `--out`, and the runtime table has a flask row, which needs the clone."""
+    for name in SYNC.BLOCKS:
+        if not name.startswith("results-"):
+            continue
+        command = re.search(r"```sh\n(go-public bench .*)\n```", _block(name))
+        assert command, name
+        assert "--out " in command.group(1), name
+        if name == "results-runtime":
+            assert "--real-world-dir " in command.group(1)
+
+
+def test_the_medium_fixture_has_the_binaries_the_readme_states() -> None:
+    import random
+
+    from go_public.bench import medium
+
+    class Ctx:
+        branch_tip = {medium.MAIN: "x"}
+        public_identity = None
+
+        def __init__(self) -> None:
+            self.blobs: list[bytes] = []
+
+        def blob(self, data: bytes) -> int:
+            self.blobs.append(data)
+            return len(self.blobs)
+
+        def commit(self, ref: str, **kwargs: Any) -> None:
+            self.branch_tip[ref] = "y"
+
+        def request_tag(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+    ctx = Ctx()
+    medium.build_history(ctx, random.Random(100), medium.MediumShape())  # type: ignore[arg-type]
+    png = sum(b.startswith(b"\x89PNG") for b in ctx.blobs)
+    jpeg = sum(b.startswith(b"\xff\xd8\xff") for b in ctx.blobs)
+    assert (png, jpeg) == (32, 8)
+    assert f"{png + jpeg} binary files ({png} PNG and {jpeg} JPEG" in _readme()
+
+
 def test_no_result_number_is_typed_into_the_prose() -> None:
     prose = _outside_blocks(_readme())
     prose = re.sub(r"```.*?```", "", prose, flags=re.DOTALL)

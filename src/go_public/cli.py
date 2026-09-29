@@ -96,7 +96,7 @@ def scan(
     include_unreachable: bool = typer.Option(
         False,
         "--include-unreachable",
-        help="Also scan every object in the object database (dangling, reflog-only).",
+        help="Also scan every blob no ref reaches (dangling, reflog-only).",
     ),
     head_only: bool = typer.Option(
         False,
