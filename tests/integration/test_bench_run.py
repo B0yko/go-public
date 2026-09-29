@@ -171,6 +171,37 @@ def test_medium_and_unavailable_flags_are_usage_errors(tmp_path: Path) -> None:
         assert result.exit_code == 2, flag
 
 
+def test_seeds_and_size_are_needed_unless_the_real_world_run_is_alone(tmp_path: Path) -> None:
+    out = str(tmp_path / "results")
+    for args in (
+        ["bench", "--out", out],
+        ["bench", "--seeds", "0", "--out", out],
+        ["bench", "--real-world-dir", str(tmp_path), "--out", out],
+        [
+            "bench",
+            "--labels",
+            str(tmp_path / "l.jsonl"),
+            "--seeds",
+            "0",
+            "--size",
+            "tiny",
+            "--out",
+            out,
+        ],
+        [
+            "bench",
+            "--real-world-dir",
+            str(tmp_path),
+            "--labels",
+            str(tmp_path / "l.jsonl"),
+            "--blind-spots",
+            "--out",
+            out,
+        ],
+    ):
+        assert runner.invoke(app, args).exit_code == 2, args
+
+
 def test_bad_seed_spec_is_exit_2(tmp_path: Path) -> None:
     code, _output, _out = _bench(tmp_path, "--seeds", "6-2")
     assert code == 2

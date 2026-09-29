@@ -8,6 +8,9 @@ synthetic per-class table runs):
 - `--compare-head-only`: recall by location type, full scan against `--head-only`.
 - `--export-verify`: scan, scripted fix at HEAD, export, re-scan, source immutability.
 - `--blind-spots`: measured recall on the blind-spot plants.
+- `--gitleaks <binary>`: secret recall against gitleaks on the same fixtures (`gitleaks.py`).
+- `--real-world-dir <dir> --labels <file>`: noise and labelled precision on two pinned public
+  repositories (`realworld.py`); runs alone and writes `real-world.{json,md}`.
 - `--runtime`: wall time and peak RSS of full scans of the `medium` fixture (`runtime.py`);
   writes `runtime.{json,md}`.
 
@@ -36,6 +39,8 @@ from typing import Any
 
 from go_public import __version__, pipeline
 from go_public.bench import fixture as fixture_mod
+from go_public.bench import gitleaks as gitleaks_mod
+from go_public.bench import realworld as realworld_mod
 from go_public.bench import runtime as runtime_mod
 from go_public.bench.match import ExpectedHit, expected_hits, finding_key, match
 from go_public.bench.plants import blind_spots
@@ -302,8 +307,15 @@ def write_results(
     out: Path, stem: str, data: dict[str, Any], markdown: str, *, workspace: Workspace
 ) -> list[Path]:
     """Write `<stem>.json` and `<stem>.md` under `out` after the sanitisation check."""
+    return write_results_in(out, stem, data, markdown, extra=(str(workspace.root),))
+
+
+def write_results_in(
+    out: Path, stem: str, data: dict[str, Any], markdown: str, *, extra: tuple[str, ...] = ()
+) -> list[Path]:
+    """`write_results` without a workspace: `extra` names more strings that must not
+    appear in the files."""
     text_json = json.dumps(data, indent=2) + "\n"
-    extra = (str(workspace.root),)
     assert_sanitised(text_json, extra=extra)
     assert_sanitised(markdown, extra=extra)
     out.mkdir(parents=True, exist_ok=True)
@@ -1157,6 +1169,73 @@ def run_runtime(
     return data, md
 
 
+# -- real-world noise -----------------------------------------------------------------
+
+
+def run_real_world(
+    root: Path,
+    labels_path: Path,
+    out: Path,
+    *,
+    jobs: int = 0,
+    hardware: str = "",
+    detector_commit: str = "unknown",
+    log: Callable[[str], None] = lambda _line: None,
+) -> BenchOutcome:
+    """Clone (when missing), scan and sample the pinned public repositories under `root`
+    and write `real-world.{json,md}` under `out`. The private sample with its context
+    lines goes to `<root>/private/sample.jsonl`."""
+    started = time.monotonic()
+    git_version = check_git_version()
+    scans: list[realworld_mod.RepoScan] = []
+    for repo in realworld_mod.REPOS:
+        clone = realworld_mod.ensure_clone(root, repo, log=log)
+        facts = realworld_mod.describe_clone(clone, repo)
+        if not facts["licence_ok"]:
+            raise BenchError(
+                f"{repo.name}: expected {repo.licence}, found {facts['licence_detected']}"
+            )
+        log(f"scanning {repo.name}")
+        scans.append(
+            realworld_mod.scan_clone(clone, repo, facts, jobs=jobs, git_version=git_version)
+        )
+    sample = realworld_mod.draw_sample(scans)
+    private = realworld_mod.write_private_sample(root, sample)
+    realworld_mod.write_private_findings(root, scans)
+    labels = realworld_mod.read_labels(labels_path)
+    stale = realworld_mod.stale_labels(sample, labels)
+    data, md = realworld_mod.build_results(
+        scans,
+        sample,
+        labels,
+        hardware=hardware or default_hardware(),
+        detector_commit=detector_commit,
+        labels_name=f"bench/labels/{labels_path.name}",
+    )
+    values = realworld_mod.matched_values(scans)
+    realworld_mod.assert_no_values(json.dumps(data), values, "the results")
+    realworld_mod.assert_no_values(md, values, "the results")
+    realworld_mod.assert_no_values(
+        labels_path.read_text(encoding="utf-8") if labels_path.exists() else "",
+        values,
+        "the labels file",
+    )
+    written = write_results_in(out, "real-world", data, md, extra=(str(root),))
+    prec = data["precision"]
+    summary = [
+        f"private sample: {private.name} ({len(sample)} findings, {prec['pending']} unlabelled)"
+    ]
+    if stale:
+        summary.append(f"warning: {len(stale)} labels do not match the current sample")
+    o = prec["overall"]
+    summary.append(
+        f"real-world: precision {o['precision']} on {o['labelled']} labelled "
+        f"({o['tp']} TP, {o['fp']} FP)"
+    )
+    summary.append(f"done in {time.monotonic() - started:.0f}s")
+    return BenchOutcome(written=written, gates_ok=True, summary=summary)
+
+
 # -- entry point -----------------------------------------------------------------------
 
 
@@ -1173,6 +1252,7 @@ def run(
     compare_head_only: bool = False,
     export_verify: bool = False,
     blind: bool = False,
+    gitleaks: Path | None = None,
     runtime: bool = False,
     repeat: int = 3,
     extra_runtime_targets: Sequence[runtime_mod.RuntimeTarget] = (),
@@ -1182,7 +1262,7 @@ def run(
     if runtime:
         if options.size != "medium":
             raise UsageError("--runtime measures the medium fixture: pass --size medium")
-        if compare_head_only or export_verify or blind:
+        if compare_head_only or export_verify or blind or gitleaks is not None:
             raise UsageError("--runtime cannot be combined with the scoring modes")
         return _run_runtime_only(options, repeat, extra_runtime_targets)
     if options.size == "medium":
@@ -1192,7 +1272,7 @@ def run(
     summary: list[str] = []
     gates_ok = True
     with Workspace(options) as workspace:
-        if not (compare_head_only or export_verify or blind):
+        if not (compare_head_only or export_verify or blind or gitleaks is not None):
             data, md, ok = run_synthetic(workspace)
             written += write_results(
                 options.out, f"synthetic-{options.label}", data, md, workspace=workspace
@@ -1235,6 +1315,17 @@ def run(
             )
             o = blind_data["overall"]
             summary.append(f"blind spots: {o['detected']}/{o['plants']} detected")
+        if gitleaks is not None:
+            gl_data, gl_md = gitleaks_mod.run_gitleaks_baseline(workspace, gitleaks)
+            written += write_results(
+                options.out, f"gitleaks-{options.label}", gl_data, gl_md, workspace=workspace
+            )
+            g = gl_data["summary"]
+            summary.append(
+                f"gitleaks baseline: go-public {g['go_public']['found']}/{g['expected']}, "
+                f"gitleaks git {g['git']['found']}/{g['expected']}, "
+                f"gitleaks dir {g['dir']['found']}/{g['expected']}"
+            )
     summary.append(f"done in {time.monotonic() - started:.0f}s")
     return BenchOutcome(written=written, gates_ok=gates_ok, summary=summary)
 

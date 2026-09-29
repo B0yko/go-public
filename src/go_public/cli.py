@@ -18,7 +18,9 @@ from go_public import __version__, config_write, fileview, pipeline
 from go_public import config as config_mod
 from go_public import scan as scan_mod
 from go_public.bench import fixture as fixture_mod
+from go_public.bench import realworld as realworld_mod
 from go_public.bench import run as bench_run
+from go_public.bench.runtime import RuntimeTarget
 from go_public.detect import commit_meta
 from go_public.detect.gitleaks_config import load_gitleaks_config, rules_check
 from go_public.errors import GoPublicError, UsageError
@@ -577,8 +579,12 @@ def demo(
 @app.command()
 @_handle_errors
 def bench(
-    seeds: str = typer.Option(..., "--seeds", help="Seed spec: 2-6, 0,1 or 100."),
-    size: str = typer.Option(..., "--size", help="tiny or small; medium with --runtime only."),
+    seeds: str | None = typer.Option(
+        None, "--seeds", help="Seed spec: 2-6, 0,1 or 100 (not used by --real-world-dir alone)."
+    ),
+    size: str | None = typer.Option(
+        None, "--size", help="tiny or small; medium with --runtime only."
+    ),
     out: Path = typer.Option(..., "--out", help="Directory for the results files."),
     compare_head_only: bool = typer.Option(
         False, "--compare-head-only", help="Recall by location type: full scan vs --head-only."
@@ -598,10 +604,17 @@ def bench(
         "unknown", "--detector-commit", help="Frozen detector commit SHA to record."
     ),
     gitleaks: Path | None = typer.Option(
-        None, "--gitleaks", help="gitleaks baseline (not available yet)."
+        None,
+        "--gitleaks",
+        exists=True,
+        dir_okay=False,
+        help="Path to a gitleaks binary: secret recall against gitleaks on the same fixtures.",
     ),
     real_world_dir: Path | None = typer.Option(
-        None, "--real-world-dir", help="Real-world noise run (not available yet)."
+        None,
+        "--real-world-dir",
+        help="Real-world noise run on the pinned public clones kept in this directory "
+        "(with --runtime: adds the pallets/flask clone to the runtime table).",
     ),
     labels: Path | None = typer.Option(None, "--labels", help="Labels file for --real-world-dir."),
     runtime: bool = typer.Option(
@@ -610,16 +623,32 @@ def bench(
     repeat: int = typer.Option(3, "--repeat", help="Repetitions for --runtime."),
 ) -> None:
     """Build synthetic fixtures, scan them and write results files under --out."""
-    for flag, given in (
-        ("--gitleaks", gitleaks is not None),
-        ("--real-world-dir", real_world_dir is not None),
-        ("--labels", labels is not None),
-    ):
-        if given:
-            raise UsageError(f"{flag} is not available yet")
     if repeat != 3 and not runtime:
         raise UsageError("--repeat applies to --runtime")
     check_git_version()
+    if real_world_dir is not None and not runtime:
+        if labels is None:
+            raise UsageError("--real-world-dir needs --labels")
+        if compare_head_only or export_verify or blind_spots or gitleaks or seeds or size:
+            raise UsageError("--real-world-dir runs alone: drop --seeds, --size and the modes")
+        outcome = bench_run.run_real_world(
+            real_world_dir,
+            labels,
+            out,
+            jobs=jobs,
+            hardware=hardware,
+            detector_commit=detector_commit,
+            log=typer.echo,
+        )
+        for path in outcome.written:
+            typer.echo(f"wrote {path}")
+        for line in outcome.summary:
+            typer.echo(line)
+        return
+    if labels is not None:
+        raise UsageError("--labels applies to --real-world-dir")
+    if seeds is None or size is None:
+        raise UsageError("--seeds and --size are required")
     options = bench_run.BenchOptions(
         seed_spec=seeds,
         size=size,
@@ -628,13 +657,18 @@ def bench(
         hardware=hardware,
         detector_commit=detector_commit,
     )
+    extra_targets: tuple[RuntimeTarget, ...] = ()
+    if real_world_dir is not None:
+        extra_targets = (realworld_mod.flask_runtime_target(real_world_dir, log=typer.echo),)
     outcome = bench_run.run(
         options,
         compare_head_only=compare_head_only,
         export_verify=export_verify,
         blind=blind_spots,
+        gitleaks=gitleaks,
         runtime=runtime,
         repeat=repeat,
+        extra_runtime_targets=extra_targets,
     )
     for path in outcome.written:
         typer.echo(f"wrote {path}")
