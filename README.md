@@ -22,7 +22,7 @@ Most pre-release checks look at the files at HEAD. These leaks sit elsewhere:
 
 ## Quickstart
 
-You need `uv` and `git` 2.44 or newer. Nothing else is installed by hand.
+You need `uv` and `git` 2.44 or newer. Nothing else is installed by hand. `uvx` comes with uv and is short for `uv tool run`.
 
 ```sh
 # 1. Try it on a synthetic repository that the command builds for you.
