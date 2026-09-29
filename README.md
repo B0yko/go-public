@@ -106,7 +106,7 @@ The plugin walks you through the same loop: config, scan, rotation of secrets, e
 | [Precision, real-world sample](#real-world-noise) | 1.000 | 50/50 critical/high findings from psf/requests and pallets/flask, labels by the author |
 | [Full scan, synthetic medium](#runtime) | 5.15 s | 184 MB peak RSS; 12,049 unique blobs, 197 MB; target 60 s |
 
-From the results files of 2026-09-29 (UTC) on Mac Studio M4 Max, 128 GB, detector commit `a07fcb42037e`.
+From the results files of 2026-09-29 (UTC) on Mac Studio M4 Max, 128 GB, detector code as of the `v0.1.0` tag.
 
 <!-- END generated:at-a-glance -->
 
@@ -382,7 +382,7 @@ Rows in `allowlist.fingerprints` and `rotated.fingerprints` are TOML tables such
 
 ## Results and benchmarks
 
-Every table below is produced by `go-public bench` and committed under `bench/results/`. The tables in this README are copied from those files by `scripts/sync_readme.py`, and a test fails when a number here differs from them. The command above each table reproduces it. The detector code was frozen at the commit named in each block before the held-out seeds ran. Hardware is the machine that ran the command; the runtime run shares that machine with other jobs, and the table records the load average.
+Every table below is produced by `go-public bench` and committed under `bench/results/`. The tables in this README are copied from those files by `scripts/sync_readme.py`, and a test fails when a number here differs from them. The command above each table reproduces it. The detector code was frozen before the held-out seeds ran; each block names the release tag that carries it. Hardware is the machine that ran the command; the runtime run shares that machine with other jobs, and the table records the load average.
 
 The fixture generator and the detectors were written by the same author, so the synthetic scores below are an upper bound. That is why the comparison with a HEAD-only scan, the gitleaks baseline, the export verification and the real-world noise run exist: they look at the detectors from outside the fixtures.
 
@@ -401,7 +401,7 @@ Fixtures are synthetic repositories built from a seed and never committed, and t
 go-public bench --seeds 2-6 --size small --out <results-dir>
 ```
 
-Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
+Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector code as of the `v0.1.0` tag.
 
 Pooled counts over the listed seeds. A finding that matches no truth entry is a false positive in its own class; duplicates of one truth entry count once.
 
@@ -439,7 +439,7 @@ The headline figure: the share of planted issues that a scan of the files at the
 go-public bench --seeds 2-6 --size small --compare-head-only --out <results-dir>
 ```
 
-Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
+Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector code as of the `v0.1.0` tag.
 
 `--head-only` scans only the export ref's tree, as a working-tree scanner would. Counts are expected findings from the truth files; a finding counts as found by `--head-only` only when the planted issue itself is at the export ref.
 
@@ -473,7 +473,7 @@ Secret plants only, on the same held-out fixtures, against gitleaks over all ref
 go-public bench --seeds 2-6 --size small --gitleaks <gitleaks-binary> --out <results-dir>
 ```
 
-Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`; gitleaks 8.30.1 (official darwin_arm64 release, default config).
+Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector code as of the `v0.1.0` tag; gitleaks 8.30.1 (official darwin_arm64 release, default config).
 
 #### Commands
 
@@ -580,7 +580,7 @@ For each seed: scan, a scripted fix at HEAD, export, re-scan. The source reposit
 go-public bench --seeds 2-6 --size small --export-verify --out <results-dir>
 ```
 
-Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
+Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector code as of the `v0.1.0` tag.
 
 #### Squash export
 
@@ -625,7 +625,7 @@ The two repositories are cloned only when you run this command, into a directory
 go-public bench --real-world-dir <dir> --labels bench/labels/real-world.jsonl --out <results-dir>
 ```
 
-Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
+Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector code as of the `v0.1.0` tag.
 
 #### Repositories
 
@@ -736,7 +736,7 @@ Wall time and peak memory of a full scan and a squash export on the synthetic `m
 go-public bench --seeds 100 --size medium --runtime --repeat 3 --real-world-dir <dir> --out <results-dir>
 ```
 
-Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
+Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector code as of the `v0.1.0` tag.
 
 Median of 3 runs of the full command line under `/usr/bin/time -l`. Peak RSS is the largest single process (parent or one worker), not the sum over workers. Load average is the 1-minute figure at the start of each run; the machine is shared with other jobs. The default `--jobs` is the CPU count (16 here).
 
@@ -833,7 +833,7 @@ paths = [
 go-public bench --seeds 0,1 --size small --blind-spots --out <results-dir>
 ```
 
-Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector commit `a07fcb42037e028c60e5d29a520d80d09325a92d`.
+Run on 2026-09-29 (UTC); Mac Studio M4 Max, 128 GB; git 2.50.1; go-public 0.1.0; detector code as of the `v0.1.0` tag.
 
 Plants a static, offline scanner is not expected to catch, built without the main plant set. A plant counts as detected when a finding of the expected category sits on its blob.
 

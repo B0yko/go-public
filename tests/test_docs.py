@@ -408,8 +408,8 @@ def test_at_a_glance_equals_the_json() -> None:
     assert f"{medium['inventory']['unique_blobs']:,} unique blobs" in row("Full scan, synthetic")[1]
 
 
-def test_every_block_names_its_command_and_the_frozen_detector_commit() -> None:
-    frozen = _json("synthetic-small-2-6")["meta"]["detector_commit"]
+def test_every_block_names_its_command_and_the_detector_release() -> None:
+    version = _json("synthetic-small-2-6")["meta"]["go_public_version"]
     for name in SYNC.BLOCKS:
         if not name.startswith("results-"):
             continue
@@ -417,7 +417,7 @@ def test_every_block_names_its_command_and_the_frozen_detector_commit() -> None:
         assert re.search(r"```sh\ngo-public bench .*\n```", block), name
         assert "Mac Studio M4 Max, 128 GB" in block, name
         assert "go-public 0.1.0" in block, name
-        assert f"detector commit `{frozen}`" in block, name
+        assert f"detector code as of the `v{version}` tag" in block, name
         assert re.search(r"Run on \d{4}-\d{2}-\d{2} \(UTC\)", block), name
 
 

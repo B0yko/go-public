@@ -10,7 +10,7 @@ The README holds blocks between marker comments::
 Each block is rendered from a committed source and never edited by hand:
 
 * result blocks come from `bench/results/*.md` (the files `go-public bench` writes),
-  with the command, date, hardware, versions and detector commit taken from the same file;
+  with the command, date, hardware, versions and detector release tag taken from the same file;
 * `at-a-glance` picks the headline figures out of the JSON results files next to them;
 * `config-reference` comes from the `Config` model in `src/go_public/config.py`;
 * `self-scan-config` is the committed `.go-public.toml`.
@@ -124,7 +124,7 @@ def provenance(meta: dict[str, str]) -> str:
         meta["Hardware"],
         f"git {meta['git']}",
         f"go-public {meta['go-public']}",
-        f"detector commit `{meta['Detector commit']}`",
+        f"detector code as of the `v{meta['go-public']}` tag",
     ]
     if "gitleaks" in meta:
         parts.append(f"gitleaks {meta['gitleaks']}")
@@ -412,7 +412,7 @@ def at_a_glance() -> str:
     meta = synthetic["meta"]
     note = (
         f"From the results files of {meta['date_utc'][:10]} (UTC) on {meta['hardware']}, "
-        f"detector commit `{meta['detector_commit'][:12]}`."
+        f"detector code as of the `v{meta['go_public_version']}` tag."
     )
     return "\n".join(table) + "\n\n" + note
 
