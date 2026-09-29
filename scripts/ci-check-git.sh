@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# CI helper: go-public needs git 2.44 or newer. Print the runner's git version and, on Linux
-# when it is older, install a current one from the git-core PPA. Fail if it is still older.
+# CI helper: go-public needs git 2.44 or newer. Print the runner's git version and, when it is
+# older, install a current one (the git-core PPA on Linux, Homebrew on macOS). Fail if it is
+# still older.
 set -euo pipefail
 
 need_major=2
@@ -15,11 +16,17 @@ version_ok() {
 
 git --version
 if ! version_ok; then
-  if [ "$(uname -s)" = "Linux" ]; then
-    sudo add-apt-repository -y ppa:git-core/ppa
-    sudo apt-get update
-    sudo apt-get install -y git
-    git --version
-  fi
+  case "$(uname -s)" in
+    Linux)
+      sudo add-apt-repository -y ppa:git-core/ppa
+      sudo apt-get update
+      sudo apt-get install -y git
+      ;;
+    Darwin)
+      brew install git
+      hash -r
+      ;;
+  esac
+  git --version
   version_ok || { echo "git ${need_major}.${need_minor} or newer is required" >&2; exit 1; }
 fi
