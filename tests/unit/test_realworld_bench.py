@@ -174,7 +174,7 @@ def test_disk_usage_counts_allocated_blocks(tmp_path: Path) -> None:
 def _stand_in(root: Path, repo: rw.RealWorldRepo, licence: str) -> str:
     path = rw.clone_path(root, repo)
     init_repo(path)
-    author = repo.tag.replace(".", "") + "alice" + chr(64) + "***REMOVED***"
+    author = repo.tag.replace(".", "") + "alice" + chr(64) + "corp-mail." + "internal"
     commit_file(path, "LICENSE.txt", licence, "add licence")
     sha = commit_file(path, "AUTHORS", f"- Alice <{author}>\n", "add authors")
     git(path, "tag", "-a", repo.tag, "-m", "release", sha)
