@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Check the git version (2.44 or newer is required)
+        run: scripts/ci-check-git.sh
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Ruff
+        run: uv run ruff check
+
+      - name: Ruff format
+        run: uv run ruff format --check
+
+      - name: Mypy
+        run: uv run mypy src
+
+      - name: Unit and integration tests
+        run: uv run pytest tests
+
+      - name: README is in sync with bench/results
+        run: uv run python scripts/sync_readme.py --check
+
+      - name: Bench smoke on the tiny fixture (seeds 0 and 1, recall gates)
+        run: uv run go-public bench --seeds 0,1 --size tiny --gate --out "$RUNNER_TEMP/bench"
+
+  self-scan:
+    name: self-scan
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: the scan covers every commit, message and identity.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Check the git version (2.44 or newer is required)
+        run: scripts/ci-check-git.sh
+
+      - name: Install
+        run: uv sync --locked
+
+      # The committed .go-public.toml is picked up from the tree at HEAD.
+      - name: Scan this repository, history included
+        if: github.event_name == 'push'
+        run: uv run go-public scan . --include-unreachable --fail-on medium
+
+      # A pull request brings its author's commits, and their identities are findings by
+      # definition, so a pull request is checked at its tip only. The full scan runs on
+      # every push to the repository.
+      - name: Scan the tree of the pull request
+        if: github.event_name == 'pull_request'
+        run: uv run go-public scan . --head-only --fail-on medium
