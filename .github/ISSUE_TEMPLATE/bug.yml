@@ -1,0 +1,40 @@
+name: Bug
+description: "Something other than a missed or wrong finding: a crash, a wrong exit code, a broken export, a documentation error."
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is public. Do not paste real secrets, personal data, internal names or absolute paths that contain a user name. Reports and `go-public` output can contain them; check before you paste.
+
+        For a missed finding use the "False negative" form, and for a wrong finding the "False positive" form. For a security problem use the private reporting link in the issue chooser.
+  - type: input
+    id: version
+    attributes:
+      label: go-public version
+      description: Output of `go-public --version`.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and git version
+      description: For example "Linux x86_64, git 2.47". Output of `git --version`.
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The command you ran, what you expected and what you got, including the exit code.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Ideally on a tiny repository you can build with a few git commands, or on the output of `go-public demo`.
+      render: shell
+    validations:
+      required: false

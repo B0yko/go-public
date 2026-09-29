@@ -1,0 +1,68 @@
+name: False negative
+description: go-public should have reported something and did not.
+title: "False negative: "
+labels: ["false-negative"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste real values.** No real secret, token, password, key, email address, phone number, name, hostname or path. This issue is public.
+
+        A synthetic reproduction is enough. Take a value of the same shape as the real one (same prefix, same length, same character set), but make it up. If you already pasted a real credential anywhere, rotate it first.
+  - type: checkboxes
+    id: no-real-values
+    attributes:
+      label: Confirmation
+      options:
+        - label: Everything below is synthetic. It contains no real secret, personal data or internal name.
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: go-public version
+      description: Output of `go-public --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: What was missed
+      options:
+        - Secret
+        - Email address
+        - Phone number
+        - Name
+        - Organisation identifier (deny-list match)
+        - Local path
+        - Network identifier (private address, internal host)
+        - Binary metadata
+        - Licence history
+        - Large file
+        - Sensitive or internal-notes file
+        - Commit metadata (identity, trailer, timezone)
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Synthetic reproduction
+      description: The smallest made-up content that go-public should flag, and where it sits (a file in HEAD, a deleted file, a side branch, a tag, a commit message, a file's metadata, ...). Shell commands that build a tiny repository are ideal.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: Which category or rule you expected, and at which severity.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and config
+      description: The exact command you ran. If a config was involved, paste it with every deny-list entry, identity and path replaced by a made-up one.
+      render: shell
+    validations:
+      required: false

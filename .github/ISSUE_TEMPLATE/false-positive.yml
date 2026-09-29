@@ -1,0 +1,46 @@
+name: False positive
+description: go-public reported something that is not a problem.
+title: "False positive: "
+labels: ["false-positive"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste real values.** No real secret, token, password, key, email address, phone number, name, hostname or path. This issue is public.
+
+        Describe the shape of the value, or make up one of the same shape.
+  - type: checkboxes
+    id: no-real-values
+    attributes:
+      label: Confirmation
+      options:
+        - label: Everything below is synthetic or public. It contains no real secret, personal data or internal name.
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: go-public version
+      description: Output of `go-public --version`.
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule id and severity
+      description: For example `pii-phone`, high. Both are in the report.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Synthetic example
+      description: Made-up content of the same shape that go-public flags but should not, and where it sits.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it is not a problem
+    validations:
+      required: true
