@@ -7,8 +7,9 @@ test_report_schema.py`).
 from __future__ import annotations
 
 import hashlib
+import re
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 #: architecture.md "Finding model" Severity enum, ordered least to most severe.
 SEVERITIES: tuple[str, ...] = ("info", "low", "medium", "high", "critical")
@@ -193,6 +194,16 @@ class ScanOptionsInfo(BaseModel):
     detect_names: bool = False
     show_secrets: bool = False
     config_source: str = "defaults"
+
+    @field_validator("config_source")
+    @classmethod
+    def _no_absolute_path(cls, value: str) -> str:
+        """A report never carries an absolute path: keep only the config file's name."""
+        prefix, _, rest = value.partition(":") if value.startswith("env:") else ("", "", value)
+        if rest.startswith(("/", "~")) or re.match(r"[A-Za-z]:[\\/]", rest):
+            rest = re.split(r"[\\/]", rest)[-1]
+            return f"{prefix}:{rest}" if prefix else rest
+        return value
 
 
 class ScanInfo(BaseModel):

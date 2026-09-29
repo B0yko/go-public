@@ -12,6 +12,7 @@ from go_public.model import (
     Finding,
     FixAction,
     Location,
+    ScanOptionsInfo,
     make_fingerprint,
     make_group_id,
     severity_rank,
@@ -117,3 +118,19 @@ def test_the_raw_value_is_available_but_never_serialised() -> None:
     assert "the-literal-value" not in str(finding.model_dump())
     assert "the-literal-value" not in json.dumps(Finding.model_json_schema())
     assert finding.model_copy(update={"severity": "high"}).raw_value == "the-literal-value"
+
+
+@pytest.mark.parametrize(
+    ("given", "shown"),
+    [
+        ("defaults", "defaults"),
+        (".go-public.toml@HEAD", ".go-public.toml@HEAD"),
+        ("/srv/cfg/repo.toml", "repo.toml"),
+        ("env:/srv/cfg/repo.toml", "env:repo.toml"),
+        ("~/cfg/repo.toml", "repo.toml"),
+        ("C:\\cfg\\repo.toml", "repo.toml"),
+        ("cfg/repo.toml", "cfg/repo.toml"),
+    ],
+)
+def test_report_config_source_never_holds_an_absolute_path(given: str, shown: str) -> None:
+    assert ScanOptionsInfo(config_source=given).config_source == shown
