@@ -85,6 +85,12 @@ _GENERIC_ASSIGNMENT_RE = re2.compile(
 )
 
 
+#: An unquoted `module.Attribute` reference: the value of `authr = urllib2.HTTPBasicAuthHandler`
+#: is code, not a credential. Quoted values and three-part dotted values (JWT-shaped) are
+#: still candidates.
+_DOTTED_REFERENCE_RE = re2.compile(r"[A-Za-z_]\w*\.[A-Za-z_]\w*")
+
+
 def shannon_entropy(data: str) -> float:
     """Bits per symbol needed to encode `data`, gitleaks's own metric
     (https://github.com/gitleaks/gitleaks/blob/v8.30.1/detect/utils.go)."""
@@ -490,6 +496,9 @@ class SecretsEngine:
                 if not value:
                     continue
                 if shannon_entropy(value) < self._generic_threshold:
+                    continue
+                quoted = m.start(1) > 0 and line_text[m.start(1) - 1] in "'\""
+                if not quoted and _DOTTED_REFERENCE_RE.fullmatch(value):
                     continue
                 start = line_start + m.start(1)
                 end = start + len(value)

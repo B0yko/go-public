@@ -100,3 +100,36 @@ def test_gitmodules_check_is_skipped_for_ordinary_blobs() -> None:
     content = '[submodule "x"]\n\tpath = x\n\turl = https://' + _INTERNAL_HOST + "/x.git\n"
     hits = _detector().detect(content, is_gitmodules=False)
     assert not any(d.rule_id == "private-submodule-url" for d in hits)
+
+
+# -- code references and placeholders (found by scanning real repositories) --------------
+
+
+def test_dotted_code_references_are_not_internal_hosts() -> None:
+    d = _detector()
+    for text in (
+        "from werkzeug." + "local import LocalProxy",
+        "import werkzeug." + "local",
+        "self._tl = threading." + "local()",
+        "value = ctx." + "local.stack",
+    ):
+        assert d.detect(text) == [], text
+
+
+def test_local_hostnames_in_urls_and_docs_are_still_flagged() -> None:
+    d = _detector()
+    assert [x.value for x in d.detect('client.get("/", "http://dev.' + 'local:5000")')] == [
+        "dev." + "local"
+    ]
+    assert [x.value for x in d.detect("server name like ``myapp." + "local`` here")] == [
+        "myapp." + "local"
+    ]
+
+
+def test_placeholder_user_paths_are_not_flagged() -> None:
+    d = _detector()
+    for name in ("user", "username", "you", "Example"):
+        assert d.detect("Instance: " + "/ho" + "me/" + name + "/Projects/app") == []
+        assert d.detect("in " + _unix_user_path(name)) == []
+    assert d.detect("in " + _windows_user_path("username", "\\")) == []
+    assert len(d.detect("in " + _unix_user_path("david"))) == 1

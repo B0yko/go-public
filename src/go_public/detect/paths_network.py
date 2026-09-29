@@ -64,6 +64,27 @@ _HOST_TOKEN_RE = re2.compile(
     r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+\b"
 )
 
+#: Usernames that are placeholders in documentation, not people.
+_PLACEHOLDER_USERS = frozenset(
+    {
+        "user",
+        "username",
+        "yourname",
+        "your-name",
+        "yourusername",
+        "your-username",
+        "name",
+        "you",
+        "me",
+        "example",
+    }
+)
+
+#: What precedes/follows a `.local`-style token that makes it a code reference rather than a
+#: host: `from werkzeug.local import X`, `import ***REMOVED***`, `threading.local()`, `***REMOVED***.b`.
+_IMPORT_BEFORE_RE = re2.compile(r"(?:^|\s)(?:from|import)\s+$")
+_CODE_AFTER_RE = re2.compile(r"^(?:\(|\s+import\b|\.[A-Za-z_])")
+
 _GITMODULES_URL_RE = re2.compile(r"(?m)^\s*url\s*=\s*(\S+)\s*$")
 _URL_HOST_RE = re2.compile(r"(?:://|@)([A-Za-z0-9.-]+)")
 
@@ -72,6 +93,20 @@ def _line_col(text: str, offset: int) -> tuple[int, int]:
     line = text.count("\n", 0, offset) + 1
     last_nl = text.rfind("\n", 0, offset)
     return line, offset - last_nl
+
+
+def _is_placeholder_user(value: str) -> bool:
+    """A home-directory path whose user segment is a documentation placeholder such as
+    `user`, `username` or `you`."""
+    segment = re2.split(r"[\\/]+", value.rstrip("\\/"))[-1]
+    return segment.lower() in _PLACEHOLDER_USERS
+
+
+def _is_code_reference(text: str, start: int, end: int) -> bool:
+    line_start = text.rfind("\n", 0, start) + 1
+    if _IMPORT_BEFORE_RE.search(text[line_start:start]):
+        return True
+    return bool(_CODE_AFTER_RE.match(text[end : end + 12]))
 
 
 def _host_from_url(value: str) -> str:
@@ -114,6 +149,8 @@ class PathsNetworkDetector:
             start, end = m.start(), m.end()
             value = text[start:end]
             if self._is_allowed_path(value):
+                continue
+            if _is_placeholder_user(value):
                 continue
             line, col = _line_col(text, start)
             out.append(
@@ -189,6 +226,8 @@ class PathsNetworkDetector:
             if not self._is_internal_host(token.lower()):
                 continue
             start, end = m.start(), m.end()
+            if _is_code_reference(text, start, end):
+                continue
             line, col = _line_col(text, start)
             out.append(
                 Detection(

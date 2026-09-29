@@ -47,6 +47,10 @@ _PERMISSION_GRANT_PHRASES = (
     "permission is granted",
     "licensed under",
     "licenced under",
+    "permission to use",
+    "redistribution and use",
+    "released under",
+    "free software",
 )
 
 #: SPDX identifiers product spec item 7 names, mapped to the same canonical labels

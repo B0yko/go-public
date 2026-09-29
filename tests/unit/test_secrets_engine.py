@@ -385,6 +385,21 @@ def test_generic_entropy_detector_skips_long_lines() -> None:
     assert engine.detect(padded, UnitCtx(path="settings.py")) == []
 
 
+def test_generic_entropy_detector_skips_unquoted_module_attribute_references() -> None:
+    config = load_gitleaks_config(_write_config(_NO_OP_RULE_CONFIG))
+    engine = SecretsEngine(config, generic_entropy_threshold=3.0)
+    code = (
+        "\tauthr = urllib2.HTTPPasswordMgrWithDefaultRealm()\n"
+        "\tauth_handler = ***REMOVED***(authr)\n"
+    )
+    assert engine.detect(code, UnitCtx(path="core.py")) == []
+    # A quoted value of the same shape is still a candidate.
+    quoted = 'auth_handler = "***REMOVED***"\n'
+    assert [d.rule_id for d in engine.detect(quoted, UnitCtx(path="core.py"))] == [
+        "generic-entropy"
+    ]
+
+
 _CFG_COUNTER = 0
 
 

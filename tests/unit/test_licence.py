@@ -57,6 +57,16 @@ def test_all_rights_reserved_with_grant_is_not_proprietary() -> None:
     assert licence.identify_licence_text(text) == "unknown"
 
 
+def test_all_rights_reserved_before_a_permission_grant_is_not_proprietary() -> None:
+    header = (
+        "# Copyright 2000 by A. Author\n#\n#                All Rights Reserved\n#\n"
+        "# Permission to use, copy, modify, and distribute this software\n"
+        "# and its documentation for any purpose and without fee is hereby granted\n"
+    )
+    assert licence.detect_notice(header) is None
+    assert licence.detect_notice("# All Rights Reserved\n") is not None
+
+
 def test_unrecognised_text_is_unknown() -> None:
     assert licence.identify_licence_text("Just some ordinary prose.") == "unknown"
 

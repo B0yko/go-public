@@ -9,6 +9,15 @@ bare, unseparated 10-digit national number without a trunk prefix is missed; num
 written with `+` are always detected. Lockfiles are skipped for phones altogether
 (`scan.py`, same file list as the generic-entropy detector).
 
+Numeric data is not a phone number either (found by scanning real repositories: SVG path
+data, coordinate and probability tables, ZIP+4 codes). A national candidate is dropped when
+it is glued to more digits or to a decimal/list separator (`.`, `,`, `-` next to a digit),
+when it mixes `.` and `-`, when a dotted one has fewer than two dots or a group of fewer
+than three digits after the first, when a later group is a single digit, or when it is
+shaped like a US ZIP+4 code. Numbers written with `+` skip the group rules but not the
+"glued to more digits" check. The cost: a national number written `555.12.34` or with
+one-digit groups is missed.
+
 Every check here is content-only (no `path`/`commit` dependence), so a `PiiDetector`
 can be built once per scan and its `detect()` called once per blob/message/field,
 same as every other stage-3 detector (`scan.py` attributes the result to every
@@ -55,6 +64,42 @@ _DOTTED_QUAD_RE = re2.compile(r"\d{1,3}(?:\.\d{1,3}){3,}")
 
 
 _SEPARATORS = frozenset(" -.()")
+_ZIP_PLUS4_RE = re2.compile(r"\d{5}-\d{4}")
+_LIST_SEPARATORS = ".,-"
+
+
+def _digit_groups(raw: str) -> list[str]:
+    return [g for g in re2.split(r"\D+", raw) if g]
+
+
+def _is_numeric_data(text: str, start: int, end: int, raw: str) -> bool:
+    """True when the candidate is a slice of a longer number, a decimal or a list of
+    numbers rather than a phone number (see the module docstring)."""
+    if start > 0:
+        before = text[start - 1]
+        if before.isdigit():
+            return True
+        if before in _LIST_SEPARATORS and start > 1 and text[start - 2].isdigit():
+            return True
+    if end < len(text):
+        after = text[end]
+        if after.isdigit():
+            return True
+        if after in _LIST_SEPARATORS and end + 1 < len(text) and text[end + 1].isdigit():
+            return True
+    if raw.startswith("+"):
+        return False
+    if _ZIP_PLUS4_RE.fullmatch(raw):
+        return True
+    groups = _digit_groups(raw)
+    if any(len(g) == 1 for g in groups[1:]):
+        return True
+    if "." in raw:
+        if "-" in raw or raw.count(".") < 2:
+            return True
+        if any(len(g) < 3 for g in groups[1:]):
+            return True
+    return False
 
 
 def _has_phone_shape(raw: str) -> bool:
@@ -156,6 +201,8 @@ class PiiDetector:
                 if span in seen or _DOTTED_QUAD_RE.fullmatch(match.raw_string):
                     continue
                 if not _has_phone_shape(match.raw_string):
+                    continue
+                if _is_numeric_data(text, span[0], span[1], match.raw_string):
                     continue
                 line, col = _line_col(text, span[0])
                 seen[span] = Detection(

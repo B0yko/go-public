@@ -84,3 +84,39 @@ def test_national_number_with_a_trunk_prefix_or_separator_is_detected() -> None:
 
 def test_bare_international_number_is_detected() -> None:
     assert _rule_ids("call +12025550" + "142", phone_regions=("GB",)) == ["pii-phone"]
+
+
+# -- numeric data is not a phone number (found by scanning real repositories) -----------
+
+
+def test_svg_path_data_is_not_a_phone_number() -> None:
+    path = (
+        'd="m 394.4689,161.155 c -1e-5,0.19141 -0.34864,0.48079 -1.0459,0.86816 '
+        '0.38281 0.87956 c-2.35,11.81-7,23.46"'
+    )
+    assert _rule_ids(path) == []
+    assert _rule_ids('<path d="M2.7207,-0.38281 c -0.25522,-0.0456 -0.61069,-0.11394"/>') == []
+
+
+def test_decimal_and_probability_tables_are_not_phone_numbers() -> None:
+    assert _rule_ids("  'mTypicalPositiveRatio': 0.982851,") == []
+    assert _rule_ids("weights = [0.98285, 0.42718, 0.05012, 0.11394]") == []
+    assert _rule_ids("x = 0.689-2.818") == []
+
+
+def test_zip_plus_four_is_not_a_phone_number() -> None:
+    assert _rule_ids("# 02110-1301  USA", phone_regions=("US", "GB")) == []
+
+
+def test_candidate_glued_to_more_digits_is_not_a_phone_number() -> None:
+    assert _rule_ids("id 1" + _NANP + "9", phone_regions=("US",)) == []
+    assert _rule_ids("4.1" + _NANP, phone_regions=("US",)) == []
+
+
+def test_phone_next_to_ordinary_punctuation_is_still_detected() -> None:
+    assert _rule_ids("Call " + _NANP + ".", phone_regions=("US",)) == ["pii-phone"]
+    assert _rule_ids("(" + _NANP + ") or " + _NANP_DOTTED + ", thanks", phone_regions=("US",)) == [
+        "pii-phone",
+        "pii-phone",
+    ]
+    assert _rule_ids("Tel: " + _GB_DRAMA + ";", phone_regions=("GB",)) == ["pii-phone"]
