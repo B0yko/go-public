@@ -1,0 +1,68 @@
+{
+  "schema": "go-public-bench-blind-spots-v1",
+  "meta": {
+    "mode": "blind-spots",
+    "date_utc": "2026-09-29T01:38:29Z",
+    "hardware": "Mac Studio M4 Max, 128 GB",
+    "git_version": "2.50.1",
+    "go_public_version": "0.1.0",
+    "detector_commit": "unknown",
+    "seeds": [
+      0,
+      1
+    ],
+    "size": "small",
+    "command": "go-public bench --seeds 0,1 --size small --blind-spots"
+  },
+  "kinds": {
+    "blind-split-secret": {
+      "plants": 2,
+      "detected": 0,
+      "recall": 0.0,
+      "detected_by": []
+    },
+    "blind-base64-secret": {
+      "plants": 2,
+      "detected": 0,
+      "recall": 0.0,
+      "detected_by": []
+    },
+    "blind-zipped-secret": {
+      "plants": 2,
+      "detected": 0,
+      "recall": 0.0,
+      "detected_by": []
+    },
+    "blind-minified-generic": {
+      "plants": 2,
+      "detected": 1,
+      "recall": 0.5,
+      "detected_by": [
+        "generic-api-key"
+      ]
+    },
+    "blind-image-text": {
+      "plants": 2,
+      "detected": 0,
+      "recall": 0.0,
+      "detected_by": []
+    },
+    "blind-spaced-deny-term": {
+      "plants": 2,
+      "detected": 0,
+      "recall": 0.0,
+      "detected_by": []
+    },
+    "blind-xmp-gps": {
+      "plants": 2,
+      "detected": 0,
+      "recall": 0.0,
+      "detected_by": []
+    }
+  },
+  "overall": {
+    "plants": 14,
+    "detected": 1,
+    "recall": 0.0714
+  }
+}
