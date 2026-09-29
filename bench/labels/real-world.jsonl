@@ -1,0 +1,50 @@
+{"fingerprint": "781cc2139196", "rule_id": "sensitive-file", "verdict": "TP", "reason": "the path matches the sensitive-file name patterns (name-based, content not judged)"}
+{"fingerprint": "2c24a0f7109c", "rule_id": "pii-email", "verdict": "TP", "reason": "an email address in a commit message"}
+{"fingerprint": "3b6f62358b62", "rule_id": "pii-email", "verdict": "TP", "reason": "an email address in a commit message"}
+{"fingerprint": "b3e2a6dca2f1", "rule_id": "generic-api-key", "verdict": "TP", "reason": "a credential-shaped value assigned to a secret-key setting (documentation example)"}
+{"fingerprint": "d53b91800449", "rule_id": "pii-email", "verdict": "TP", "reason": "an email address in a commit message"}
+{"fingerprint": "c570f32fc104", "rule_id": "sensitive-file", "verdict": "TP", "reason": "the path matches the sensitive-file name patterns (name-based, content not judged)"}
+{"fingerprint": "0208247df85c", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "15ef1c95e8dc", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "1b0fd905a6b4", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "1b24c395ee68", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "1c826467e8d5", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "26d8d57d8f67", "rule_id": "pii-email", "verdict": "TP", "reason": "an email address in a source comment or header"}
+{"fingerprint": "2a01449f3c07", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "399ea2e758c1", "rule_id": "pii-email", "verdict": "TP", "reason": "an email address in a mailto link"}
+{"fingerprint": "3e1e388d2398", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "411f8d582ed4", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "41c9b7415167", "rule_id": "pii-email", "verdict": "TP", "reason": "an email address in a source comment or header"}
+{"fingerprint": "41f6f7a4c37f", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "461b94c5ce02", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "4c01144bc327", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "4c04f4f6bc74", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "51d82902c4a3", "rule_id": "pii-email", "verdict": "TP", "reason": "an email address in a mailto link"}
+{"fingerprint": "51fbef34bf0a", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "5b2c916eff6e", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "620ede1bc0b0", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "65bc4297ee29", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "6e4b88550939", "rule_id": "pii-email", "verdict": "TP", "reason": "an author email address in package metadata"}
+{"fingerprint": "736346c390e1", "rule_id": "pii-email", "verdict": "TP", "reason": "an email address in documentation text"}
+{"fingerprint": "798c2ccadb57", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "7afeae555a94", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "7b95a6b325bc", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "85ce8f92426d", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "89648d5cca90", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "8cff15e93bfe", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "915fb6ca5372", "rule_id": "pii-email", "verdict": "TP", "reason": "an author email address in package metadata"}
+{"fingerprint": "9684fd6cb4b6", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "b8ad6d9abded", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "bffad2333ec5", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "c1b671db785e", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "c307530ab201", "rule_id": "pii-email", "verdict": "TP", "reason": "an email address in a mailto link"}
+{"fingerprint": "c59dc7a0b251", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "cf7f58145f0e", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "d423f5988c29", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "dc6d73753b40", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "e09da68032d8", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "e14a8e488ec2", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "ebfb36ac2cef", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "f11a5864d3dc", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}
+{"fingerprint": "f19f0cdc8d97", "rule_id": "pii-email", "verdict": "TP", "reason": "an author email address in package metadata"}
+{"fingerprint": "f25107e748f0", "rule_id": "pii-email", "verdict": "TP", "reason": "a contributor email address in the authors list"}

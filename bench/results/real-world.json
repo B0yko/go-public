@@ -1,0 +1,266 @@
+{
+  "schema": "go-public-bench-real-world-v1",
+  "meta": {
+    "mode": "real-world",
+    "date_utc": "2026-09-29T01:26:58Z",
+    "hardware": "Mac Studio M4 Max, 128 GB",
+    "git_version": "2.50.1",
+    "go_public_version": "0.1.0",
+    "detector_commit": "unknown",
+    "command": "go-public bench --real-world-dir <dir> --labels bench/labels/real-world.jsonl"
+  },
+  "repos": [
+    {
+      "repo": "psf/requests",
+      "url": "https://github.com/psf/requests",
+      "tag": "v2.34.2",
+      "tag_kind": "lightweight",
+      "tag_object": "6e83187b8feb273ed4c6cdab5efd8d54901dfab3",
+      "tag_commit": "6e83187b8feb273ed4c6cdab5efd8d54901dfab3",
+      "clone_size_mb": 14.7,
+      "licence_file": "LICENSE",
+      "licence_detected": "Apache-2.0",
+      "licence_expected": "Apache-2.0",
+      "licence_ok": true,
+      "inventory": {
+        "commits": 6466,
+        "refs": 159,
+        "unique_blobs": 7700,
+        "total_blob_bytes": 111800193,
+        "unreachable_blobs": 0
+      },
+      "scan_duration_s": 29.228224,
+      "noise": {
+        "identity_findings": 836,
+        "findings_excluding_identity": 26169,
+        "by_severity": {
+          "critical": {
+            "count": 17,
+            "per_1000_blobs": 2.21
+          },
+          "high": {
+            "count": 6324,
+            "per_1000_blobs": 821.3
+          },
+          "medium": {
+            "count": 7601,
+            "per_1000_blobs": 987.14
+          },
+          "low": {
+            "count": 54,
+            "per_1000_blobs": 7.01
+          },
+          "info": {
+            "count": 12173,
+            "per_1000_blobs": 1580.91
+          }
+        },
+        "by_category": {
+          "binary-metadata": 38,
+          "licence": 3,
+          "local-path": 2,
+          "network": 7433,
+          "pii": 6296,
+          "secret": 35,
+          "sensitive-file": 10,
+          "timezone": 12173,
+          "trailer": 179
+        },
+        "by_rule": {
+          "timezone-offset": 12173,
+          "private-ip": 7432,
+          "pii-email": 6284,
+          "trailer": 179,
+          "generic-api-key": 24,
+          "pdf-info": 16,
+          "png-text": 13,
+          "pii-phone": 12,
+          "sensitive-file": 10,
+          "pdf-xmp": 9,
+          "private-key": 8,
+          "generic-entropy": 3,
+          "licence-transition": 3,
+          "user-path": 2,
+          "internal-host": 1
+        },
+        "per_1000_blobs_all": 3398.57,
+        "present_at_tag": 170
+      }
+    },
+    {
+      "repo": "pallets/flask",
+      "url": "https://github.com/pallets/flask",
+      "tag": "3.1.3",
+      "tag_kind": "annotated",
+      "tag_object": "8d05782cf7e01c815ceed85eac9d744533af4c44",
+      "tag_commit": "22d924701a6ae2e4cd01e9a15bbaf3946094af65",
+      "clone_size_mb": 12.7,
+      "licence_file": "LICENSE.txt",
+      "licence_detected": "BSD-3-Clause",
+      "licence_expected": "BSD-3-Clause",
+      "licence_ok": true,
+      "inventory": {
+        "commits": 5463,
+        "refs": 63,
+        "unique_blobs": 9021,
+        "total_blob_bytes": 158795151,
+        "unreachable_blobs": 0
+      },
+      "scan_duration_s": 16.549495,
+      "noise": {
+        "identity_findings": 905,
+        "findings_excluding_identity": 12063,
+        "by_severity": {
+          "critical": {
+            "count": 1,
+            "per_1000_blobs": 0.11
+          },
+          "high": {
+            "count": 696,
+            "per_1000_blobs": 77.15
+          },
+          "medium": {
+            "count": 1023,
+            "per_1000_blobs": 113.4
+          },
+          "low": {
+            "count": 23,
+            "per_1000_blobs": 2.55
+          },
+          "info": {
+            "count": 10320,
+            "per_1000_blobs": 1144.0
+          }
+        },
+        "by_category": {
+          "binary-metadata": 24,
+          "large-file": 1,
+          "licence": 17,
+          "local-path": 179,
+          "network": 657,
+          "pii": 481,
+          "secret": 209,
+          "sensitive-file": 7,
+          "timezone": 10318,
+          "trailer": 170
+        },
+        "by_rule": {
+          "timezone-offset": 10318,
+          "internal-host": 557,
+          "pii-email": 481,
+          "generic-api-key": 209,
+          "user-path": 179,
+          "trailer": 170,
+          "private-ip": 100,
+          "licence-transition": 17,
+          "png-text": 15,
+          "sensitive-file": 7,
+          "pdf-info": 4,
+          "png-time": 4,
+          "archive-not-scanned": 1,
+          "gitlink": 1
+        },
+        "per_1000_blobs_all": 1337.21,
+        "present_at_tag": 31
+      }
+    }
+  ],
+  "sample": {
+    "size": 50,
+    "seed": 20260929,
+    "severities": [
+      "critical",
+      "high"
+    ],
+    "strata": [
+      {
+        "repo": "pallets/flask",
+        "severity": "critical",
+        "population": 1,
+        "drawn": 1
+      },
+      {
+        "repo": "pallets/flask",
+        "severity": "high",
+        "population": 696,
+        "drawn": 4
+      },
+      {
+        "repo": "psf/requests",
+        "severity": "critical",
+        "population": 17,
+        "drawn": 1
+      },
+      {
+        "repo": "psf/requests",
+        "severity": "high",
+        "population": 6324,
+        "drawn": 44
+      }
+    ],
+    "rules": {
+      "generic-api-key": 1,
+      "pii-email": 47,
+      "sensitive-file": 2
+    }
+  },
+  "precision": {
+    "sampled": 50,
+    "labelled": 50,
+    "pending": 0,
+    "overall": {
+      "labelled": 50,
+      "tp": 50,
+      "fp": 0,
+      "precision": 1.0
+    },
+    "by_repo": {
+      "pallets/flask": {
+        "labelled": 5,
+        "tp": 5,
+        "fp": 0,
+        "precision": 1.0
+      },
+      "psf/requests": {
+        "labelled": 45,
+        "tp": 45,
+        "fp": 0,
+        "precision": 1.0
+      }
+    },
+    "by_severity": {
+      "critical": {
+        "labelled": 2,
+        "tp": 2,
+        "fp": 0,
+        "precision": 1.0
+      },
+      "high": {
+        "labelled": 48,
+        "tp": 48,
+        "fp": 0,
+        "precision": 1.0
+      }
+    },
+    "by_rule": {
+      "generic-api-key": {
+        "labelled": 1,
+        "tp": 1,
+        "fp": 0,
+        "precision": 1.0
+      },
+      "pii-email": {
+        "labelled": 47,
+        "tp": 47,
+        "fp": 0,
+        "precision": 1.0
+      },
+      "sensitive-file": {
+        "labelled": 2,
+        "tp": 2,
+        "fp": 0,
+        "precision": 1.0
+      }
+    }
+  }
+}
