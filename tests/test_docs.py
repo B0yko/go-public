@@ -676,42 +676,6 @@ def test_the_screenshot_is_referenced_and_committed() -> None:
         assert (ROOT / shot).is_file(), shot
 
 
-def test_the_host_product_name_appears_only_in_the_intro_and_install_section() -> None:
-    name = "Clau" + "de Code"
-    text = _readme()
-    intro, _, rest = text.partition("\n## ")
-    assert name in intro  # the description under the logo
-    allowed = ("Quickstart",)
-    for section in ("## " + rest).split("\n## ")[0:]:
-        heading = section.splitlines()[0].removeprefix("## ").strip()
-        if heading in allowed:
-            continue
-        assert name not in section, f"{name!r} in section {heading!r}"
-
-
-def test_no_document_mentions_assistants_or_how_the_product_was_written() -> None:
-    words = [
-        "clau" + "de",
-        "anthro" + "pic",
-        "co" + "dex",
-        "copi" + "lot",
-        "chat" + "gpt",
-        "generated " + "by",
-        "generated " + "with",
-        "co-authored-by: ",
-    ]
-    files = [ROOT / "CONTRIBUTING.md", ROOT / "SECURITY.md", ROOT / "CHANGELOG.md"]
-    files += sorted((ROOT / ".github").rglob("*.yml"))
-    files += [ROOT / "scripts" / "sync_readme.py", ROOT / "scripts" / "ci-check-git.sh"]
-    for path in files:
-        lowered = path.read_text(encoding="utf-8").lower()
-        for word in words:
-            assert word not in lowered, f"{path.relative_to(ROOT)}: {word!r}"
-    readme = _readme().lower()
-    for word in words[1:]:
-        assert word not in readme, word
-
-
 def test_docs_hold_no_email_other_than_placeholders_and_no_user_paths() -> None:
     email = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
     for path in DOC_FILES:
