@@ -77,7 +77,7 @@ concern, not a general document scan).
   manifest `license` field legitimately reports `licence-missing-at-head` (info) —
   including `go-public fixture`'s own synthetic repositories, which is why
   `bench/fixture.py` now commits a neutral MIT `LICENSE` regardless of `--no-plants`:
-  the "`--no-plants` scans to zero findings" contract would otherwise never hold for
+  the guarantee that `--no-plants` scans to zero findings would otherwise never hold for
   any fixture, since no filler template names a licence file.
 - The proprietary-notice check intentionally trades some recall (a notice that never
   opens a line, e.g. buried mid-paragraph, or one past line 30 of an unrelated file)

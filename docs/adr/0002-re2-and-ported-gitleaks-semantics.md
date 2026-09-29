@@ -54,8 +54,8 @@ for this port (all at
 intentionally *stricter* than gitleaks: viper's `Unmarshal` silently ignores a key
 that doesn't match a known struct field, while go-public's loader treats any
 unrecognised key, at any level (top-level, `[extend]`, a rule, an allowlist, a
-`required` entry), as a `ConfigError` (exit 2), the documented behaviour ("Unknown keys exit 2"), and it catches a typo'd `--gitleaks-config`
-instead of quietly running fewer checks than the user intended. A pattern that fails
+`required` entry), as a `ConfigError` (exit 2). This catches a typo'd
+`--gitleaks-config` instead of quietly running fewer checks than the user intended. A pattern that fails
 to compile is the one place go-public is *more* lenient at load time: it is recorded
 in `compile_failures` (that rule or allowlist entry then matches nothing) rather than
 aborting the whole config, so `go-public rules check` can name every failure in one
