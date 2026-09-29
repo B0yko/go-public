@@ -716,3 +716,26 @@ def test_a_tracked_config_with_a_deny_list_leaves_the_whole_history(tmp_path: Pa
     assert result.exit_code == 0, result.output
     assert ".go-public.toml" not in _paths_in_history(tmp_path / "out")
     assert b"zzq-internal" not in _dump(tmp_path / "out")
+
+
+def test_gitlinks_never_reach_the_history_export(tmp_path: Path) -> None:
+    sc = hs.build(tmp_path)
+    hs.write_config(sc)
+    repo = sc.repo
+    git(repo, "read-tree", "HEAD")
+    entry = f"160000,{'1' * 40},vendor/lib"
+    git(repo, "update-index", "--add", "--cacheinfo", entry)
+    git(repo, "commit", "-q", "-m", "chore: add a submodule entry")
+    git(repo, "update-index", "--force-remove", "vendor/lib")
+    git(repo, "commit", "-q", "-m", "chore: drop the submodule entry")
+    git(repo, "update-index", "--add", "--cacheinfo", entry)
+    git(repo, "commit", "-q", "-m", "chore: add it again")
+
+    result = _invoke(sc, tmp_path / "out", tmp_path / "reports")
+
+    assert result.exit_code == 0, result.output
+    out = tmp_path / "out"
+    # The three commits that only touched the entry became empty and are pruned.
+    assert len(_commits(out)) == len(_commits(repo)) - 3
+    for commit in _commits(out):
+        assert "160000" not in git(out, "ls-tree", "-r", commit).decode(), commit

@@ -10,7 +10,8 @@ module runs `git_filter_repo.RepoFilter` as a library with these callbacks:
 - commits: the export identity for author and committer (unless a mailmap is given),
   the configured trailers removed, the literal values behind message findings replaced;
 - tags: the same for the tagger and the tag message;
-- file names: every path on the drop list is removed from every commit.
+- file names: every path on the drop list is removed from every commit;
+- gitlinks (submodule entries, mode 160000) are never carried into the export.
 
 Values are keyed by the source object id (`original_id`), so a value that is
 allowlisted in one place is left alone there. This module is the only place outside
@@ -31,6 +32,7 @@ from go_public.export.strip import strip_bytes
 SPEC_VERSION = 1
 _UTF16_BOMS = {b"\xff\xfe": "utf-16-le", b"\xfe\xff": "utf-16-be"}
 STATS_PREFIX = "GO_PUBLIC_STATS "
+GITLINK_MODE = b"160000"
 
 
 def replace_values(data: bytes, values: list[str], replacement: str) -> bytes:
@@ -65,6 +67,7 @@ class Stats:
     blobs_dropped: int = 0
     blobs_stripped: int = 0
     blobs_replaced: int = 0
+    gitlinks_dropped: int = 0
     commits_rewritten: int = 0
     tags_rewritten: int = 0
     paths_dropped: set[str] = field(default_factory=set)
@@ -75,6 +78,7 @@ class Stats:
                 "blobs_dropped": self.blobs_dropped,
                 "blobs_stripped": self.blobs_stripped,
                 "blobs_replaced": self.blobs_replaced,
+                "gitlinks_dropped": self.gitlinks_dropped,
                 "commits_rewritten": self.commits_rewritten,
                 "tags_rewritten": self.tags_rewritten,
                 "paths_dropped": len(self.paths_dropped),
@@ -133,6 +137,11 @@ class Rewriter:
             commit.author_name = commit.committer_name = self.name
             commit.author_email = commit.committer_email = self.email
         commit.message = self._message(commit.message, self.commit_values.get(_oid(commit)))
+        changes = getattr(commit, "file_changes", None)
+        if changes is not None:
+            kept = [c for c in changes if not (c.type == b"M" and c.mode == GITLINK_MODE)]
+            self.stats.gitlinks_dropped += len(changes) - len(kept)
+            commit.file_changes = kept
         self.stats.commits_rewritten += 1
 
     def tag(self, tag: Any, _metadata: Any = None) -> None:

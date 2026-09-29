@@ -163,6 +163,29 @@ def test_messages_with_undecodable_bytes_survive() -> None:
     assert commit.message == b"caf\xe9 " + REMOVED.encode() + b"\n"
 
 
+@dataclass
+class FakeChange:
+    type: bytes
+    filename: bytes
+    mode: bytes = b"100644"
+
+
+def test_gitlink_changes_are_dropped_from_every_commit() -> None:
+    rewriter = child.Rewriter(_spec())
+    commit = FakeCommit(message=b"m\n")
+    commit.file_changes = [  # type: ignore[attr-defined]
+        FakeChange(b"M", b"a.txt"),
+        FakeChange(b"M", b"vendor/lib", mode=b"160000"),
+        FakeChange(b"D", b"old.txt", mode=b""),
+    ]
+
+    rewriter.commit(commit)
+
+    kept = [c.filename for c in commit.file_changes]  # type: ignore[attr-defined]
+    assert kept == [b"a.txt", b"old.txt"]
+    assert rewriter.stats.gitlinks_dropped == 1
+
+
 def test_drop_paths_remove_exact_paths_only() -> None:
     rewriter = child.Rewriter(_spec(drop_paths=[".env", "docs/x.md"]))
 
