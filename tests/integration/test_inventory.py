@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from go_public.errors import UnsupportedRepo
-from go_public.git.inventory import build, build_head_only
+from go_public.git.inventory import Inventory, build, build_head_only
 from go_public.git.runner import GitRunner
 
 from ..conftest import commit_file, git, init_repo
@@ -296,3 +296,56 @@ def test_lfs_pointer_warning(tmp_path: Path) -> None:
     inv = build(runner)
     assert len(inv.lfs_pointers) == 1
     assert any(w.code == "lfs-pointers" for w in inv.warnings)
+
+
+def _naive_refs_containing(inv: Inventory, commit: str) -> list[str]:
+    """The reference: a walk from each ref head, one ref at a time."""
+    result = []
+    for name, head in inv._ref_heads().items():
+        seen: set[str] = set()
+        stack = [head]
+        while stack:
+            oid = stack.pop()
+            if oid == commit:
+                result.append(name)
+                break
+            if oid in seen:
+                continue
+            seen.add(oid)
+            obj = inv.commits.get(oid)
+            if obj is not None:
+                stack.extend(obj.parents)
+    return result
+
+
+def test_refs_containing_matches_a_walk_from_every_ref_on_a_branchy_history(
+    tmp_path: Path,
+) -> None:
+    repo = init_repo(tmp_path / "repo")
+    base = commit_file(repo, "a.txt", "1\n", "base")
+    git(repo, "branch", "side")
+    git(repo, "checkout", "-q", "side")
+    side = commit_file(repo, "b.txt", "2\n", "side work", date="2024-01-02T00:00:00+00:00")
+    git(repo, "checkout", "-q", "main")
+    commit_file(repo, "c.txt", "3\n", "main work", date="2024-01-03T00:00:00+00:00")
+    env = {
+        "GIT_AUTHOR_DATE": "2024-01-04T00:00:00+00:00",
+        "GIT_COMMITTER_DATE": "2024-01-04T00:00:00+00:00",
+    }
+    git(repo, "merge", "-q", "--no-ff", "-m", "merge side", "side", env=env)
+    git(repo, "checkout", "-q", "--orphan", "lonely")
+    git(repo, "rm", "-rf", "-q", ".")
+    orphan = commit_file(repo, "z.txt", "9\n", "orphan", date="2024-01-05T00:00:00+00:00")
+    git(repo, "checkout", "-q", "main")
+    git(repo, "tag", "at-base", base)
+    git(repo, "tag", "-a", "on-side", "-m", "x", side, env=env)
+    git(repo, "update-ref", "refs/stash", side)
+    git(repo, "update-ref", "refs/remotes/origin/main", base)
+    inv = build(GitRunner(repo, role="source"), include_unreachable=False)
+    assert set(inv.commits) >= {base, side, orphan}
+    for commit in inv.commits:
+        assert inv.refs_containing(commit) == _naive_refs_containing(inv, commit), commit
+    assert "refs/heads/lonely" in inv.refs_containing(orphan)
+    assert "refs/heads/main" not in inv.refs_containing(orphan)
+    assert "refs/tags/on-side" in inv.refs_containing(side)
+    assert inv.refs_containing("0" * 40) == []

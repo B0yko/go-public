@@ -79,6 +79,7 @@ class Inventory:
     warnings: list[Warning]
     head_only: bool = False
     _refs_containing_cache: dict[str, list[str]] = field(default_factory=dict, repr=False)
+    _masks: tuple[dict[str, int], list[str]] | None = field(default=None, repr=False)
 
     @property
     def total_bytes(self) -> int:
@@ -98,11 +99,17 @@ class Inventory:
         return line
 
     def refs_containing(self, commit: str) -> list[str]:
-        """Refs whose history includes `commit`. Computed lazily and cached per commit."""
-        if commit in self._refs_containing_cache:
-            return self._refs_containing_cache[commit]
-        heads = self._ref_heads()
-        result = [name for name, head in heads.items() if self._reaches(head, commit)]
+        """Refs whose history includes `commit`, in ref order. The containment of every
+        commit is worked out once, in one pass from the ref heads down to the roots
+        (`_reach_masks`), and cached per commit."""
+        cached = self._refs_containing_cache.get(commit)
+        if cached is not None:
+            return cached
+        if self._masks is None:
+            self._masks = self._reach_masks()
+        masks, names = self._masks
+        mask = masks.get(commit, 0)
+        result = [names[i] for i in range(len(names)) if mask >> i & 1]
         self._refs_containing_cache[commit] = result
         return result
 
@@ -114,20 +121,43 @@ class Inventory:
                 heads[ref.name] = head
         return heads
 
-    def _reaches(self, start: str, target: str) -> bool:
-        seen: set[str] = set()
-        stack = [start]
+    def _reach_masks(self) -> tuple[dict[str, int], list[str]]:
+        """For every commit reachable from a ref head, a bit set (as an int) of the refs
+        that contain it: heads seed their own bit, then bits flow to parents once every
+        child has been processed (Kahn order over the reachable commits)."""
+        heads = self._ref_heads()
+        names = list(heads)
+        masks: dict[str, int] = {}
+        for bit, name in enumerate(names):
+            masks[heads[name]] = masks.get(heads[name], 0) | 1 << bit
+        # Reachable commits and the number of reachable children of each.
+        children: dict[str, int] = {}
+        stack = list(masks)
+        seen: set[str] = set(stack)
         while stack:
             oid = stack.pop()
-            if oid == target:
-                return True
-            if oid in seen:
-                continue
-            seen.add(oid)
+            children.setdefault(oid, 0)
             commit = self.commits.get(oid)
-            if commit is not None:
-                stack.extend(commit.parents)
-        return False
+            if commit is None:
+                continue
+            for parent in commit.parents:
+                children[parent] = children.get(parent, 0) + 1
+                if parent not in seen:
+                    seen.add(parent)
+                    stack.append(parent)
+        ready = [oid for oid, count in children.items() if count == 0]
+        while ready:
+            oid = ready.pop()
+            commit = self.commits.get(oid)
+            if commit is None:
+                continue
+            mask = masks.get(oid, 0)
+            for parent in commit.parents:
+                masks[parent] = masks.get(parent, 0) | mask
+                children[parent] -= 1
+                if children[parent] == 0:
+                    ready.append(parent)
+        return masks, names
 
 
 def _kind_for_ref(name: str) -> RefKind:
