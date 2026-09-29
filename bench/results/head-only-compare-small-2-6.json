@@ -1,0 +1,106 @@
+{
+  "schema": "go-public-bench-head-only-compare-v1",
+  "meta": {
+    "mode": "head-only-compare",
+    "date_utc": "2026-09-29T02:05:27Z",
+    "hardware": "Mac Studio M4 Max, 128 GB",
+    "git_version": "2.50.1",
+    "go_public_version": "0.1.0",
+    "detector_commit": "a07fcb42037e028c60e5d29a520d80d09325a92d",
+    "seeds": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "size": "small",
+    "command": "go-public bench --seeds 2-6 --size small --compare-head-only"
+  },
+  "by_location": {
+    "head": {
+      "expected": 140,
+      "full_found": 140,
+      "head_only_found": 140,
+      "full_recall": 1.0,
+      "head_only_recall": 1.0
+    },
+    "binary fields": {
+      "expected": 50,
+      "full_found": 50,
+      "head_only_found": 50,
+      "full_recall": 1.0,
+      "head_only_recall": 1.0
+    },
+    "history-only": {
+      "expected": 50,
+      "full_found": 50,
+      "head_only_found": 0,
+      "full_recall": 1.0,
+      "head_only_recall": 0.0
+    },
+    "side branch": {
+      "expected": 55,
+      "full_found": 55,
+      "head_only_found": 0,
+      "full_recall": 1.0,
+      "head_only_recall": 0.0
+    },
+    "tag": {
+      "expected": 45,
+      "full_found": 45,
+      "head_only_found": 0,
+      "full_recall": 1.0,
+      "head_only_recall": 0.0
+    },
+    "notes/stash/remote/replace/original": {
+      "expected": 130,
+      "full_found": 130,
+      "head_only_found": 0,
+      "full_recall": 1.0,
+      "head_only_recall": 0.0
+    },
+    "messages": {
+      "expected": 50,
+      "full_found": 50,
+      "head_only_found": 0,
+      "full_recall": 1.0,
+      "head_only_recall": 0.0
+    },
+    "identities": {
+      "expected": 15,
+      "full_found": 15,
+      "head_only_found": 0,
+      "full_recall": 1.0,
+      "head_only_recall": 0.0
+    },
+    "ref names": {
+      "expected": 5,
+      "full_found": 5,
+      "head_only_found": 0,
+      "full_recall": 1.0,
+      "head_only_recall": 0.0
+    },
+    "licence transitions": {
+      "expected": 25,
+      "full_found": 25,
+      "head_only_found": 10,
+      "full_recall": 1.0,
+      "head_only_recall": 0.4
+    },
+    "unreachable": {
+      "expected": 30,
+      "full_found": 30,
+      "head_only_found": 0,
+      "full_recall": 1.0,
+      "head_only_recall": 0.0
+    }
+  },
+  "overall": {
+    "expected": 595,
+    "full_found": 595,
+    "head_only_found": 200,
+    "full_recall": 1.0,
+    "head_only_recall": 0.3361
+  }
+}

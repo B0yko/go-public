@@ -1,0 +1,345 @@
+{
+  "schema": "go-public-bench-gitleaks-v1",
+  "meta": {
+    "mode": "gitleaks",
+    "date_utc": "2026-09-29T02:07:22Z",
+    "hardware": "Mac Studio M4 Max, 128 GB",
+    "git_version": "2.50.1",
+    "go_public_version": "0.1.0",
+    "detector_commit": "a07fcb42037e028c60e5d29a520d80d09325a92d",
+    "seeds": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "size": "small",
+    "command": "go-public bench --seeds 2-6 --size small --gitleaks <gitleaks-binary>",
+    "gitleaks_version": "8.30.1"
+  },
+  "commands": {
+    "gitleaks_git": "gitleaks git --log-opts=--all --no-banner --log-level error --exit-code 0 --report-format json --report-path <report> <target>",
+    "gitleaks_git_replace_refs_ignored": "GIT_NO_REPLACE_OBJECTS=1 gitleaks git --log-opts=--all --no-banner --log-level error --exit-code 0 --report-format json --report-path <report> <target>",
+    "gitleaks_dir": "gitleaks dir --no-banner --log-level error --exit-code 0 --report-format json --report-path <report> <target>",
+    "gitleaks_dir_archives": "gitleaks dir --no-banner --log-level error --exit-code 0 --report-format json --report-path <report> --max-archive-depth 2 <target>",
+    "go_public": "go-public scan <fixture> --include-unreachable --config <fixture-config>"
+  },
+  "outside_scope_reasons": {
+    "commit_message": "commit messages are not part of the patches it scans",
+    "tag_message": "tag messages are not part of the patches it scans",
+    "unreachable_blob": "objects no ref reaches are not in `git log`"
+  },
+  "locations": [
+    {
+      "location": "head",
+      "expected": 15,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 15,
+      "go_public": 15,
+      "git": 15,
+      "git_no_replace": 15,
+      "dir": 15
+    },
+    {
+      "location": "history_only",
+      "expected": 10,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 0,
+      "git_no_replace": 10,
+      "dir": 0
+    },
+    {
+      "location": "side_branch",
+      "expected": 10,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 10,
+      "git_no_replace": 10,
+      "dir": 0
+    },
+    {
+      "location": "tag_only",
+      "expected": 10,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 10,
+      "git_no_replace": 10,
+      "dir": 0
+    },
+    {
+      "location": "notes",
+      "expected": 10,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 10,
+      "git_no_replace": 10,
+      "dir": 0
+    },
+    {
+      "location": "stash",
+      "expected": 10,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 10,
+      "git_no_replace": 10,
+      "dir": 0
+    },
+    {
+      "location": "remote_tracking",
+      "expected": 10,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 10,
+      "git_no_replace": 10,
+      "dir": 0
+    },
+    {
+      "location": "replace",
+      "expected": 10,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 10,
+      "git_no_replace": 10,
+      "dir": 0
+    },
+    {
+      "location": "original",
+      "expected": 5,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 0,
+      "go_public": 5,
+      "git": 5,
+      "git_no_replace": 5,
+      "dir": 0
+    },
+    {
+      "location": "path_name",
+      "expected": 10,
+      "outside_gitleaks_scope": 0,
+      "in_checkout": 10,
+      "go_public": 10,
+      "git": 10,
+      "git_no_replace": 10,
+      "dir": 10
+    },
+    {
+      "location": "commit_message",
+      "expected": 10,
+      "outside_gitleaks_scope": 10,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 0,
+      "git_no_replace": 0,
+      "dir": 0
+    },
+    {
+      "location": "tag_message",
+      "expected": 10,
+      "outside_gitleaks_scope": 10,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 0,
+      "git_no_replace": 0,
+      "dir": 0
+    },
+    {
+      "location": "unreachable",
+      "expected": 10,
+      "outside_gitleaks_scope": 10,
+      "in_checkout": 0,
+      "go_public": 10,
+      "git": 0,
+      "git_no_replace": 0,
+      "dir": 0
+    }
+  ],
+  "summary": {
+    "expected": 130,
+    "expected_in_gitleaks_git_scope": 100,
+    "expected_at_head": 25,
+    "outside_gitleaks_scope": {
+      "commit_message": 10,
+      "tag_message": 10,
+      "unreachable_blob": 10
+    },
+    "by_class": {
+      "secret-generic": 20,
+      "secret-vendor": 110
+    },
+    "go_public": {
+      "found": 130,
+      "found_in_git_scope": 100,
+      "found_at_head": 25,
+      "recall_all": 1.0,
+      "recall_in_git_scope": 1.0,
+      "recall_at_head": 1.0,
+      "by_class": {
+        "secret-generic": {
+          "found": 20,
+          "expected": 20,
+          "recall": 1.0
+        },
+        "secret-vendor": {
+          "found": 110,
+          "expected": 110,
+          "recall": 1.0
+        }
+      }
+    },
+    "git": {
+      "found": 90,
+      "found_in_git_scope": 90,
+      "found_at_head": 25,
+      "recall_all": 0.6923,
+      "recall_in_git_scope": 0.9,
+      "recall_at_head": 1.0,
+      "by_class": {
+        "secret-generic": {
+          "found": 15,
+          "expected": 20,
+          "recall": 0.75
+        },
+        "secret-vendor": {
+          "found": 75,
+          "expected": 110,
+          "recall": 0.6818
+        }
+      }
+    },
+    "git_no_replace": {
+      "found": 100,
+      "found_in_git_scope": 100,
+      "found_at_head": 25,
+      "recall_all": 0.7692,
+      "recall_in_git_scope": 1.0,
+      "recall_at_head": 1.0,
+      "by_class": {
+        "secret-generic": {
+          "found": 20,
+          "expected": 20,
+          "recall": 1.0
+        },
+        "secret-vendor": {
+          "found": 80,
+          "expected": 110,
+          "recall": 0.7273
+        }
+      }
+    },
+    "dir": {
+      "found": 25,
+      "found_in_git_scope": 25,
+      "found_at_head": 25,
+      "recall_all": 0.1923,
+      "recall_in_git_scope": 0.25,
+      "recall_at_head": 1.0,
+      "by_class": {
+        "secret-generic": {
+          "found": 5,
+          "expected": 20,
+          "recall": 0.25
+        },
+        "secret-vendor": {
+          "found": 20,
+          "expected": 110,
+          "recall": 0.1818
+        }
+      }
+    }
+  },
+  "gitleaks_only": {},
+  "go_public_only": {
+    "secret-generic:history_only:blob": 5,
+    "secret-vendor:commit_message:commit_message": 10,
+    "secret-vendor:history_only:blob": 5,
+    "secret-vendor:tag_message:tag_message": 10,
+    "secret-vendor:unreachable:unreachable_blob": 10
+  },
+  "go_public_only_vs_replace_ignored": {
+    "secret-vendor:commit_message:commit_message": 10,
+    "secret-vendor:tag_message:tag_message": 10,
+    "secret-vendor:unreachable:unreachable_blob": 10
+  },
+  "raw_findings": {
+    "git": 120,
+    "git_no_replace": 110,
+    "dir": 30
+  },
+  "timing": {
+    "git": {
+      "wall_s_median_per_fixture": 0.268,
+      "wall_s_total_median": 1.341,
+      "runs_per_fixture": 3
+    },
+    "git_no_replace": {
+      "wall_s_median_per_fixture": 0.267,
+      "wall_s_total_median": 1.332,
+      "runs_per_fixture": 3
+    },
+    "dir": {
+      "wall_s_median_per_fixture": 0.224,
+      "wall_s_total_median": 1.124,
+      "runs_per_fixture": 3
+    },
+    "go_public": {
+      "wall_s_median_per_fixture": 1.85,
+      "wall_s_total_median": 9.22,
+      "runs_per_fixture": 3
+    }
+  },
+  "blind_spot_secrets": {
+    "kinds": {
+      "split-secret": {
+        "plants": 5,
+        "found": {
+          "go-public": 0,
+          "gitleaks git": 0,
+          "gitleaks dir": 0,
+          "gitleaks dir, --max-archive-depth 2": 0
+        }
+      },
+      "base64-secret": {
+        "plants": 5,
+        "found": {
+          "go-public": 0,
+          "gitleaks git": 5,
+          "gitleaks dir": 5,
+          "gitleaks dir, --max-archive-depth 2": 5
+        }
+      },
+      "zipped-secret": {
+        "plants": 5,
+        "found": {
+          "go-public": 0,
+          "gitleaks git": 0,
+          "gitleaks dir": 0,
+          "gitleaks dir, --max-archive-depth 2": 5
+        }
+      },
+      "minified-generic": {
+        "plants": 5,
+        "found": {
+          "go-public": 5,
+          "gitleaks git": 5,
+          "gitleaks dir": 5,
+          "gitleaks dir, --max-archive-depth 2": 5
+        }
+      }
+    },
+    "tools": [
+      "go-public",
+      "gitleaks git",
+      "gitleaks dir",
+      "gitleaks dir, --max-archive-depth 2"
+    ]
+  }
+}

@@ -1,0 +1,846 @@
+{
+  "schema": "go-public-bench-synthetic-v1",
+  "meta": {
+    "mode": "synthetic",
+    "date_utc": "2026-09-29T02:04:42Z",
+    "hardware": "Mac Studio M4 Max, 128 GB",
+    "git_version": "2.50.1",
+    "go_public_version": "0.1.0",
+    "detector_commit": "a07fcb42037e028c60e5d29a520d80d09325a92d",
+    "seeds": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "size": "small",
+    "command": "go-public bench --seeds 2-6 --size small"
+  },
+  "classes": {
+    "secret-vendor": {
+      "plants": 100,
+      "expected_findings": 110,
+      "tp": 110,
+      "fn": 0,
+      "fp": 0,
+      "findings": 110,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "secret-generic": {
+      "plants": 20,
+      "expected_findings": 20,
+      "tp": 20,
+      "fn": 0,
+      "fp": 0,
+      "findings": 20,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.85,
+      "pass": true
+    },
+    "pii-email": {
+      "plants": 30,
+      "expected_findings": 30,
+      "tp": 30,
+      "fn": 0,
+      "fp": 0,
+      "findings": 30,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "pii-phone": {
+      "plants": 30,
+      "expected_findings": 30,
+      "tp": 30,
+      "fn": 0,
+      "fp": 0,
+      "findings": 30,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.85,
+      "pass": true
+    },
+    "pii-name": {
+      "plants": 15,
+      "expected_findings": 15,
+      "tp": 15,
+      "fn": 0,
+      "fp": 0,
+      "findings": 5,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "org-identifier": {
+      "plants": 75,
+      "expected_findings": 75,
+      "tp": 75,
+      "fn": 0,
+      "fp": 0,
+      "findings": 35,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "local-path": {
+      "plants": 40,
+      "expected_findings": 40,
+      "tp": 40,
+      "fn": 0,
+      "fp": 0,
+      "findings": 38,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "network": {
+      "plants": 40,
+      "expected_findings": 85,
+      "tp": 85,
+      "fn": 0,
+      "fp": 0,
+      "findings": 70,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "binary-metadata": {
+      "plants": 50,
+      "expected_findings": 50,
+      "tp": 50,
+      "fn": 0,
+      "fp": 0,
+      "findings": 50,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "licence": {
+      "plants": 20,
+      "expected_findings": 30,
+      "tp": 30,
+      "fn": 0,
+      "fp": 0,
+      "findings": 30,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "large-file": {
+      "plants": 15,
+      "expected_findings": 15,
+      "tp": 15,
+      "fn": 0,
+      "fp": 0,
+      "findings": 15,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "sensitive-file": {
+      "plants": 30,
+      "expected_findings": 30,
+      "tp": 30,
+      "fn": 0,
+      "fp": 0,
+      "findings": 30,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "internal-notes": {
+      "plants": 20,
+      "expected_findings": 20,
+      "tp": 20,
+      "fn": 0,
+      "fp": 0,
+      "findings": 20,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "identity": {
+      "plants": 15,
+      "expected_findings": 15,
+      "tp": 15,
+      "fn": 0,
+      "fp": 0,
+      "findings": 15,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    },
+    "trailer": {
+      "plants": 30,
+      "expected_findings": 30,
+      "tp": 30,
+      "fn": 0,
+      "fp": 0,
+      "findings": 30,
+      "recall": 1.0,
+      "precision": 1.0,
+      "per_seed_min_recall": 1.0,
+      "per_seed_min_precision": 1.0,
+      "gate": 0.95,
+      "pass": true
+    }
+  },
+  "per_seed": {
+    "2": {
+      "secret-vendor": {
+        "expected": 22,
+        "tp": 22,
+        "findings": 22,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "secret-generic": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-email": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-phone": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-name": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 1,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "org-identifier": {
+        "expected": 15,
+        "tp": 15,
+        "findings": 7,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "local-path": {
+        "expected": 8,
+        "tp": 8,
+        "findings": 8,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "network": {
+        "expected": 17,
+        "tp": 17,
+        "findings": 14,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "binary-metadata": {
+        "expected": 10,
+        "tp": 10,
+        "findings": 10,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "licence": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "large-file": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "sensitive-file": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "internal-notes": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "identity": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "trailer": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      }
+    },
+    "3": {
+      "secret-vendor": {
+        "expected": 22,
+        "tp": 22,
+        "findings": 22,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "secret-generic": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-email": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-phone": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-name": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 1,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "org-identifier": {
+        "expected": 15,
+        "tp": 15,
+        "findings": 7,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "local-path": {
+        "expected": 8,
+        "tp": 8,
+        "findings": 8,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "network": {
+        "expected": 17,
+        "tp": 17,
+        "findings": 14,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "binary-metadata": {
+        "expected": 10,
+        "tp": 10,
+        "findings": 10,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "licence": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "large-file": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "sensitive-file": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "internal-notes": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "identity": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "trailer": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      }
+    },
+    "4": {
+      "secret-vendor": {
+        "expected": 22,
+        "tp": 22,
+        "findings": 22,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "secret-generic": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-email": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-phone": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-name": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 1,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "org-identifier": {
+        "expected": 15,
+        "tp": 15,
+        "findings": 7,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "local-path": {
+        "expected": 8,
+        "tp": 8,
+        "findings": 8,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "network": {
+        "expected": 17,
+        "tp": 17,
+        "findings": 14,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "binary-metadata": {
+        "expected": 10,
+        "tp": 10,
+        "findings": 10,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "licence": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "large-file": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "sensitive-file": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "internal-notes": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "identity": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "trailer": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      }
+    },
+    "5": {
+      "secret-vendor": {
+        "expected": 22,
+        "tp": 22,
+        "findings": 22,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "secret-generic": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-email": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-phone": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-name": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 1,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "org-identifier": {
+        "expected": 15,
+        "tp": 15,
+        "findings": 7,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "local-path": {
+        "expected": 8,
+        "tp": 8,
+        "findings": 8,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "network": {
+        "expected": 17,
+        "tp": 17,
+        "findings": 14,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "binary-metadata": {
+        "expected": 10,
+        "tp": 10,
+        "findings": 10,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "licence": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "large-file": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "sensitive-file": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "internal-notes": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "identity": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "trailer": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      }
+    },
+    "6": {
+      "secret-vendor": {
+        "expected": 22,
+        "tp": 22,
+        "findings": 22,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "secret-generic": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-email": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-phone": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pii-name": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 1,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "org-identifier": {
+        "expected": 15,
+        "tp": 15,
+        "findings": 7,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "local-path": {
+        "expected": 8,
+        "tp": 8,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "network": {
+        "expected": 17,
+        "tp": 17,
+        "findings": 14,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "binary-metadata": {
+        "expected": 10,
+        "tp": 10,
+        "findings": 10,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "licence": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "large-file": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "sensitive-file": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "internal-notes": {
+        "expected": 4,
+        "tp": 4,
+        "findings": 4,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "identity": {
+        "expected": 3,
+        "tp": 3,
+        "findings": 3,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "trailer": {
+        "expected": 6,
+        "tp": 6,
+        "findings": 6,
+        "fp": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      }
+    }
+  },
+  "failures": [],
+  "gates_pass": true
+}
