@@ -82,7 +82,16 @@ def phone_valid_digits(rng: random.Random, length: int) -> str:
         )
         if _looks_like_a_phone_number(digits):
             return digits
-    raise AssertionError("could not find a phone-valid digit run in 2000 tries")
+    # Short runs are rarely valid (about 1 in 2000 at 7 digits), so random draws can
+    # all miss. Walk up from a random start instead: the walk is deterministic in `rng`
+    # and only runs for seeds that would otherwise fail.
+    low, high = 2 * 10 ** (length - 1), 10**length
+    start = rng.randrange(low, high)
+    for offset in range(high - low):
+        digits = str(low + (start - low + offset) % (high - low))
+        if _looks_like_a_phone_number(digits):
+            return digits
+    raise AssertionError(f"no phone-valid digit run of length {length}")
 
 
 def _tiny_png(rng: random.Random) -> bytes:

@@ -57,3 +57,14 @@ def test_phone_valid_runs_are_phone_shaped_but_bare() -> None:
 def test_lockfile_kind_holds_phone_valid_sizes() -> None:
     files = dict(negatives.generate(random.Random(0), 10))
     assert b"size = " in files["uv.lock"]
+
+
+def test_phone_valid_search_survives_rare_valid_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    def rare(digits: str) -> bool:
+        return int(digits) % 100_000 == 0
+
+    monkeypatch.setattr(negatives, "_looks_like_a_phone_number", rare)
+    for seed in range(5):
+        digits = negatives.phone_valid_digits(random.Random(seed), 7)
+        assert len(digits) == 7
+        assert rare(digits)
