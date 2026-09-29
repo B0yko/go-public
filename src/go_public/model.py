@@ -273,6 +273,11 @@ class PlanEntryA(BaseModel):
 
     secret_id: str
     rule_id: str
+    # One value can be flagged by more than one rule (gitleaks `generic-api-key` on the
+    # whole assignment and `generic-entropy` on the value alone); the row lists the
+    # secret once, with every rule and every per-rule id that `allow --rotated` accepts.
+    rule_ids: list[str] = Field(default_factory=list)
+    secret_ids: list[str] = Field(default_factory=list)
     preview: str
     occurrences: int
     paths: list[str] = Field(default_factory=list)

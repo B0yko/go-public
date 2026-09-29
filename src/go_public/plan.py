@@ -19,6 +19,7 @@ Secrets appear in A and in B or C, per their own `present_at_export_ref`.
 
 from __future__ import annotations
 
+import hashlib
 import shlex
 from collections import defaultdict
 from collections.abc import Collection
@@ -153,16 +154,31 @@ def _group_a(findings: list[Finding], rotated_reasons: dict[str, str]) -> list[P
         if finding.category == "secret":
             by_group[finding.group_id].append(finding)
 
-    entries = []
+    # Merge rule groups that carry the same secret value, so a value flagged by two
+    # rules is one secret to rotate. Without the in-process value, groups stay apart.
+    by_value: dict[str, list[str]] = defaultdict(list)
     for group_id, members in by_group.items():
-        first = members[0]
-        rotated_reason = rotated_reasons.get(group_id)
+        raw = members[0].raw_value
+        if raw:
+            key = "value:" + hashlib.sha256(raw.encode("utf-8", "surrogatepass")).hexdigest()
+        else:
+            key = "group:" + group_id
+        by_value[key].append(group_id)
+
+    entries = []
+    for group_ids in by_value.values():
+        group_ids.sort()
+        members = [m for gid in group_ids for m in by_group[gid]]
+        first = by_group[group_ids[0]][0]
+        rotated_reason = next((rotated_reasons[g] for g in group_ids if g in rotated_reasons), None)
         entries.append(
             PlanEntryA(
-                secret_id=group_id,
+                secret_id=group_ids[0],
                 rule_id=first.rule_id,
+                rule_ids=sorted({m.rule_id for m in members}),
+                secret_ids=group_ids,
                 preview=first.preview,
-                occurrences=len(members),
+                occurrences=_occurrences(members),
                 paths=sorted({p for m in members for p in m.location.paths}),
                 commits=sorted({c for m in members for c in m.commits}),
                 refs=sorted({r for m in members for r in m.refs}),
@@ -172,6 +188,15 @@ def _group_a(findings: list[Finding], rotated_reasons: dict[str, str]) -> list[P
             )
         )
     return sorted(entries, key=lambda e: e.secret_id)
+
+
+def _occurrences(members: list[Finding]) -> int:
+    """Distinct places a secret occurs; two rules on one span count once."""
+    spots = {
+        (m.location.kind, m.location.blob, m.location.commit, m.location.tag, m.location.line)
+        for m in members
+    }
+    return len(spots)
 
 
 def _group_key(finding: Finding) -> str:

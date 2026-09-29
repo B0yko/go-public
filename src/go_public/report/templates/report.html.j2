@@ -102,7 +102,7 @@ footer { margin-top: 32px; color: var(--muted); font-size: 0.85em; }
 <thead><tr><th>Secret id</th><th>Rule</th><th>Status</th><th>Occurrences</th><th>At HEAD</th><th>Preview</th></tr></thead>
 <tbody>
 {% for e in report.plan.A %}
-<tr><td><code>{{ e.secret_id }}</code></td><td>{{ e.rule_id }}</td>
+<tr><td><code>{{ e.secret_id }}</code></td><td>{{ (e.rule_ids or [e.rule_id])|join(', ') }}</td>
 <td>{{ e.status }}{% if e.rotated_reason %} <span class="muted">({{ e.rotated_reason }})</span>{% endif %}</td>
 <td>{{ e.occurrences }}</td><td>{{ "yes" if e.present_at_export_ref else "no" }}</td>
 <td><code>{{ e.preview }}</code></td></tr>

@@ -34,9 +34,11 @@ def test_every_secret_group_appears_in_group_a(tmp_path: Path) -> None:
     plan, _ = build_plan(findings)
 
     secret_group_ids = {f.group_id for f in findings if f.category == "secret"}
-    a_group_ids = {entry.secret_id for entry in plan.A}
+    a_group_ids = {gid for entry in plan.A for gid in entry.secret_ids}
     assert secret_group_ids
     assert secret_group_ids == a_group_ids
+    # A value flagged by two rules is one row, so there can be fewer rows than ids.
+    assert len(plan.A) <= len(secret_group_ids)
 
 
 def test_head_items_are_in_b_history_only_in_c_licence_large_in_d(tmp_path: Path) -> None:

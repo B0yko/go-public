@@ -340,6 +340,20 @@
           "title": "Rule Id",
           "type": "string"
         },
+        "rule_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rule Ids",
+          "type": "array"
+        },
+        "secret_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Secret Ids",
+          "type": "array"
+        },
         "preview": {
           "title": "Preview",
           "type": "string"

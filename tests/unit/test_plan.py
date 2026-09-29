@@ -286,3 +286,55 @@ def test_ooxml_comment_and_revision_authors_are_not_marked_strip() -> None:
 
         assert refined[0].fix.action == "edit-line"
         assert plan.B[0].action == "edit-line"
+
+
+def test_one_value_flagged_by_two_rules_is_one_secret_in_a() -> None:
+    value = "M7" + "zx" * 15  # runtime-assembled stand-in for a generic secret
+    whole = _finding(
+        fingerprint="fp-whole",
+        group_id="g-generic-api-key",
+        category="secret",
+        rule_id="generic-api-key",
+        kind="blob",
+        blob="b1",
+        line=1,
+        paths=["app.cfg"],
+        fix_action="rotate",
+    )
+    value_only = _finding(
+        fingerprint="fp-value",
+        group_id="g-generic-entropy",
+        category="secret",
+        rule_id="generic-entropy",
+        kind="blob",
+        blob="b1",
+        line=1,
+        paths=["app.cfg"],
+        fix_action="rotate",
+    )
+    other = _finding(
+        fingerprint="fp-other",
+        group_id="g-other",
+        category="secret",
+        rule_id="generic-entropy",
+        kind="blob",
+        blob="b1",
+        line=2,
+        paths=["app.cfg"],
+        fix_action="rotate",
+    )
+    whole.attach_value(value)
+    value_only.attach_value(value)
+    other.attach_value(value[::-1])
+
+    plan, _ = build_plan(
+        [whole, value_only, other], rotated_reasons={"g-generic-entropy": "revoked"}
+    )
+
+    assert len(plan.A) == 2
+    merged = next(e for e in plan.A if e.secret_ids == ["g-generic-api-key", "g-generic-entropy"])
+    assert merged.secret_id == "g-generic-api-key"
+    assert merged.rule_ids == ["generic-api-key", "generic-entropy"]
+    assert merged.occurrences == 1  # two rules on one span
+    assert merged.status == "rotated"  # a rotation record under either id marks the secret done
+    assert any(e.secret_ids == ["g-other"] and e.status == "open" for e in plan.A)
