@@ -759,7 +759,11 @@ def test_ci_workflow() -> None:
     assert "uv run go-public scan . --include-unreachable --fail-on medium" in _runs(scan)
     assert any(s["uses"].startswith("astral-sh/setup-uv@") for s in _steps(test) if "uses" in s)
     for used in _uses(ci):
-        assert re.fullmatch(r"[\w./-]+@v\d[\w.]*", used), used
+        assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", used), used
+    for job in ci["jobs"].values():
+        for step in _steps(job):
+            if step.get("uses", "").startswith("actions/checkout@"):
+                assert step["with"]["persist-credentials"] is False
     for job in ci["jobs"].values():
         for run in _runs(job):
             tokens = _command_line(run.removeprefix("uv run ").split("\n")[0])
@@ -792,6 +796,12 @@ def test_release_workflow() -> None:
     assert pypi["permissions"]["id-token"] == "write"
     assert any(s.get("uses", "").startswith("pypa/gh-action-pypi-publish@") for s in _steps(pypi))
     assert "id-token" not in github_release["permissions"]
+    for used in _uses(release):
+        assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", used), used
+    for job in release["jobs"].values():
+        for step in _steps(job):
+            if step.get("uses", "").startswith("actions/checkout@"):
+                assert step["with"]["persist-credentials"] is False
 
 
 def test_the_changelog_has_a_section_for_the_current_version() -> None:
