@@ -79,8 +79,10 @@ def test_rotated_secret_shows_done_but_still_blocks_group_b_and_exit_code(
         findings, rotated_reasons={target_group: "rotated in vault"}
     )
 
-    open_entry = next(e for e in plan_open.A if e.secret_id == target_group)
-    rotated_entry = next(e for e in plan_rotated.A if e.secret_id == target_group)
+    # A row can merge several rule groups that carry the same value (plan.py), so look
+    # the secret up by any of its ids, not only the row's display id.
+    open_entry = next(e for e in plan_open.A if target_group in e.secret_ids)
+    rotated_entry = next(e for e in plan_rotated.A if target_group in e.secret_ids)
     assert open_entry.status == "open"
     assert rotated_entry.status == "rotated"
     assert rotated_entry.rotated_reason == "rotated in vault"
