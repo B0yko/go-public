@@ -1,5 +1,7 @@
 # Security policy
 
+In short: report a vulnerability privately through GitHub, and report a missed finding in public with a made-up value of the same shape, never the real one.
+
 ## Supported versions
 
 Security fixes go into the latest release, currently 0.1.x.

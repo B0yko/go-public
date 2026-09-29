@@ -1,4 +1,4 @@
-# Contributing
+# Contributing to go-public
 
 Thanks for looking at `go-public`. Bug reports, false positives, false negatives and pull requests are welcome. For a missed or wrongly reported finding use the issue forms, and never paste a real secret or real personal data into an issue: a made-up value of the same shape is enough (see [SECURITY.md](SECURITY.md)).
 
@@ -67,5 +67,12 @@ Architecture decisions are recorded as short notes in `docs/adr/` (context, deci
 - Do not add `Signed-off-by` or `Co-authored-by` trailers with a name or email: the tool's own self-scan reports them (as trailer findings at medium severity).
 - Everything in the repository is in English.
 - Keep plans and scratch notes out of the repository.
+
+Before you open one, check that:
+
+- the tests, `ruff check`, `ruff format --check` and `mypy src` pass;
+- `scripts/sync_readme.py --check` passes, so the README matches `bench/results/` and the config model;
+- the self-scan above, with `--head-only`, reports nothing at medium or above;
+- every plant-shaped string in a test or in the fixture generator is assembled at run time.
 
 By contributing you agree that your contribution is licensed under the Apache License 2.0, like the rest of the project.
