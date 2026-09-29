@@ -390,11 +390,11 @@ def test_generic_entropy_detector_skips_unquoted_module_attribute_references() -
     engine = SecretsEngine(config, generic_entropy_threshold=3.0)
     code = (
         "\tauthr = urllib2.HTTPPasswordMgrWithDefaultRealm()\n"
-        "\tauth_handler = ***REMOVED***(authr)\n"
+        "\tauth_handler = urllib2.HTTPBasicAuthHandler(authr)\n"
     )
     assert engine.detect(code, UnitCtx(path="core.py")) == []
     # A quoted value of the same shape is still a candidate.
-    quoted = 'auth_handler = "***REMOVED***"\n'
+    quoted = 'auth_handler = "' + "urllib2." + "HTTPBasicAuthHandler" + '"\n'
     assert [d.rule_id for d in engine.detect(quoted, UnitCtx(path="core.py"))] == [
         "generic-entropy"
     ]

@@ -5,6 +5,7 @@ from __future__ import annotations
 from go_public.detect.pii import PiiDetector
 
 # Plant-shaped strings are assembled at runtime (conventions.md).
+_AT = chr(64)
 _INTERNAL_EMAIL = "jordan@build." + "internal"
 _NANP = "202-555-" + "0142"
 _NANP_DOTTED = "202.555." + "0142"
@@ -126,7 +127,7 @@ def test_phone_next_to_ordinary_punctuation_is_still_detected() -> None:
 
 
 def test_url_credentials_are_not_emails() -> None:
-    assert _rule_ids('url = "http://user:pa' + '***REMOVED***"') == []
+    assert _rule_ids('url = "http://user:pa' + "ss%20word" + _AT + 'complex.url.co"') == []
     assert _rule_ids("proxy_headers('http://user:pass@httpbin.org')") == []
     assert _rule_ids("remote = ssh://git@code-host.org/team/app.git") == []
 
@@ -136,11 +137,10 @@ def test_scp_style_remotes_are_not_emails() -> None:
 
 
 def test_a_real_looking_email_near_a_url_is_still_flagged() -> None:
-    assert _rule_ids("write to jo" + "***REMOVED*** or see https://code-host.org/team") == [
-        "pii-email"
-    ]
-    assert _rule_ids("mailto:jo" + "***REMOVED***: thanks") == ["pii-email"]
-    assert _rule_ids("https://code-host.org/contact?to=jo" + "***REMOVED***") == ["pii-email"]
+    mailbox = "jo" + "hn" + _AT + "corp-mail.org"
+    assert _rule_ids("write to " + mailbox + " or see https://code-host.org/team") == ["pii-email"]
+    assert _rule_ids("mailto:" + mailbox + ": thanks") == ["pii-email"]
+    assert _rule_ids("https://code-host.org/contact?to=" + mailbox) == ["pii-email"]
 
 
 def test_short_bare_constants_and_numeric_dates_are_not_phone_numbers() -> None:

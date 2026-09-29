@@ -80,8 +80,9 @@ _PLACEHOLDER_USERS = frozenset(
     }
 )
 
-#: What precedes/follows a `.local`-style token that makes it a code reference rather than a
-#: host: `from werkzeug.local import X`, `import ***REMOVED***`, `threading.local()`, `***REMOVED***.b`.
+#: What precedes/follows an internal-suffix token that makes it a code reference rather than a
+#: host: `from <module path> import X`, `import <module path>`, a call (`name(`) or an
+#: attribute access (`name.attr`).
 _IMPORT_BEFORE_RE = re2.compile(r"(?:^|\s)(?:from|import)\s+$")
 _CODE_AFTER_RE = re2.compile(r"^(?:\(|\s+import\b|\.[A-Za-z_])")
 
