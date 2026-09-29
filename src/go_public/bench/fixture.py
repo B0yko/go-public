@@ -1,8 +1,7 @@
 """Build synthetic fixture repositories through `git fast-import`.
 
-See architecture.md "Fixture & truth" and `_work/go-public/specs/fixture-api.md` for
-the design; this module wires `bench/filler.py` and `bench/plants` together into the
-concrete `tiny` fixture. `small`/`medium` and `--blind-spots` are later stages' work.
+This module wires `bench/filler.py` and `bench/plants` together into the concrete
+`tiny`, `small` and `medium` fixtures, plus the optional `--blind-spots` plants.
 """
 
 from __future__ import annotations
@@ -60,7 +59,7 @@ _PLANT_MODULES = (
     large_file_plants,
 )
 
-#: Fictional identities only: reserved-for-documentation domains, per conventions.md.
+#: Fictional identities only: reserved-for-documentation domains.
 PUBLIC_IDENTITY: Identity = ("Pat Public", "pat@example.com")
 COLLEAGUE_IDENTITIES: tuple[Identity, ...] = (
     ("Alex Rivera", "alex@colleague.example"),
@@ -69,15 +68,15 @@ COLLEAGUE_IDENTITIES: tuple[Identity, ...] = (
 )
 
 _SIZES = {"tiny", "small", "medium"}
-#: Hard negatives per kind (16 kinds): 32 in `tiny`, 160 in `small` (Data section).
+#: Hard negatives per kind (16 kinds): 32 in `tiny`, 160 in `small`.
 _NEGATIVES_PER_KIND = {"tiny": 2, "small": 10}
 _EPOCH = 1_700_000_000  # 2023-11-14T22:13:20Z; a fixed, seed-independent base
 
 #: A baseline top-level licence, present regardless of `plants` (unlike every real
 #: plant category). Without this, a fixture with no licence plants (`--no-plants`,
-#: or any earlier stage's fixture) would legitimately trip `licence-missing-at-head`
-#: (product spec item 7), breaking the Data section's "`--no-plants`... scans to
-#: zero findings" contract; a real repository being scanned almost always has one.
+#: or a fixture built from filler alone) would legitimately trip
+#: `licence-missing-at-head`, breaking the "`--no-plants` scans to zero findings"
+#: contract; a real repository being scanned almost always has one.
 #: Deliberately carries no "Copyright ... <holder>" line, so it never feeds
 #: `licence-foreign-holder` either — `bench/plants/licence.py`'s own plants are the
 #: real coverage for both rule ids.
@@ -168,7 +167,7 @@ def build(
 
     `plants=False` (`--no-plants`) skips every plant, leaving filler, hard negatives
     and topology under the public identity. `medium` is runtime-sized (seed 100
-    targets the product spec's shape); `medium_scale` shrinks it for tests.
+    targets about 3,000 commits); `medium_scale` shrinks it for tests.
     """
     if size not in _SIZES:
         raise UsageError(f"unknown fixture size {size!r} (expected one of {sorted(_SIZES)})")
@@ -264,7 +263,7 @@ def build(
 
 
 def _build_medium(ctx: FixtureContext, rng: random.Random, scale: float) -> None:
-    """A runtime-sized repository (product spec Data section): licence, the hard
+    """A runtime-sized repository: licence, the hard
     negatives, then `bench/medium.py`'s history. `scale` shrinks it for tests."""
     licence_blob = ctx.blob(_BASELINE_LICENSE)
     ctx.commit("refs/heads/main", message="chore: add licence", files={"LICENSE": licence_blob})
@@ -279,11 +278,10 @@ def _build_topology(ctx: FixtureContext, rng: random.Random, *, plants: bool, si
 
     The feature/side branch commits are authored by a colleague identity only when
     `plants` is set; `--no-plants` uses the public identity throughout, so that
-    build has no identity for `detect/commit_meta.py` to flag (Data section:
-    "`--no-plants`... with only the public identity... scans to zero findings").
-    Real identity coverage for the colleague identities is `bench/plants/
-    identity.py`'s job, which assigns them deliberately (fixture-api.md's own
-    "Known gaps" note).
+    build has no identity for `detect/commit_meta.py` to flag (a `--no-plants` build
+    with only the public identity scans to zero findings). Real identity coverage for
+    the colleague identities is `bench/plants/identity.py`'s job, which assigns them
+    deliberately.
     """
     for path, content in filler.generate(rng):
         blob_mark = ctx.blob(content)
@@ -344,19 +342,17 @@ def _build_topology(ctx: FixtureContext, rng: random.Random, *, plants: bool, si
 
 
 #: `original` (`refs/original/refs/heads/main`) is a single fixed ref name: `bench/
-#: plants/secrets.py`'s own plants always claim it for real (stage 2b), and git
+#: plants/secrets.py`'s own plants always claim it for real, and git
 #: allows only one thing there per fixture build (a second `update-ref` would
 #: silently orphan whichever placement lost the race) — see that module's
 #: `_SINGLETON_LOCATION` comment. Markers stop covering it once real plants do,
-#: exactly as fixture-api.md anticipates ("build fewer markers once real coverage
-#: of a location type exists").
+#: so fewer markers are built as real coverage of a location type exists.
 _MARKER_LOCATIONS = tuple(t for t in LOCATION_TYPES if t != "original")
 
 
 def _place_markers(ctx: FixtureContext, seed: int) -> None:
     """One neutral marker per location type not already covered by a real plant
-    category, so the inventory can be exercised everywhere a detector doesn't exist
-    yet (Stage 1 brief, 1b)."""
+    category, so the inventory can be exercised at every location type."""
     for location_type in _MARKER_LOCATIONS:
         token = f"marker-{location_type}-{seed:04d}"
         plant = Plant(
@@ -384,7 +380,7 @@ def _read_marks(path: Path) -> dict[str, str]:
 
 def _fixture_config() -> str:
     """The `go-public.toml` a scan of this fixture needs to match `config.py`'s
-    schema (stage 2b): the public identity is allowlisted, and `[deny]` lists
+    schema: the public identity is allowlisted, and `[deny]` lists
     exactly the fictional terms/domains/regexes/ticket keys/names the org-identifier
     and pii plants target (`bench/plants/_fictional.py`), so the deny-list and name
     detectors have something to match against, the same way a real user's config

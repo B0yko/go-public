@@ -1,4 +1,4 @@
-"""Adversarial review of the squash export (stage 5r): things that must never reach the
+"""Adversarial cases for the squash export: things that must never reach the
 export directory, and places the source repository must never be written to."""
 
 from __future__ import annotations

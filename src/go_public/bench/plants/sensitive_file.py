@@ -1,9 +1,8 @@
-"""Sensitive-file plants, matched by name (product spec item 9; stage-3.md). Every
-plant places content at a path via `path_name`, so the primary expected finding is
-the mechanical `path`/`{path}` `detect/files.py` itself produces. One `.env` plant
-also embeds a real secret, producing the sensitive-file-plus-secret pair the Data
-section's own example names ("a `.env` plant produces a sensitive-file finding and a
-secret finding").
+"""Sensitive-file plants, matched by name. Every plant places content at a path via
+`path_name`, so the primary expected finding is the mechanical `path`/`{path}`
+`detect/files.py` itself produces. One `.env` plant also embeds a real secret,
+producing the sensitive-file-plus-secret pair (a sensitive-file finding and a secret
+finding).
 """
 
 from __future__ import annotations
@@ -72,7 +71,7 @@ def _plant(index: int, path: str, *, with_secret: bool, rng: random.Random) -> P
 
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
     """Build every sensitive-file plant for `size`. `ctx` is accepted for signature
-    parity (fixture-api.md); unused here."""
+    parity; unused here."""
     del ctx
     total = _COUNTS[size]
     plants = []

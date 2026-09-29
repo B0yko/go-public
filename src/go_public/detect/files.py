@@ -1,6 +1,5 @@
-"""Sensitive and internal-notes files, matched by name (product spec item 9), and
-the tracked-`.go-public.toml`-with-a-deny-list check (architecture.md "Config"
-discovery order; stage-3.md).
+"""Sensitive and internal-notes files, matched by name, and the
+tracked-`.go-public.toml`-with-a-deny-list check.
 """
 
 from __future__ import annotations
@@ -11,9 +10,8 @@ import pathspec
 
 from go_public.detect.base import Detection
 
-#: Patterns considered private keys or `.env` files (critical, per architecture.md
-#: "Default severities": "sensitive files that are private keys or .env"); every
-#: other `[files] sensitive_files` match is "other sensitive files" (high).
+#: Patterns considered private keys or `.env` files (critical); every other
+#: `[files] sensitive_files` match is "other sensitive files" (high).
 _CRITICAL_SENSITIVE_PATTERNS = ("id_rsa*", "*.pem", "*.key", "*.p12", "*.pfx", ".env", ".env.*")
 
 _DENY_TABLE_KEYS = ("terms", "domains", "regex", "names", "ticket_keys")

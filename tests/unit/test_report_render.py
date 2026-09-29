@@ -1,7 +1,7 @@
-"""`report/{json,md,html}.py`, exercised end-to-end on the tiny fixture (stage-4.md
-item 11): no absolute path of the scanned repo anywhere, secrets stay redacted, the
-HTML has no external `src=`/`href=` (other than `#...`) or `url(`, and every report
-carries the fix plan, findings table, suppressed list and rotated records.
+"""`report/{json,md,html}.py`, exercised end-to-end on the tiny fixture: no absolute
+path of the scanned repo anywhere, secrets stay redacted, the HTML has no external
+`src=`/`href=` (other than `#...`) or `url(`, and every report carries the fix plan,
+findings table, suppressed list and rotated records.
 """
 
 from __future__ import annotations

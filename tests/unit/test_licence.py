@@ -163,7 +163,7 @@ def test_detect_notice_requires_word_at_line_start() -> None:
 
 
 def test_detect_notice_ignores_prose_discussing_the_concept() -> None:
-    text = "The Data section explains proprietary licences in the abstract.\n"
+    text = "The README explains proprietary licences in the abstract.\n"
     assert licence.detect_notice(text) is None
 
 
@@ -175,7 +175,7 @@ def test_detect_notice_on_a_later_comment_line_reports_that_line() -> None:
 
 
 def test_detect_notice_ignores_a_markdown_body_line_with_no_comment_marker() -> None:
-    """stage-4.md's notice-detector fix: a plain-prose line that opens with the word
+    """A plain-prose line that opens with the word
     (no comment marker, not a licence-relevant path) is not a notice."""
     text = "Some heading\n\nProprietary and confidential.\nMore text.\n"
     assert licence.detect_notice(text) is None

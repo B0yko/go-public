@@ -1,4 +1,4 @@
-"""Suppression (architecture.md "Suppression"; stage-4.md item 13).
+"""Suppression.
 
 A finding is suppressed when: its fingerprint or group_id is in
 `[allowlist].fingerprints` (a reason is required in the config entry, never
@@ -12,8 +12,7 @@ group-A entry done (`plan.py`'s job) — so it plays no part here.
 
 Every suppressed finding is returned alongside the ones that survive, so `report/*`
 can list `report.suppressed` (fingerprint, group_id, category, rule_id, source,
-reason, pattern) for a full audit trail (product spec item 13: "so it stays
-auditable").
+reason, pattern) for a full audit trail, so suppression stays auditable.
 """
 
 from __future__ import annotations
@@ -30,8 +29,8 @@ from go_public.git.objects import CatFileBatch
 from go_public.git.runner import GitRunner
 from go_public.model import Finding
 
-#: A non-empty reason is required in the comment itself (product spec item 13:
-#: "inline `go-public:allow <reason>` comments").
+#: A non-empty reason is required in the comment itself
+#: (inline `go-public:allow <reason>` comments).
 _INLINE_RE = re2.compile(r"go-public:allow[ \t]+(\S.*\S|\S)")
 
 #: "config-fingerprint" | "config-group" | "path-glob" | "inline-comment" | "identity-allow"

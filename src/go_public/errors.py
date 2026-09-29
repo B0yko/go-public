@@ -1,6 +1,6 @@
 """Exceptions that carry go-public's process exit codes.
 
-Exit codes (architecture.md): 0 clean, 1 findings at or above ``--fail-on``,
+Exit codes: 0 clean, 1 findings at or above ``--fail-on``,
 2 usage/config error, 3 git error or unsupported repository state.
 """
 

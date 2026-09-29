@@ -1,9 +1,8 @@
-"""Identity plants: the three colleague identities (product spec item 10;
-stage-3.md). Each plant is an ordinary content-bearing commit authored by one
-colleague; the mechanical primary expected finding (`blob`/`{blob, line}`) is
-suppressed in favour of the real `identity`/`{identity}` finding
-`detect/commit_meta.py` produces, since identity detection works from commit
-metadata, not blob content.
+"""Identity plants: the three colleague identities. Each plant is an ordinary
+content-bearing commit authored by one colleague; the mechanical primary expected
+finding (`blob`/`{blob, line}`) is suppressed in favour of the real
+`identity`/`{identity}` finding `detect/commit_meta.py` produces, since identity
+detection works from commit metadata, not blob content.
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ _COUNTS: dict[str, int] = {"tiny": 3, "small": 3}
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
     """One plant per colleague identity (`ctx.colleague_identities`), each authoring
     an ordinary commit at a different location type. `rng` is accepted for signature
-    parity (fixture-api.md); unused here (identities are fixed, not sampled)."""
+    parity; unused here (identities are fixed, not sampled)."""
     del rng
     total = min(_COUNTS[size], len(ctx.colleague_identities))
     plants = []

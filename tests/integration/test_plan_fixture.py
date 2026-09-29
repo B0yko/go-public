@@ -1,7 +1,6 @@
-"""`plan.py`'s grouping, exercised on the real tiny fixture (stage-4.md's own test
-list): every secret in A; present-at-head items in B; history-only items in C;
-licence/large-file in D; a rotated secret still shows done in A but still blocks
-group B and the exit code.
+"""`plan.py`'s grouping, exercised on the real tiny fixture: every secret in A;
+present-at-head items in B; history-only items in C; licence/large-file in D; a
+rotated secret still shows done in A but still blocks group B and the exit code.
 """
 
 from __future__ import annotations

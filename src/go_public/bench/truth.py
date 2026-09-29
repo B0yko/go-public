@@ -1,7 +1,7 @@
 """`truth.jsonl`: what a correct scan of a fixture repository must find.
 
-One line per plant. See architecture.md "Fixture & truth" for the schema and
-`_work/go-public/specs/fixture-api.md` for the full location-type reference.
+One line per plant: the plant's location type, where it was placed and which
+findings a correct scan reports for it.
 """
 
 from __future__ import annotations

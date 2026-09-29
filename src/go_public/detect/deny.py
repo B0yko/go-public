@@ -1,5 +1,5 @@
-"""Organisation identifiers from the user's deny-list (product spec item 4;
-stage-3.md): terms with generated variants, domains, raw regexes, ticket keys.
+"""Organisation identifiers from the user's deny-list: terms with generated variants,
+domains, raw regexes, ticket keys.
 
 Applied to blob text, every path, ref names, commit/tag messages, identities and
 binary field values (`scan.py` calls `detect()`/`detect_ref_or_path()` at each of
@@ -15,8 +15,7 @@ from go_public.detect.base import Detection
 
 #: A domain-shaped token: dot-separated labels, no `@` or path separators, so it
 #: isolates the host part of a URL or an email address without needing to parse
-#: either (product spec item 4: "domains, including subdomains, email domains and
-#: URLs").
+#: either (domains, including subdomains, email domains and URLs).
 _DOMAIN_TOKEN_RE = re2.compile(
     r"\b[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
     r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+\b"
@@ -30,8 +29,8 @@ def _line_col(text: str, offset: int) -> tuple[int, int]:
 
 
 def _term_variants(term: str) -> list[str]:
-    """`"Acme Corp"` -> `["Acme Corp", "Acme-Corp", "Acme_Corp", "AcmeCorp"]`, per
-    product spec item 4. Case-insensitive matching already folds further casing
+    """`"Acme Corp"` -> `["Acme Corp", "Acme-Corp", "Acme_Corp", "AcmeCorp"]`.
+    Case-insensitive matching already folds further casing
     differences (`acmecorp` == `AcmeCorp`), so variants are deduplicated by their
     lowercased form.
     """
@@ -69,10 +68,10 @@ def _right_boundary_ok(text: str, end: int) -> bool:
 
 
 def _has_boundary(text: str, start: int, end: int) -> bool:
-    """Product spec item 4: "A match needs a boundary on each side: a non-
-    alphanumeric character, the start or end of the text, or a lower-to-upper case
-    change." So `AcmeCorpClient` matches (case change on both sides) and `falconry`
-    does not match `Falcon` (lower-to-lower on the right).
+    """A match needs a boundary on each side: a non-alphanumeric character, the
+    start or end of the text, or a lower-to-upper case change. So `AcmeCorpClient`
+    matches (case change on both sides) and `falconry` does not match `Falcon`
+    (lower-to-lower on the right).
     """
     return _left_boundary_ok(text, start) and _right_boundary_ok(text, end)
 

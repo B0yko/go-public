@@ -1,14 +1,14 @@
-"""The fix plan (architecture.md "Fix plan"; product spec item 12).
+"""The fix plan.
 
 `build_plan` takes the *kept* (post-suppression) findings and returns a `PlanModel`
 plus a refined copy of those findings whose `fix` action is filled in per category —
-`scan.py`'s own `_fix_for` only ever sets `rotate`/`none` (stage-3's own documented
-deviation: "review-licence/decide-large-file-shaped per-category fix actions are
-plan.py's job in stage 4"). Callers put the refined findings in `Report.findings` and
-this module's `PlanModel` in `Report.plan`, so the two stay consistent (a group's
-`action` always matches the fingerprints it lists).
+`scan.py`'s own `_fix_for` only ever sets `rotate`/`none`; the per-category
+`review-licence`/`decide-large-file`-style actions are this module's job. Callers put
+the refined findings in `Report.findings` and this module's `PlanModel` in
+`Report.plan`, so the two stay consistent (a group's `action` always matches the
+fingerprints it lists).
 
-Group membership (architecture.md):
+Group membership:
 - A: every secret finding, grouped by `group_id`.
 - B: `present_at_export_ref` and category not in `{licence, large-file}`.
 - C: not `present_at_export_ref` and category != `licence` (this also catches a
@@ -33,9 +33,9 @@ from go_public.model import (
     PlanModel,
 )
 
-#: `strip` can remove exactly these binary-metadata rule families (product spec item
-#: 16: JPEG/PNG/WebP/PDF/OOXML) — except `STRIP_EXCLUDED_RULE_IDS` below, which strip
-#: never touches.
+#: `strip` can remove exactly these binary-metadata rule families (JPEG, PNG, WebP,
+#: PDF and OOXML metadata) — except `STRIP_EXCLUDED_RULE_IDS` below, which strip never
+#: touches.
 STRIPPABLE_RULE_PREFIXES = ("exif-", "png-", "pdf-", "ooxml-")
 
 #: OOXML tracked-change/comment authors: item 16 is explicit that `strip` reports
@@ -56,7 +56,7 @@ _PLACEHOLDER_REASON = "describe how/why this was resolved"
 
 def is_strip_resolvable(rule_id: str) -> bool:
     """Whether `go-public strip` can remove this binary-metadata rule id's field in
-    place (product spec item 16). Shared with `export/precheck.py`, which treats a
+    place. Shared with `export/precheck.py`, which treats a
     strip-resolvable finding at the export ref as resolved by the export itself when
     metadata stripping is on."""
     return rule_id.startswith(STRIPPABLE_RULE_PREFIXES) and rule_id not in STRIP_EXCLUDED_RULE_IDS

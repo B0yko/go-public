@@ -1,4 +1,4 @@
-"""Markdown report (architecture.md "Report:"; product spec item 11)."""
+"""Markdown report."""
 
 from __future__ import annotations
 

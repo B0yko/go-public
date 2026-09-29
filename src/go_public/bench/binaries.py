@@ -1,4 +1,4 @@
-"""Binary content generators for benchmark plants (Data section; stage-3.md 3b):
+"""Binary content generators for benchmark plants:
 images with EXIF/GPS, a PNG with text chunks, a WebP with EXIF, PDFs, minimal
 hand-written OOXML packages.
 
@@ -8,7 +8,7 @@ string templates rather than `python-docx`/`openpyxl` (those stay dev-only, used
 by the packaging test that confirms these hand-written bytes are valid packages).
 
 Fictional coordinates/names/organisations only, assembled from parts
-(`bench/plants/_fictional.py`, conventions.md).
+(`bench/plants/_fictional.py`).
 """
 
 from __future__ import annotations
@@ -132,8 +132,8 @@ def png_with_exif(tag: int, value: str) -> bytes:
 
 def pdf_without_metadata() -> bytes:
     """A minimal PDF with no Info dictionary at all: `pypdf.PdfWriter` sets its own
-    `/Producer` by default, so this clears it explicitly (Data section: "filler PDFs
-    without Producer/Info")."""
+    `/Producer` by default, so this clears it explicitly (filler PDFs carry no
+    Producer/Info)."""
     writer = PdfWriter()
     writer.add_blank_page(width=72, height=72)
     writer.metadata = {}
@@ -171,8 +171,8 @@ def pdf_with_xmp_creator(name: str) -> bytes:
 
 #: `zipfile.ZipFile.writestr(name, data)` (the bare-string form) stamps every entry
 #: with `time.localtime()` when no `ZipInfo` is given, which would make the OOXML
-#: bytes below — and so every fixture build — non-deterministic (Data section: "two
-#: runs on one machine give identical `git rev-parse --all`"). A fixed `ZipInfo`
+#: bytes below — and so every fixture build — non-deterministic (two runs on one machine
+#: must give identical `git rev-parse --all`). A fixed `ZipInfo`
 #: date avoids that.
 _ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
 

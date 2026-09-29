@@ -1,5 +1,4 @@
-"""Personal data: emails, phone numbers and flagged names (product spec item 3;
-stage-3.md).
+"""Personal data: emails, phone numbers and flagged names.
 
 Phone trade-off: a national-format candidate (no leading `+`) must carry a
 separator (space, `-`, `.`, parentheses) or a trunk prefix (a leading `0`, or a
@@ -24,8 +23,8 @@ a mailbox, and is skipped.
 
 Every check here is content-only (no `path`/`commit` dependence), so a `PiiDetector`
 can be built once per scan and its `detect()` called once per blob/message/field,
-same as every other stage-3 detector (`scan.py` attributes the result to every
-occurrence afterwards, exactly like the stage-3a fix to `detect/secrets.py`).
+same as every other content-only detector (`scan.py` attributes the result to every
+occurrence afterwards, as it does for `detect/secrets.py`).
 """
 
 from __future__ import annotations
@@ -47,12 +46,12 @@ _EMAIL_RE = re2.compile(
 )
 
 #: phonenumbers' "unknown region" sentinel: matches only numbers already written
-#: with a leading `+`, which the product spec says are "always detected" regardless
-#: of `[pii] phone_regions`.
+#: with a leading `+`, which are always detected regardless of
+#: `[pii] phone_regions`.
 _INTERNATIONAL_REGION = "ZZ"
 
-#: A cheap, deliberately permissive prefilter for `_detect_phones` (stage-3.md:
-#: "prefilter candidate digit runs with re2 for speed"): an optional leading `+`,
+#: A cheap, deliberately permissive prefilter for `_detect_phones` (candidate digit runs are
+#: prefiltered with re2 for speed): an optional leading `+`,
 #: then a run of digits and common phone punctuation (space, dot, dash, parens) at
 #: least 7 characters long, ending in a digit. Every format `phonenumbers` matches
 #: at `Leniency.VALID` — national or international, with or without separators —

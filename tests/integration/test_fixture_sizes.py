@@ -1,5 +1,5 @@
 """Fixture sizes beyond `tiny`: small's history and negatives, the scaled medium
-shape, and the blind-spot plants (stage 6)."""
+shape, and the blind-spot plants."""
 
 from __future__ import annotations
 

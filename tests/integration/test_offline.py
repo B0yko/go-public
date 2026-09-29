@@ -1,4 +1,4 @@
-"""Offline by design (product spec item 18): the integration suite runs with Python
+"""Offline by design: the integration suite runs with Python
 socket connects patched to raise (`conftest.py`), and this checks the guard itself and
 that whole commands finish under it."""
 

@@ -1,4 +1,4 @@
-"""History-preserving export (product spec item 15; ADR 0007).
+"""History-preserving export (ADR 0007).
 
 `--keep-history` clones the export ref's branch into `--out` through the `export` runner
 (`clone --no-local --single-branch --branch <b>`, no checkout, an empty template),

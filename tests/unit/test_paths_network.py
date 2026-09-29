@@ -1,7 +1,7 @@
 """`detect/paths_network.py`: local paths and network identifiers.
 
-conventions.md: plant-shaped strings (here, `/Users/<name>/`-style paths) are
-assembled at runtime from parts, never written as one literal.
+Plant-shaped strings (here, `/Users/<name>/`-style paths) are assembled at runtime
+from parts, never written as one literal.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ def test_private_ipv4_is_detected_and_loopback_is_not() -> None:
 
 
 def test_ip_like_version_string_is_not_flagged() -> None:
-    # Hard negative from the Data section: not a private range.
+    # Hard negative: not a private range.
     assert _detector().detect("version 1.2.3.4 released") == []
 
 

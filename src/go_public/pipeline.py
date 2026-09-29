@@ -1,5 +1,5 @@
 """The scan-to-report pipeline shared by `go-public scan` and the squash export's
-post-export re-scan (product spec item 14 step 7): inventory, detectors, suppression,
+post-export re-scan: inventory, detectors, suppression,
 fix plan and `Report` assembly. Writing the report files is `report.build.write_reports`.
 """
 

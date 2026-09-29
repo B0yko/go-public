@@ -1,8 +1,7 @@
 """Dev-only: `bench/binaries.py`'s hand-written OOXML packages load in the real
-`python-docx`/`openpyxl` libraries (Data section: "must load in python-docx and
-openpyxl in a dev-only test"). Neither library is a runtime dependency — `fixture`,
-`demo` and `bench` build these bytes with `zipfile` alone (see that module's
-docstring); this test alone justifies the dev-only dependency.
+`python-docx`/`openpyxl` libraries (a dev-only test). Neither library is a runtime
+dependency — `fixture`, `demo` and `bench` build these bytes with `zipfile` alone
+(see that module's docstring); this test alone justifies the dev-only dependency.
 """
 
 from __future__ import annotations

@@ -1,8 +1,8 @@
-"""Commit metadata: identities, trailers and timezone offsets (product spec item 10;
-stage-3.md). Message text itself already runs through every text detector in
-`scan.py`'s normal blob/message pipeline; this module covers the metadata that lives
-outside the message body (author/committer/tagger identities, parsed trailers, raw
-timezone offsets).
+"""Commit metadata: identities, trailers and timezone offsets.
+Message text itself already runs through every text detector in `scan.py`'s normal
+blob/message pipeline; this module covers the metadata that lives outside the
+message body (author/committer/tagger identities, parsed trailers, raw timezone
+offsets).
 """
 
 from __future__ import annotations
@@ -11,16 +11,16 @@ import re2
 
 from go_public.git.objects import CommitObj, Ident, TagObj, parse_trailers
 
-#: A crude "looks like a name or email" heuristic for trailer severity (architecture.
-#: md "Default severities": "trailers with a name or email" = medium, "trailers
-#: without name/email (Change-Id)" = low). An email is unambiguous; two capitalised
-#: words is a reasonable proxy for "Full Name" without needing name detection.
+#: A crude "looks like a name or email" heuristic for trailer severity (trailers
+#: with a name or email are medium, trailers without one, like Change-Id, are low).
+#: An email is unambiguous; two capitalised words is a reasonable proxy for "Full
+#: Name" without needing name detection.
 _NAME_LIKE_RE = re2.compile(r"\b[A-Z][a-z]+\s+[A-Z][a-z]+\b")
 
 
 def is_identity_allowed(name: str, email: str, allow_entries: list[str]) -> bool:
     """`identity.allow` entries: `"Name <email>"` (exact, email case-insensitive),
-    `"<email>"` (any name) or `"Name"` (any email) — architecture.md "Config".
+    `"<email>"` (any name) or `"Name"` (any email).
     """
     email_lower = email.lower()
     for raw in allow_entries:
@@ -74,8 +74,8 @@ def group_non_allowed_identities(
     occurrences: list[IdentityOccurrence], allow: list[str]
 ) -> dict[str, list[IdentityOccurrence]]:
     """Every distinct identity string not on `identity.allow`, grouped for one
-    `identity`-category finding each (architecture.md: "one finding per distinct
-    identity string; roles and commits in extra/commits").
+    `identity`-category finding each (one finding per distinct identity
+    string; roles and commits in extra/commits).
     """
     grouped: dict[str, list[IdentityOccurrence]] = {}
     for occ in occurrences:
@@ -158,8 +158,8 @@ class TimezoneOccurrence:
 
 
 def collect_timezone_offsets(commits: dict[str, CommitObj]) -> list[TimezoneOccurrence]:
-    """One occurrence per non-UTC author/committer offset (architecture.md: "Non-UTC
-    timezone offsets, reported at info level")."""
+    """One occurrence per non-UTC author/committer offset (non-UTC timezone
+    offsets are reported at info level)."""
     out: list[TimezoneOccurrence] = []
     for oid, commit in commits.items():
         idents: tuple[tuple[str, Ident], ...] = (

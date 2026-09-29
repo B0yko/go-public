@@ -1,4 +1,4 @@
-"""Squash export (product spec item 14; ADR 0005).
+"""Squash export (ADR 0005).
 
 The export repository is assembled directly in its object store, through the `export`
 runner only: `init` with an empty template, one `hash-object -w --no-filters --stdin`

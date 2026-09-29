@@ -1,7 +1,7 @@
 """Assembles a `model.Report` from a scan's raw ingredients (inventory, findings,
-suppression and plan results). Not one of architecture.md's named files — a small,
-separately testable seam between `cli.py`'s `scan` command and `report/json.py`/
-`report/md.py`/`report/html.py` (recorded as a deviation in STATUS.md).
+suppression and plan results). A small, separately testable
+seam between `cli.py`'s `scan` command and `report/json.py`/`report/md.py`/
+`report/html.py`.
 """
 
 from __future__ import annotations

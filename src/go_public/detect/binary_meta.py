@@ -1,13 +1,13 @@
-"""Binary metadata extraction (product spec item 6; stage-3.md 3b): JPEG/TIFF/WebP
+"""Binary metadata extraction: JPEG/TIFF/WebP
 EXIF, PNG chunks (parsed directly, not through Pillow's own limited exposure), PDF
 Info/XMP and OOXML docProps/comments/tracked-changes.
 
 `extract_fields` is what `detect/base.py`'s `extract_binary_fields` delegates to
-(architecture.md "Scan units and routing": magic-byte routed, extracted values then
-go through the text detectors under location kind `binary_field`). Each `BinaryField`
+(magic-byte routed; extracted values then go through the text detectors under
+location kind `binary_field`). Each `BinaryField`
 also carries go-public's *own* classification (rule id + severity) for the field's
 mere presence, independent of whatever the text detectors separately find in its
-value (architecture.md rule ids: exif-gps, exif-person, exif-org, exif-software,
+value (rule ids: exif-gps, exif-person, exif-org, exif-software,
 png-text, png-time, png-exif, pdf-info, pdf-xmp, ooxml-core, ooxml-app, ooxml-custom,
 ooxml-comment-author, ooxml-revision-author).
 
@@ -49,8 +49,8 @@ class BinaryField:
     severity: str
 
 
-#: EXIF tags treated as naming a person (product spec item 6): "Artist, XPAuthor,
-#: CameraOwnerName, ... ImageDescription/UserComment when non-empty".
+#: EXIF tags treated as naming a person (Artist, XPAuthor, CameraOwnerName, ...,
+#: and ImageDescription/UserComment when non-empty).
 _EXIF_PERSON_TAGS: dict[int, str] = {
     ExifTag.Artist.value: "Artist",
     ExifTag.ImageDescription.value: "ImageDescription",
@@ -131,7 +131,7 @@ def _extract_image_exif(content: bytes) -> list[BinaryField]:
 
 
 # -- PNG: chunks parsed directly (Pillow exposes tEXt/iTXt via `.text` but not tIME,
-# and stage-3.md asks for direct parsing) -------------------------------------------
+# so the chunks are parsed directly) -----------------------------------------------
 
 _PNG_SIGNATURE_LEN = 8
 _PNG_TEXT_PERSON_KEYWORDS = frozenset({"author", "artist", "copyright"})
@@ -217,9 +217,9 @@ def _extract_png_fields(content: bytes) -> list[BinaryField]:
 
 
 def _png_embedded_exif(data: bytes) -> list[BinaryField]:
-    """architecture.md's rule ids give the PNG-embedded case one id, `png-exif`, not
-    the three-way JPEG/TIFF/WebP split — GPS is the one exception: it is still "GPS in
-    an image" (Default Severities) regardless of container, so it keeps `exif-gps`.
+    """The PNG-embedded case gets one rule id, `png-exif`, not the three-way
+    JPEG/TIFF/WebP split — GPS is the one exception: it is still "GPS in an image"
+    regardless of container, so it keeps `exif-gps`.
     """
     try:
         exif = Image.Exif()

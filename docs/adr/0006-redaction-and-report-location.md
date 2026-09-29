@@ -5,7 +5,7 @@
 The report is the one artifact go-public hands back to a human, and it is built from
 a private repository's own history — including, for group A, the exact values a
 maintainer most needs kept out of a terminal scrollback, a screenshot or another
-tool's logs. Product spec item 11 also requires that a report never reveal the
+tool's logs. A report must also never reveal the
 absolute path of the machine it ran on, and that writing it can never contaminate the
 very repository being audited (a report file checked in by accident would be its own
 finding on the next scan).

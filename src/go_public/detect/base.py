@@ -1,7 +1,7 @@
-"""The shared detector contract (architecture.md "Scan units and routing") plus blob
-routing: magic bytes, the NUL/UTF-16 text check, and the `max_scan_mb` gate.
+"""The shared detector contract plus blob routing: magic bytes, the NUL/UTF-16 text
+check, and the `max_scan_mb` gate.
 
-`extract_binary_fields` delegates to `detect/binary_meta.py` (stage 3b): a
+`extract_binary_fields` delegates to `detect/binary_meta.py`: a
 JPEG/PNG/WebP/TIFF/PDF/OOXML blob is routed here, then its named fields (EXIF tags,
 PDF Info/XMP, OOXML docProps/comments/tracked-changes) are extracted there.
 """
@@ -15,8 +15,7 @@ from typing import Any
 
 from go_public.detect import binary_meta
 
-#: Magic-byte signatures (product spec item 6 / architecture "Scan units and
-#: routing"). Checked in this order; the first match wins.
+#: Magic-byte signatures. Checked in this order; the first match wins.
 _JPEG_MAGIC = b"\xff\xd8\xff"
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 _TIFF_MAGIC_LE = b"II*\x00"
@@ -25,20 +24,21 @@ _WEBP_RIFF = b"RIFF"
 _WEBP_TAG = b"WEBP"
 _ZIP_MAGIC = b"PK\x03\x04"
 _PDF_MAGIC = b"%PDF-"
-#: "PDF signature within first 1024 bytes" (stage-2.md): some PDFs carry junk bytes
-#: (a shebang, a BOM) before the `%PDF-` header, which real PDF readers tolerate.
+#: The PDF signature is accepted anywhere in the first 1024 bytes: some PDFs carry
+#: junk bytes (a shebang, a BOM) before the `%PDF-` header, which real PDF readers
+#: tolerate.
 _PDF_SCAN_WINDOW = 1024
 _NUL_SCAN_WINDOW = 8000
 _UTF16_LE_BOM = b"\xff\xfe"
 _UTF16_BE_BOM = b"\xfe\xff"
 
-#: Blob kinds that carry extractable text fields once `detect/binary_meta.py`
-#: (stage 3b) exists. Any other non-text kind (`archive`, `binary`, `large`) is
-#: never scanned by text detectors.
+#: Blob kinds that carry extractable text fields through `detect/binary_meta.py`.
+#: Any other non-text kind (`archive`, `binary`, `large`) is never scanned by text
+#: detectors.
 BINARY_KINDS = frozenset({"jpeg", "png", "tiff", "webp", "pdf", "ooxml"})
 
 #: OOXML (docx/xlsx/pptx) is a zip with this manifest entry plus a part directory
-#: from one of the three Office document kinds (product spec item 6).
+#: from one of the three Office document kinds.
 _OOXML_MARKER = "[Content_Types].xml"
 _OOXML_PART_PREFIXES = ("word/", "xl/", "ppt/", "docProps/")
 
@@ -51,8 +51,7 @@ class UnitCtx:
     path-only rules. Both default to "" for units with no natural path or commit
     (an identity string, a ref name). A blob that occurs at several (path, commit)
     pairs is scanned once per distinct occurrence by the caller, since path- and
-    commit-dependent allowlist decisions can differ per occurrence (architecture.md,
-    stage-2 notes).
+    commit-dependent allowlist decisions can differ per occurrence.
     """
 
     path: str = ""
@@ -61,7 +60,7 @@ class UnitCtx:
 
 @dataclass(frozen=True, slots=True)
 class Detection:
-    """One match, before the scan pipeline (stage 2b) turns it into a
+    """One match, before the scan pipeline turns it into a
     `model.Finding` (location, fingerprint, group_id, preview, ...).
     """
 
@@ -83,11 +82,9 @@ class TextUnit:
 
     Blobs are handled by `scan.py`'s worker pool directly (each worker already has
     the blob content from its own `cat-file --batch`); a `TextUnit` is for the
-    smaller, already-in-memory units — a commit or tag message, and (stage 3) an
-    identity string, a trailer value, a ref name, a path. Only `kind in
-    {"commit_message", "tag_message"}` is produced by stage 2b's `scan.py`, since
-    only the secrets detector exists so far and it runs on messages (architecture:
-    "Messages (commit + tag) go through the secret detector too").
+    smaller, already-in-memory units — a commit or tag message, an identity string, a
+    trailer value, a ref name, a path. Commit and tag messages go through the secrets
+    detector too.
     """
 
     kind: str
@@ -128,7 +125,7 @@ def _as_text_or_large(text: str, *, max_scan_mb: int) -> RouteResult:
 
 
 def route_blob(content: bytes, *, max_scan_mb: int = 10) -> RouteResult:
-    """Classify one blob's raw bytes (architecture.md "Scan units and routing").
+    """Classify one blob's raw bytes.
 
     Magic bytes first (image/PDF/zip formats); a ZIP is further split into OOXML vs.
     a plain archive. Otherwise a UTF-16 BOM decodes straight to text (a NUL check

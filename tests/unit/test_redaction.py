@@ -1,4 +1,4 @@
-"""`redaction.py`: secret masking for report previews (product spec item 11)."""
+"""`redaction.py`: secret masking for report previews."""
 
 from __future__ import annotations
 

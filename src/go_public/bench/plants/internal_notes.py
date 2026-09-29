@@ -1,4 +1,4 @@
-"""Internal-notes plants, matched by name (product spec item 9; stage-3.md)."""
+"""Internal-notes plants, matched by name."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ _PATHS = ("internal/roadmap.md", "NOTES-launch.md", "scratch/idea.txt", "drafts/
 
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
     """Build every internal-notes plant for `size`. `rng`/`ctx` are accepted for
-    signature parity (fixture-api.md); unused here (every path is fixed)."""
+    signature parity; unused here (every path is fixed)."""
     del rng, ctx
     total = _COUNTS[size]
     plants = []

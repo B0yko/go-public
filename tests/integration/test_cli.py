@@ -21,7 +21,7 @@ runner = CliRunner()
 def _allow_public_identity_config(tmp_path: Path) -> Path:
     """A config allowlisting `conftest.PUBLIC_IDENT`, so these secret-focused tests
     don't also see the identity finding every commit's author now produces by
-    default (stage 3a: `detect/commit_meta.py`)."""
+    default (`detect/commit_meta.py`)."""
     config = tmp_path / "go-public.toml"
     config.write_text('[identity]\nallow = ["Pat Public <pat@example.com>"]\n')
     return config
@@ -29,7 +29,7 @@ def _allow_public_identity_config(tmp_path: Path) -> Path:
 
 def _commit_licence(repo: Path) -> None:
     """A LICENSE file, so these secret-focused tests don't also see the info-level
-    `licence-missing-at-head` finding (stage 3b: `detect/licence.py`) every repo
+    `licence-missing-at-head` finding (`detect/licence.py`) every repo
     without one now produces by default."""
     commit_file(
         repo,
@@ -203,7 +203,7 @@ def test_scan_debug_json_writes_findings(tmp_path: Path) -> None:
     assert token not in debug_json.read_text()
 
 
-# -- stage 4: reports, --summary-json, --report-dir, config.scan.fail_on, allow/init --
+# -- reports, --summary-json, --report-dir, config.scan.fail_on, allow/init ----------
 
 
 def test_scan_writes_json_md_html_reports_to_the_default_location(tmp_path: Path) -> None:

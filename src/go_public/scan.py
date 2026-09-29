@@ -1,6 +1,6 @@
-"""Scan orchestration (architecture.md "Data flow" / stage-2.md 2b, stage-3.md 3a).
+"""Scan orchestration.
 
-`run()` turns an `Inventory` (stage 1) plus every detector into a flat list of
+`run()` turns an `Inventory` plus every detector into a flat list of
 `model.Finding`. Blobs are scanned exactly once each (their content is read from git
 exactly once, via one `cat-file --batch` per worker) and sharded across `--jobs`
 worker processes; commit/tag messages, paths, ref names, identities and trailers are
@@ -11,8 +11,8 @@ Path- and commit-dependent allowlisting (only the secrets engine has any) is han
 by scanning a blob/message/field's content exactly once
 (`SecretsEngine.scan_content`) and applying the path/commit-dependent decisions once
 per `(path, commit)` occurrence afterwards (`SecretsEngine.filter_occurrence`); see
-`detect/secrets.py`'s module docstring and STATUS.md for the stage-2b deviation this
-fixes. `detect/pii.py`, `detect/deny.py` and `detect/paths_network.py` have no
+`detect/secrets.py`'s module docstring and `docs/adr/0001-blob-level-scanning.md`.
+`detect/pii.py`, `detect/deny.py` and `detect/paths_network.py` have no
 path/commit-dependent behaviour at all, so each is simply called once per unit of
 text and its result attributed to every occurrence.
 """
@@ -55,15 +55,15 @@ _Occurrence = tuple[str, str]  # (path, commit); "" for "no path"/"no commit"
 _Task = tuple[str, list[_Occurrence], bool]  # (blob_id, occurrence pairs, unreachable)
 
 #: Location kinds whose `line`/`col` are meaningful text offsets; every other kind's
-#: `Location.line`/`.column` stay `None` (architecture.md "Finding model").
+#: `Location.line`/`.column` stay `None`.
 _LINE_COL_KINDS = frozenset({"blob", "unreachable_blob", "commit_message", "tag_message"})
 
 
 @dataclass(frozen=True, slots=True)
 class ScanOptions:
     """Everything `run()` needs beyond the inventory. Picklable: passed straight
-    into worker-process initializers when `jobs > 1` (architecture.md: "detectors
-    [are] built in the worker initializer from a picklable config").
+    into worker-process initializers when `jobs > 1`: detectors are built in the worker
+    initializer from a picklable config.
 
     `gitleaks_config`/`generic_entropy`/`generic_detector` mirror `[secrets]` for
     convenience (the CLI can override the gitleaks config path independently of a
@@ -107,8 +107,8 @@ class ScanOptions:
 class LicenceNoticeDetector:
     """Thin wrapper around `detect/licence.py`'s stateless `detect_notice`, so it
     slots into `_TextDetectors` like every other per-text detector (no config knobs
-    of its own yet). Blob content only: `_scan_message` never calls this (stage-4.md:
-    a notice is a fact about a file in history, not about commit-message prose)."""
+    of its own yet). Blob content only: `_scan_message` never calls this, since
+    a notice is a fact about a file in history, not about commit-message prose."""
 
     def detect(self, text: str, *, licence_relevant: bool = False) -> list[Detection]:
         detection = licence_detect.detect_notice(text, licence_relevant=licence_relevant)
@@ -171,8 +171,8 @@ def detect_secrets_in_text(text: str, path: str, options: ScanOptions) -> list[D
 
 
 def _history_names(config: Config, inventory: Inventory) -> tuple[str, ...]:
-    """`--detect-names`: every non-allowlisted identity's name from history
-    (product spec item 3), deterministic and independent of scan order.
+    """`--detect-names`: every non-allowlisted identity's name from history,
+    deterministic and independent of scan order.
     """
     occurrences = commit_meta.collect_identities(inventory.commits, inventory.tags)
     grouped = commit_meta.group_non_allowed_identities(occurrences, list(config.identity.allow))
@@ -191,7 +191,7 @@ def run(
 ) -> list[Finding]:
     """Scan every unique blob, commit/tag message, path, ref name, identity and
     trailer; return attributed findings. Does not suppress, group into a fix plan, or
-    write a report — those are stage 4's `suppress.py`/`plan.py`/`report/*`.
+    write a report — those are `suppress.py`, `plan.py` and `report/*`.
     """
     options = _resolve_options(options or ScanOptions(), inventory)
     detectors = _build_text_detectors(options)
@@ -247,7 +247,7 @@ def _build_tasks(inventory: Inventory, occ_by_blob: dict[str, set[_Occurrence]])
     for blob_id in inventory.blob_sizes:
         if blob_id in inventory.lfs_pointers:
             # Content is just the pointer text; the real "lfs-pointer" info finding
-            # is stage 3b's `detect/files.py` job. Never scanned as ordinary text.
+            # is `detect/files.py`'s job. Never scanned as ordinary text.
             continue
         pairs = sorted(occ_by_blob.get(blob_id, set()))
         tasks.append((blob_id, pairs, False))
@@ -339,7 +339,7 @@ def _scan_blob_content(
         for bf in base.extract_binary_fields(route.kind, content):
             # go-public's own classification of this field's mere presence
             # (exif-person, ooxml-core, ...), attributed the same way as the text
-            # detectors run on its value just below (architecture.md: both happen).
+            # detectors run on its value just below (both happen).
             own = Detection(
                 category="binary-metadata",
                 rule_id=bf.rule_id,
@@ -488,9 +488,8 @@ def _scan_message(
     for detection in detectors.secrets.filter_occurrence(content_scan, ctx):
         rows.append(_row(detection, kind=kind, commit=commit, tag=tag, paths=[], commits=commits))
 
-    # No `detectors.licence.detect(text)` here: `detect_notice` (product spec item 7)
-    # is a fact about a *file* in history, never about commit/tag message prose
-    # (stage-4.md's notice-detector fix).
+    # No `detectors.licence.detect(text)` here: `detect_notice`
+    # is a fact about a *file* in history, never about commit/tag message prose.
     stateless = (
         detectors.pii.detect(text)
         + detectors.deny.detect(text)
@@ -518,8 +517,8 @@ def _scan_paths(
     deny: DenyDetector, files_detector: FilesDetector, inventory: Inventory
 ) -> list[dict[str, Any]]:
     """Every unique path through deny (org identifiers) and files (sensitive/
-    internal-notes globs) — architecture.md: "Ref names and paths through deny (and
-    files/large detectors for paths)."""
+    internal-notes globs). Ref names and paths go through deny, and paths also through
+    the files and large-file checks."""
     rows: list[dict[str, Any]] = []
     for path, commits in _paths_with_commits(inventory).items():
         detections = deny.detect(path) + files_detector.detect_path(path)
@@ -540,8 +539,8 @@ def _scan_identities(
     deny: DenyDetector, identity_allow: list[str], inventory: Inventory
 ) -> list[dict[str, Any]]:
     """Identity strings run through the identity check (non-allowlisted only) and
-    the deny detector (architecture.md: "Identity strings run through identity +
-    deny detectors only (not pii/network)"), every distinct identity either way.
+    the deny detector (identity strings never run through the pii or network
+    detectors), every distinct identity either way.
     """
     occurrences = commit_meta.collect_identities(inventory.commits, inventory.tags)
     by_identity: dict[str, list[commit_meta.IdentityOccurrence]] = {}
@@ -639,7 +638,7 @@ def _scan_timezones(inventory: Inventory) -> list[dict[str, Any]]:
 
 def _scan_tracked_config(inventory: Inventory, runner: GitRunner) -> list[dict[str, Any]]:
     """A tracked `.go-public.toml` at the export ref with a non-empty `[deny]` table
-    (architecture.md "Config" discovery order)."""
+    (the tracked config may only carry allowlists)."""
     entry = inventory.export_tree.get(".go-public.toml")
     if entry is None:
         return []
@@ -655,7 +654,7 @@ def _scan_tracked_config(inventory: Inventory, runner: GitRunner) -> list[dict[s
     return [_row(detection, kind="path", paths=[".go-public.toml"], commits=[])]
 
 
-# -- large files / gitlinks / LFS pointers (product spec item 8; stage-3.md 3b) -----
+# -- large files / gitlinks / LFS pointers ------------------------------------------
 
 _ONE_MB = 1024 * 1024
 _GITHUB_LIMIT_BYTES = 100 * _ONE_MB
@@ -716,8 +715,7 @@ def _scan_large_files(
 
 
 def _scan_gitlinks(inventory: Inventory) -> list[dict[str, Any]]:
-    """Gitlinks (submodules): never exported, never read (architecture.md "Objects &
-    inventory": "Gitlinks... recorded separately (never read)."), info per path."""
+    """Gitlinks (submodules): never exported, never read; one info finding per path."""
     by_path: dict[str, set[str]] = defaultdict(set)
     oid_by_path: dict[str, str] = {}
     for link in inventory.gitlinks:
@@ -745,7 +743,7 @@ def _scan_lfs_pointers(
     inventory: Inventory, occ_by_blob: dict[str, set[_Occurrence]]
 ) -> list[dict[str, Any]]:
     """LFS pointer blobs: `_build_tasks` never scans their (pointer) text as content
-    (architecture.md "Blob routing": "LFS pointer blobs -> info finding only")."""
+    (an LFS pointer blob yields an info finding only)."""
     rows: list[dict[str, Any]] = []
     for blob_id in inventory.lfs_pointers:
         pairs = sorted(occ_by_blob.get(blob_id, set()))
@@ -766,7 +764,7 @@ def _scan_lfs_pointers(
     return rows
 
 
-# -- licence history (product spec item 7; stage-3.md 3b) ---------------------------
+# -- licence history -----------------------------------------------------------------
 
 
 def _licence_relevant_occurrences(inventory: Inventory) -> dict[str, list[BlobOccurrence]]:
@@ -796,11 +794,11 @@ def _fetch_blobs(runner: GitRunner, blob_ids: set[str]) -> dict[str, bytes]:
 
 def _scan_licence_transitions(inventory: Inventory, runner: GitRunner) -> list[dict[str, Any]]:
     """Each commit that changes a licence file or manifest `license` field, when the
-    licence label actually changes (architecture.md "Match keys": keyed by
+    licence label actually changes (matched by
     `finding.extra["transition_commit"]`, not by location, since two independent
     transitions could carry identical text). Scope: `detect/licence.py`'s own
     docstring explains why an arbitrary file's `SPDX-License-Identifier` header does
-    not also feed this (STATUS.md deviation)."""
+    not also feed this."""
     by_path = _licence_relevant_occurrences(inventory)
     if not by_path:
         return []
@@ -879,7 +877,7 @@ def _scan_licence_head_state(
 ) -> list[dict[str, Any]]:
     """`licence-missing-at-head` (no `model.LOCATION_KINDS` fits a whole-repository
     absence check, so this reuses `path` kind with a synthetic repo-root marker path,
-    same idea as timezone's reuse of `commit_message` in stage 3a — see STATUS.md) and
+    same idea as timezone's reuse of `commit_message`) and
     `licence-foreign-holder` (a licence file's copyright holder vs. `[licence]
     owner`), both read from one export-ref fetch."""
     declarations = _current_licence_declarations(inventory, runner)
@@ -1044,7 +1042,7 @@ def _present_at_export_ref(row: dict[str, Any], inventory: Inventory) -> bool:
     # Content-bearing kinds (blob/binary_field) are "present" exactly when their blob
     # is still at some path in that tree; a path-kind finding is present exactly when
     # that path is still in the tree. `--keep-history` export's different,
-    # message-preserving semantics are stage 4's `plan.py`.
+    # message-preserving semantics are handled in `plan.py`.
     kind = row["kind"]
     if kind in ("blob", "binary_field"):
         # A path-dependent rule (a key-store file name) attributes a blob to the paths it
@@ -1058,7 +1056,7 @@ def _present_at_export_ref(row: dict[str, Any], inventory: Inventory) -> bool:
     return False
 
 
-#: Human-readable titles for every stage-3 rule id that isn't a secret rule (those
+#: Human-readable titles for every rule id that isn't a secret rule (those
 #: come from the gitleaks config's own `description`, via `_title_for`).
 _TITLES: dict[str, str] = {
     "pii-email": "Email address found in content",

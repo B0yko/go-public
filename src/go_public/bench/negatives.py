@@ -1,11 +1,11 @@
 """Hard negatives: content shaped like a plant that no detector may flag.
 
-The product spec's Data section asks for about 150 of these per seed so that
-precision means something. `generate(rng, per_kind)` returns one small file per
-kind (16 kinds); `per_kind=10` gives 160 items (`small`), `per_kind=2` gives 32
-(`tiny`). Every item is built from parts at runtime, seeded, and checked against
-the detectors' own definitions where a random draw could accidentally cross the
-line (phone-shaped digit runs). A `--no-plants` fixture must scan to zero findings.
+About 150 of these are built per seed so that precision means something.
+`generate(rng, per_kind)` returns one small file per kind (16 kinds); `per_kind=10`
+gives 160 items (`small`), `per_kind=2` gives 32 (`tiny`). Every item is built from
+parts at runtime, seeded, and checked against the detectors' own definitions where a
+random draw could accidentally cross the line (phone-shaped digit runs). A
+`--no-plants` fixture must scan to zero findings.
 """
 
 from __future__ import annotations

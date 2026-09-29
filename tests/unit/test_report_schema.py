@@ -1,4 +1,4 @@
-"""`schemas/go-public-report-v1.json` (stage-4.md item 11): committed == generated,
+"""`schemas/go-public-report-v1.json`: committed == generated,
 and it validates a real (tiny-fixture) report plus an empty one."""
 
 from __future__ import annotations

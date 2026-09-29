@@ -1,4 +1,4 @@
-"""Integration-suite guard: product spec item 18 (offline by design). Every test in
+"""Integration-suite guard: the product is offline by design. Every test in
 this directory runs with Python's socket connect paths patched to raise, so any code
 path that would open a network connection fails the test. Git subprocesses are not
 covered by this; `test_partial_clone.py` covers them separately."""

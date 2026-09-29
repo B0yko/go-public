@@ -1,4 +1,4 @@
-"""History-preserving export end to end (product spec item 15; stage-8.md test list)."""
+"""History-preserving export end to end."""
 
 from __future__ import annotations
 

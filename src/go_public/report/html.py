@@ -1,6 +1,6 @@
-"""Self-contained HTML report (architecture.md "Report:"; product spec item 11):
-inline CSS/JS, a strict Content-Security-Policy, no network requests, filter by
-category and severity, light and dark via `prefers-color-scheme`.
+"""Self-contained HTML report: inline CSS/JS, a strict Content-Security-Policy, no
+network requests, filter by category and severity, light and dark via
+`prefers-color-scheme`.
 
 Autoescaping is on (unlike `report/md.py`): finding values/paths/previews come from
 whatever the scanned repository's history contains, so this is untrusted content

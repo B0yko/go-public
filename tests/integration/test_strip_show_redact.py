@@ -1,4 +1,4 @@
-"""`go-public strip`, `show` and `redact` through the CLI (product spec items 16, 20)."""
+"""`go-public strip`, `show` and `redact` through the CLI."""
 
 from __future__ import annotations
 

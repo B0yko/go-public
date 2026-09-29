@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from go_public.detect.pii import PiiDetector
 
-# Plant-shaped strings are assembled at runtime (conventions.md).
+# Plant-shaped strings are assembled at runtime.
 _AT = chr(64)
 _INTERNAL_EMAIL = "jordan@build." + "internal"
 _NANP = "202-555-" + "0142"
@@ -60,7 +60,7 @@ def test_text_with_no_digits_finds_no_phone() -> None:
 
 
 def test_order_number_digit_run_is_not_a_phone() -> None:
-    # A hard negative from the Data section: an order-number-shaped run of digits
+    # A hard negative: an order-number-shaped run of digits
     # must not be mistaken for a phone number.
     assert _rule_ids("order number 48213097", phone_regions=("US", "GB", "DE")) == []
 

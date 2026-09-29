@@ -1,13 +1,12 @@
 """Realistic, finding-free filler content for fixture repositories.
 
 Templates for the file types real repositories contain. No emails outside reserved
-domains, no local paths, IPs, hostnames, secrets or binary metadata: once detectors
-exist, a `--no-plants` fixture must scan to zero findings (Data section).
+domains, no local paths, IPs, hostnames, secrets or binary metadata, so a
+`--no-plants` fixture must scan to zero findings.
 
-`hard_negatives()` adds content that looks plant-shaped but must never be flagged
-(Data section's own list), so precision on the fixture means something: a detector
-that fires on these would show up as a false positive in the recall/precision test,
-not just in `--no-plants`.
+`hard_negatives()` adds content that looks plant-shaped but must never be flagged,
+so precision on the fixture means something: a detector that fires on these would
+show up as a false positive in the recall/precision test, not just in `--no-plants`.
 """
 
 from __future__ import annotations
@@ -131,8 +130,8 @@ def _non_phone_order_number(rng: random.Random) -> str:
 
 
 def hard_negatives(rng: random.Random, name: str) -> bytes:
-    """Content that looks plant-shaped but is not: every bullet the Data section
-    names, so a detector that fires here shows up as a false positive.
+    """Content that looks plant-shaped but is not: every kind of near-miss the
+    fixture covers, so a detector that fires here shows up as a false positive.
     """
     order_number = _non_phone_order_number(rng)
     git_sha = "".join(rng.choice("0123456789abcdef") for _ in range(40))

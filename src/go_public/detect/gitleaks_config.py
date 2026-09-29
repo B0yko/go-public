@@ -6,7 +6,7 @@ matter for detection: `config/config.go` (`ViperConfig.Translate`, `extend*`),
 See docs/adr/0002-re2-and-ported-gitleaks-semantics.md.
 
 Two deliberate departures from gitleaks itself, both because go-public's config
-handling is stricter by design (architecture.md, product spec item 2):
+handling is stricter by design:
 - Any key gitleaks's viper unmarshalling would silently ignore is a `ConfigError`
   (exit 2) here instead.
 - A pattern that fails to compile does not abort loading; it is recorded in

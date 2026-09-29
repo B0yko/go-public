@@ -1,8 +1,8 @@
-"""Lossless in-place metadata stripping (product spec item 16; stage-5.md).
+"""Lossless in-place metadata stripping.
 
 `strip_bytes`/`describe` dispatch on magic bytes (`detect.base.route_blob`) to one of
-five format-specific strippers, each written to remove exactly the fields product
-spec item 16 names and nothing else:
+five format-specific strippers, each written to remove exactly the documented
+metadata fields and nothing else:
 
 - JPEG: drops APP1 (EXIF/XMP), APP13 (Photoshop IRB/IPTC) and COM segments wherever
   they sit before EOI, without touching any other byte; every entropy-coded scan (all
@@ -21,8 +21,8 @@ spec item 16 names and nothing else:
 - OOXML: blanks the person/organisation fields `detect/binary_meta.py` extracts from
   `docProps/core.xml` (`creator`, `lastModifiedBy`) and `docProps/app.xml` (`Company`,
   `Manager`); every other zip entry, including comments and tracked changes, is left
-  alone — "Tracked changes and comments are reported, never auto-removed" is item 16's
-  own wording, and `plan.py`'s `STRIP_EXCLUDED_RULE_IDS` matches this.
+  alone (tracked changes and comments are reported, never auto-removed, and
+  `plan.py`'s `STRIP_EXCLUDED_RULE_IDS` matches this).
 
 Every stripper is defensive: content its own format's magic bytes matched but that it
 otherwise cannot parse is returned unchanged rather than raising, the same defensive
@@ -431,7 +431,7 @@ def _ooxml_droppable(data: bytes) -> list[str]:
 
 _STRIPPERS = {
     "jpeg": strip_jpeg,
-    "tiff": lambda data: data,  # TIFF EXIF stripping is not named by item 16; left as-is
+    "tiff": lambda data: data,  # TIFF EXIF stripping is not supported; left as-is
     "png": strip_png,
     "webp": strip_webp,
     "pdf": strip_pdf,
@@ -448,7 +448,7 @@ _DESCRIBERS = {
 
 
 def strip_bytes(content: bytes) -> bytes:
-    """`content` with every metadata field product spec item 16 names removed, or
+    """`content` with every documented metadata field removed, or
     `content` unchanged when its format carries none of them (text, an archive that
     is not OOXML, or a binary kind stripping does not touch)."""
     kind = route_blob(content, max_scan_mb=_NO_SIZE_GATE_MB).kind
@@ -473,8 +473,8 @@ def residual_fields(content: bytes) -> set[tuple[str, str]]:
 
 
 def reported_only(content: bytes) -> list[str]:
-    """What `content` carries that `strip` reports but never removes (product spec item
-    16: OOXML tracked changes and comments)."""
+    """What `content` carries that `strip` reports but never removes (OOXML tracked
+    changes and comments)."""
     kind = route_blob(content, max_scan_mb=_NO_SIZE_GATE_MB).kind
     if kind != "ooxml":
         return []

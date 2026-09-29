@@ -1,11 +1,11 @@
 """The plant-placement engine: a `git fast-import` stream builder plus resolution.
 
-`FixtureContext` is the one thing `bench/fixture.py` and every later
+`FixtureContext` is the one thing `bench/fixture.py` and every
 `bench/plants/<category>.py` module share: methods to place content at each of the
-15 location types the product spec names, and a two-phase build (emit the whole
+location types in `LOCATION_TYPES`, and a two-phase build (emit the whole
 `fast-import` stream, then resolve every placement to a concrete blob/commit/tag id
-once the import has run). See `_work/go-public/specs/fixture-api.md` for the full
-reference; only neutral "marker" plants exist so far (stage 1b).
+once the import has run). Neutral "marker" plants cover every location type that has
+no real plant category.
 
 Only `git/runner.py` may run git directly; this module only ever calls it through a
 `GitRunner` bound to the `fixture` role, never `subprocess` itself.
@@ -42,18 +42,18 @@ LocationType = Literal[
 ]
 
 #: Every location type the API supports, for callers that need to enumerate them.
-#: `trailer` (stage 3a) is fixture-api.md's set plus one: mechanically identical to
+#: `trailer` is mechanically identical to
 #: `commit_message` (an empty-diff commit on main whose message carries the token),
 #: but resolves to kind `trailer`/`{commit, key}` instead of `commit_message`/
 #: `{commit}`, since `detect/commit_meta.py` reports a flagged trailer under its own
-#: location kind (architecture.md's `LocationKind` already names `trailer`) rather
-#: than folding it into the whole-message finding. `licence_transition` (stage 3b)
-#: is a second addition: two sequential commits at one path rather than one write, so
+#: location kind (`LocationKind` already names `trailer`) rather
+#: than folding it into the whole-message finding. `licence_transition`
+#: is a second special case: two sequential commits at one path rather than one write, so
 #: a plain marker's single `content` value becomes its "to" state with an empty
 #: "from" state (`Plant.from_content` defaults to `b""`) — harmless (both sides
 #: classify as `unknown`, so no marker ever produces a real `licence-transition`
 #: finding), and keeps this tuple the single source of truth `bench/fixture.py`'s
-#: marker coverage and stage-1b's own tests rely on.
+#: marker coverage and the fixture tests rely on.
 LOCATION_TYPES: tuple[LocationType, ...] = (
     "head",
     "history_only",
@@ -111,7 +111,7 @@ class Plant:
     #: type's own mechanical kind/key. For a plant whose *placement* mechanics don't
     #: match its *detector's* location kind — e.g. a `.gitmodules` plant needs
     #: `path_name` placement (the file must literally be named `.gitmodules`) but
-    #: the finding itself is content-based (`blob`), not path-based (stage 3a).
+    #: the finding itself is content-based (`blob`), not path-based.
     suppress_primary_expected: bool = False
 
 
@@ -172,8 +172,8 @@ class FixtureContext:
         colleague_identities: tuple[Identity, ...] = (),
     ) -> None:
         self.public_identity = public_identity
-        #: Fictional colleague identities (fixture-api.md "Known gaps": "real plants
-        #: should assign identities deliberately per plant"), exposed here so a
+        #: Fictional colleague identities (real plants assign identities
+        #: deliberately, per plant), exposed here so a
         #: plant module (e.g. `bench/plants/identity.py`) can use them without
         #: importing `bench/fixture.py` (which would be circular: fixture.py itself
         #: imports every plant module).
@@ -627,10 +627,9 @@ class FixtureContext:
 
     def _place_licence_transition(self, plant: Plant) -> None:
         """Two sequential commits at one path: `from_content` establishes what the
-        path holds first, `content` then changes it. Not one of fixture-api.md's
-        original 15 mechanics (every one of those writes a single state); a real
-        `detect/licence.py` scan attributes the transition to the *second* commit
-        (architecture.md "Match keys": `finding.extra["transition_commit"]`), so
+        path holds first, `content` then changes it. Unlike every other placement it writes
+        two states rather than one; a real `detect/licence.py` scan attributes the
+        transition to the *second* commit (`finding.extra["transition_commit"]`), so
         that is what `bench/match.py`'s `licence_transition` key resolves to, not a
         blob/line pair. `bench/plants/licence.py` is the only caller.
         """

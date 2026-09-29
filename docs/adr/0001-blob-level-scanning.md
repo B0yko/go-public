@@ -20,11 +20,11 @@ is matched against the rule set.
 
 ## Decision
 
-`git/inventory.py` (stage 1a) already produces the one artifact this needs for free:
+`git/inventory.py` already produces the one artifact this needs for free:
 one `git log --all --raw --no-renames --no-abbrev --diff-merges=separate -z` pass
 gives every `(blob, path, commit)` occurrence in the whole reachable history, root
 commits and merges included, without ever reading blob content itself. `scan.py`
-(stage 2b) scans each unique blob's content — via exactly one `cat-file` read per
+scans each unique blob's content — via exactly one `cat-file` read per
 blob, sharded across `--jobs` worker processes — and re-runs the already-compiled
 detectors once per *distinct* `(path, commit)` occurrence of that blob, not once per
 occurrence-content pair: a blob that occurs at one path in one commit (the common
@@ -60,7 +60,7 @@ with no path/commit context and attributed to no commit and no ref.
   the same guarantee: which worker happened to scan a blob never changes the result.
 - Attribution (which commits, which refs, `present_at_export_ref`) is a property of
   the *occurrence*, computed from the inventory's own `(blob, path, commit)| table
-  and `refs_containing` (lazy, cached per commit, per architecture.md), not
+  and `refs_containing` (lazy, cached per commit), not
   recomputed by re-diffing anything.
 - The trade-off this buys is temporal: a blob's occurrences are known before any
   content is scanned, so a rename or a revert to identical bytes is attributed
@@ -71,4 +71,4 @@ with no path/commit context and attributed to no commit and no ref.
 - Messages/identities/trailers/ref names/paths never enter the worker pool: they are
   bounded by the number of commits and refs, not by blob size or count, and reusing
   the inventory's already-parsed `CommitObj`/`TagObj` avoids a second `cat-file`
-  pass over the same objects stage 1a already read once to build the inventory.
+  pass over the same objects the inventory build already read once.

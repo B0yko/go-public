@@ -1,4 +1,4 @@
-"""JSON report (architecture.md "Report:"; product spec item 11): the `Report`
+"""JSON report: the `Report`
 model, dumped straight to JSON — `schemas/go-public-report-v1.json` is generated from
 the same model (`model.report_json_schema`).
 """

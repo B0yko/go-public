@@ -1,6 +1,6 @@
 """Local-path plants: absolute paths that reveal a username, and macOS temp paths
-(product spec item 5; stage-3.md). Every path-shaped string is assembled from parts
-at runtime (conventions.md), never written as one literal.
+Every path-shaped string is assembled from parts at runtime, never written as one
+literal.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ _BUILDERS = (_unix_path, _home_path, _windows_path)
 
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
     """Build every local-path plant for `size`. `ctx` is accepted for signature
-    parity (fixture-api.md); unused here."""
+    parity; unused here."""
     del ctx
     total = _COUNTS[size]
     plants: list[Plant] = []

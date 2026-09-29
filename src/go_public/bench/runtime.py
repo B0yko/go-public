@@ -30,7 +30,7 @@ from typing import Any
 
 from go_public.errors import GoPublicError
 
-#: Target of the product spec: a full scan of synthetic `medium` in this many seconds.
+#: Target: a full scan of synthetic `medium` in this many seconds.
 TARGET_SECONDS = 60.0
 
 _TIME_BIN = "/usr/bin/time"

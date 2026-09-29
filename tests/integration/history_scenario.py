@@ -1,6 +1,6 @@
 """A scenario repository for the history-preserving export tests.
 
-Every plant-shaped value is assembled at runtime (conventions.md). The history holds
+Every plant-shaped value is assembled at runtime. The history holds
 what `--keep-history` has to clean: secrets in a blob, a message and a tag, sensitive
 and internal-notes files, an excluded path, a path with a deny term, an image with GPS
 metadata, an oversized blob, non-allowlisted identities, flagged trailers and a commit

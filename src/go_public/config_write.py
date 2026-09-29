@@ -1,7 +1,7 @@
-"""tomlkit-based config writes (architecture.md "Config"; product spec items 13, 19):
+"""tomlkit-based config writes:
 `go-public allow` appends fingerprint/rotated entries, `go-public init` writes a
 fresh commented template. Both preserve an existing file's comments and formatting
-(conventions.md: "Config writes use tomlkit, so comments survive."), so every write
+(config writes use tomlkit, so comments survive), so every write
 here goes through `tomlkit.parse`/`tomlkit.dumps`, never through `config.py`'s
 `tomllib`-based reader.
 """
@@ -99,8 +99,8 @@ def load_latest_report(repo_name: str) -> Report:
 def resolve_secret_group_id(report: Report, fingerprint_or_group: str) -> str:
     """The `group_id` a secret `fingerprint_or_group` (a finding's own fingerprint,
     or already its group_id) resolves to in `report`. Raises `UsageError` (exit 2)
-    when nothing matches, or when the match is not a secret finding (stage-4.md:
-    "refuses --rotated for non-secret findings")."""
+    when nothing matches, or when the match is not a secret finding (`--rotated` is
+    refused for non-secret findings)."""
     for finding in report.findings:
         if fingerprint_or_group in (finding.fingerprint, finding.group_id):
             if finding.category != "secret":
@@ -135,7 +135,7 @@ _TEMPLATE_TABLES: tuple[tuple[str, tuple[tuple[str, object, str], ...]], ...] = 
 
 
 def build_init_template(repo_path: Path, identities: list[str]) -> str:
-    """A commented config template (product spec item 19): `[repo] path` set to
+    """A commented config template: `[repo] path` set to
     `repo_path`, every identity `init` found in history listed as a comment (never a
     live array entry — the user opts each one in), and every other table pre-filled
     with its default plus a one-line explanation."""

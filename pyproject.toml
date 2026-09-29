@@ -38,12 +38,12 @@ dev = [
   "pytest>=8",
   "ruff>=0.6",
   "mypy>=1.11",
-  # Dev-only: architecture.md "the OOXML files load in python-docx and openpyxl in
-  # a dev-only test". `fixture`/`demo`/`bench` never import either at runtime.
+  # Dev-only: a test checks that the generated OOXML files load in python-docx and
+  # openpyxl. `fixture`/`demo`/`bench` never import either at runtime.
   "python-docx>=1.1",
   "openpyxl>=3.1",
-  # Dev-only: stage-4.md "jsonschema is a dev dependency, not a runtime one" —
-  # validates sample reports against schemas/go-public-report-v1.json in tests only.
+  # Dev-only: validates sample reports against schemas/go-public-report-v1.json in
+  # tests; jsonschema is not a runtime dependency.
   "jsonschema>=4.20",
   # Dev-only: tests/test_docs.py parses the workflows and issue forms.
   "pyyaml>=6",
@@ -77,7 +77,7 @@ warn_unused_ignores = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-# Untyped or loosely-typed third-party dependencies used by later stages.
+# Untyped or loosely-typed third-party dependencies.
 module = ["re2.*", "git_filter_repo", "phonenumbers.*", "defusedxml.*"]
 ignore_missing_imports = true
 
@@ -85,7 +85,7 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = [
-  # architecture.md names "pathspec gitwildmatch" explicitly; pathspec's own
+  # go-public deliberately uses the "gitwildmatch" pattern style; pathspec's own
   # deprecation nudge toward "gitignore" is noted, not actionable here.
   "ignore:GitWildMatchPattern .* is deprecated:DeprecationWarning",
 ]

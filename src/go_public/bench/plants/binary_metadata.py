@@ -1,10 +1,9 @@
-"""Binary-metadata plants (product spec item 6; stage-3.md 3b), one per
-`detect/binary_meta.py` rule id the Data section's small-seed table names — plus two
-extra fields (`pdf-xmp`, `ooxml-comment-author`) so all ten small-seed plants land on
-a distinct, independently verifiable field rather than repeating a rule id.
+"""Binary-metadata plants, one per `detect/binary_meta.py` rule id in the small seed,
+plus two extra fields (`pdf-xmp`, `ooxml-comment-author`) so all ten small-seed plants
+land on a distinct, independently verifiable field rather than repeating a rule id.
 
-Every plant places its generated file via `binary_field` (fixture-api.md), with
-`field_name` set to exactly the name `detect/binary_meta.py`'s own extractor gives
+Every plant places its generated file via `binary_field`, with `field_name` set to
+exactly the name `detect/binary_meta.py`'s own extractor gives
 that field, so `bench/match.py`'s `(blob, field)` key lines up without guessing.
 """
 
@@ -28,7 +27,7 @@ from go_public.bench.plants._fictional import (
 
 _COUNTS: dict[str, int] = {"tiny": 4, "small": 10}
 
-#: A fictional GPS fix (Data section: "coordinates... fictional"): open ocean,
+#: A fictional GPS fix: open ocean,
 #: nowhere near a real address.
 _GPS_LAT = 24.716
 _GPS_LON = -60.583
@@ -104,7 +103,7 @@ def _templates() -> list[tuple[str, str, str, bytes]]:
 
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
     """Build every binary-metadata plant for `size`. `rng`/`ctx` accepted for
-    signature parity (fixture-api.md); every plant's content is a fixed fictional
+    signature parity; every plant's content is a fixed fictional
     value, so neither is needed here."""
     del rng, ctx
     total = _COUNTS[size]

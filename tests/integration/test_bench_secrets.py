@@ -1,6 +1,6 @@
-"""Stage 2b/3a's integration gate: the tiny/small fixture's plants, scanned end to
-end, give recall = precision = 1.0 for every implemented class; `--no-plants` scans
-to zero findings (stage-3.md: "extend the stage-2 integration test to all classes").
+"""Integration gate: the tiny/small fixture's plants, scanned end to end, give
+recall = precision = 1.0 for every implemented class; `--no-plants` scans to zero
+findings.
 """
 
 from __future__ import annotations
@@ -20,9 +20,7 @@ from go_public.scan import ScanOptions
 
 _SECRET_CLASSES = {"secret-vendor", "secret-generic"}
 
-#: Every eval_class go-public implements a detector for (architecture.md "Fixture &
-#: truth"): stage 3a's classes plus stage 3b's `licence`/`binary-metadata`/
-#: `large-file`.
+#: Every eval_class go-public implements a detector for.
 _ALL_IMPLEMENTED_CLASSES = _SECRET_CLASSES | {
     "pii-email",
     "pii-phone",
@@ -115,8 +113,8 @@ def test_recall_and_precision_are_perfect_for_every_implemented_class(
 def test_no_plants_fixture_with_its_own_config_scans_to_zero_findings(
     tmp_path: Path, size: str, seed: int
 ) -> None:
-    """Data section: "`--no-plants` generates the same filler and hard negatives
-    with only the public identity... scans to zero findings for every seed."
+    """`--no-plants` generates the same filler and hard negatives with only the
+    public identity, and scans to zero findings for every seed.
     """
     out = tmp_path / f"fixture-no-plants-{size}-{seed}"
     result = fixture.build(seed, size, plants=False, out=out)

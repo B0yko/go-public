@@ -1,6 +1,5 @@
-"""The `Finding` and `Report` models (architecture.md "Finding model" / "Report:"),
-pydantic v2. `Report.model_json_schema()` is the source of
-`schemas/go-public-report-v1.json` (stage-4.md item 11; see `tests/unit/
+"""The `Finding` and `Report` models, pydantic v2. `Report.model_json_schema()` is
+the source of `schemas/go-public-report-v1.json` (see `tests/unit/
 test_report_schema.py`).
 """
 
@@ -11,11 +10,11 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
-#: architecture.md "Finding model" Severity enum, ordered least to most severe.
+#: Severity levels, ordered least to most severe.
 SEVERITIES: tuple[str, ...] = ("info", "low", "medium", "high", "critical")
 _SEVERITY_RANK = {name: rank for rank, name in enumerate(SEVERITIES)}
 
-#: architecture.md Category enum (values use hyphens, so this is a plain
+#: Finding categories (values use hyphens, so this is a plain
 #: string-literal set rather than a `StrEnum` with non-identifier members).
 CATEGORIES: tuple[str, ...] = (
     "secret",
@@ -34,7 +33,7 @@ CATEGORIES: tuple[str, ...] = (
     "config",
 )
 
-#: architecture.md LocationKind enum.
+#: Kinds of location a finding can point at.
 LOCATION_KINDS: tuple[str, ...] = (
     "blob",
     "path",
@@ -47,7 +46,7 @@ LOCATION_KINDS: tuple[str, ...] = (
     "unreachable_blob",
 )
 
-#: architecture.md FixAction.action enum.
+#: Actions a fix-plan entry can prescribe.
 FIX_ACTIONS: tuple[str, ...] = (
     "rotate",
     "edit-line",
@@ -63,7 +62,7 @@ FIX_ACTIONS: tuple[str, ...] = (
 )
 
 #: Findings at or above this cap keep only the first N commits/refs; `_total` on the
-#: finding records the real count. architecture.md: "capped 50" for both lists.
+#: finding records the real count. The cap is 50 for both lists.
 ATTRIBUTION_CAP = 50
 
 
@@ -93,7 +92,7 @@ def make_group_id(*, category: str, rule_id: str, normalized_value: str) -> str:
 
 class Location(BaseModel):
     """Where a finding was found. Only the fields relevant to `kind` are set; the
-    rest stay `None`/empty, per architecture.md.
+    rest stay `None`/empty.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -119,7 +118,7 @@ class FixAction(BaseModel):
 
 class Finding(BaseModel):
     """One detection, attributed to its commits/refs and ready for the report and
-    fix plan (architecture.md "Finding model").
+    fix plan.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -156,15 +155,14 @@ class Finding(BaseModel):
 
 
 def repo_display_name(path: str) -> str:
-    """A repository's name for the report (product spec item 11: "names the
-    repository by its directory name, never by its absolute path"); `.git` is
-    stripped so a bare `myrepo.git` reports as `myrepo`, same as a non-bare
-    `myrepo/`."""
+    """A repository's name for the report: its directory name, never its absolute
+    path. `.git` is stripped so a bare `myrepo.git` reports as `myrepo`, same as a
+    non-bare `myrepo/`."""
     name = path.rstrip("/").rsplit("/", 1)[-1]
     return name[: -len(".git")] if name.endswith(".git") and name != ".git" else name
 
 
-# -- Report (architecture.md "Report:", stage-4.md item 11) ------------------------
+# -- Report ------------------------------------------------------------------------
 
 
 class ToolInfo(BaseModel):
@@ -237,7 +235,7 @@ class WarningInfo(BaseModel):
     message: str
 
 
-#: architecture.md "Suppression": every place a finding can be suppressed from.
+#: Every place a finding can be suppressed from.
 SUPPRESS_SOURCES: tuple[str, ...] = (
     "config-fingerprint",
     "config-group",
@@ -267,7 +265,7 @@ class RotatedInfo(BaseModel):
 
 
 class PlanEntryA(BaseModel):
-    """`plan.py` group A: one row per secret `group_id` (architecture.md "Fix plan")."""
+    """`plan.py` group A: one row per secret `group_id`."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -290,8 +288,7 @@ class PlanEntryA(BaseModel):
 
 class PlanFileGroup(BaseModel):
     """`plan.py` groups B/C: one row per file path, or (`is_path=False`) per location
-    kind for non-file items (architecture.md: "grouped per file path (non-file items
-    grouped under their kind)")."""
+    kind for non-file items (grouped under their kind)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -305,8 +302,7 @@ class PlanFileGroup(BaseModel):
 
 class PlanDecideItem(BaseModel):
     """`plan.py` group D: one row per category (licence, large-file) at the export
-    ref (architecture.md: "licence category + large-file findings at the export
-    ref")."""
+    ref."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -315,9 +311,8 @@ class PlanDecideItem(BaseModel):
 
 
 class PlanModel(BaseModel):
-    """architecture.md "Fix plan": `plan{A[], B[], C[], D[], next_commands[]}`.
-    `identity_notes` is a stage-4 addition beyond that literal shape (recorded as a
-    deviation in STATUS.md): product spec item 12 group D also carries "names if you
+    """The fix plan: `plan{A[], B[], C[], D[], next_commands[]}`.
+    `identity_notes` sits beside those groups: group D also carries "names if you
     keep history", a plain FYI list of identity strings rather than findings, which
     does not fit `PlanDecideItem`'s per-category/fingerprint shape.
     """
@@ -364,5 +359,5 @@ class Report(BaseModel):
 
 def report_json_schema() -> dict[str, object]:
     """`Report.model_json_schema()`, the source of
-    `schemas/go-public-report-v1.json` (stage-4.md item 11)."""
+    `schemas/go-public-report-v1.json`."""
     return Report.model_json_schema()

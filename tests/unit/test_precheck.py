@@ -1,6 +1,5 @@
-"""`export/precheck.py`'s pure resolvability logic (product spec item 14 step 1):
-which findings at the export ref the export process resolves by itself, and which
-still block `--fail-on`.
+"""`export/precheck.py`'s pure resolvability logic: which findings at the export ref the export
+process resolves by itself, and which still block `--fail-on`.
 """
 
 from __future__ import annotations

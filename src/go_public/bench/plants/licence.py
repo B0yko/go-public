@@ -1,14 +1,13 @@
-"""Licence-history plants (product spec item 7; stage-3.md 3b): 3 licence
-transitions plus 1 proprietary/confidential notice, per the Data section's
-small-seed table.
+"""Licence-history plants: 3 licence transitions plus 1 proprietary/confidential
+notice in the small seed.
 
 Licence body text below is ordinary open-source licence boilerplate (MIT, Apache-2.0,
 BSD-3-Clause, Unlicense) — the same kind of text this very repository's own
 `LICENSE` carries in full, and the whole point of that text is to be copied. None of
-it needs runtime assembly (conventions.md's "plant-shaped strings" rule targets
-strings a detector would otherwise flag — secrets, emails, phones, private IPs, user
-paths, internal hosts, deny terms — not licence wording, which no detector in this
-package classifies as a leak).
+it needs runtime assembly (the rule that plant-shaped strings are assembled at
+runtime targets strings a detector would otherwise flag — secrets, emails, phones,
+private IPs, user paths, internal hosts, deny terms — not licence wording, which no
+detector in this package classifies as a leak).
 """
 
 from __future__ import annotations
@@ -39,8 +38,8 @@ _APACHE_TEXT = (
 #: mismatch to report. "All rights reserved" with no permission-grant phrase is
 #: `detect/licence.py`'s own proprietary heuristic, and — since this is a
 #: `LICENSE`-relevant path and the sentence opens its own line — also a genuine
-#: `detect_notice` hit since stage 4's notice-detector fix (a real co-occurrence, not
-#: a contrived one; see the `expected_extra` below and STATUS.md).
+#: `detect_notice` hit (a real co-occurrence, not a contrived
+#: one; see the `expected_extra` below).
 _PROPRIETARY_TEXT = (
     f"Copyright (c) 2024 {LICENCE_FOREIGN_HOLDER}\n\n"
     "All rights reserved. Internal distribution only. No licence is granted to use, "
@@ -70,8 +69,8 @@ _TRANSITIONS: tuple[tuple[bytes, bytes, bool], ...] = (
 
 #: A proprietary/confidential notice, planted at `head` (not a licence-relevant
 #: path): `detect/licence.py`'s `detect_notice` runs over every blob's text, not
-#: just licence files (stage-3.md: "licence files, SPDX/header comment blocks at
-#: file top").
+#: just licence files (licence files and SPDX/header comment blocks at
+#: file top).
 _NOTICE_CONTENT = (
     b"// Confidential: internal draft, do not redistribute outside the team.\n\n"
     b"// (placeholder module header)\n"
@@ -133,7 +132,7 @@ def _notice_plant(index: int) -> Plant:
 
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
     """Build every licence plant for `size`. `rng`/`ctx` accepted for signature
-    parity (fixture-api.md); every plant's content is a fixed fictional value, so
+    parity; every plant's content is a fixed fictional value, so
     neither is needed here."""
     del rng, ctx
     total = _COUNTS[size]

@@ -1,8 +1,8 @@
 """The fixture framework: determinism, and every marker attributed correctly.
 
-Stage 1 brief (1b): "inventory integration on the tiny fixture: every ref namespace
-listed, every marker blob found and attributed to the expected ref(s), dangling
-marker only with `--include-unreachable`".
+Inventory integration on the tiny fixture: every ref namespace listed, every marker
+blob found and attributed to the expected ref(s), dangling marker only with
+`--include-unreachable`.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ def _assert_marker_attributed(marker: ResolvedPlant, inv: Inventory) -> None:
 def test_every_marker_is_found_and_attributed(tmp_path: Path) -> None:
     result = _build(tmp_path, "repo", markers_in_truth=True)
     inv = build(GitRunner(result.repo, role="source"), include_unreachable=True)
-    # `result.markers` holds every resolved plant (stage 2b's real secret plants now
+    # `result.markers` holds every resolved plant (the real secret plants
     # coexist with the neutral markers); `_assert_marker_attributed`'s
     # commit_message/tag_message checks assume a marker's own plant_id is the
     # planted text, which only markers guarantee.
@@ -101,7 +101,7 @@ def test_markers_are_not_written_to_truth_by_default(tmp_path: Path) -> None:
     result = _build(tmp_path, "repo")
     assert result.markers  # the python API still returns them (the "test helper")
     entries = read_truth(result.truth_path)
-    assert entries  # stage 2b's real secret plants are non-marker and do appear
+    assert entries  # the real secret plants are non-marker and do appear
     assert all(e.category != "marker" for e in entries)
 
 
@@ -118,7 +118,7 @@ def test_unknown_size_is_a_usage_error(tmp_path: Path) -> None:
 
 
 def test_annotated_tag_points_at_a_commit_on_no_branch(tmp_path: Path) -> None:
-    """Stage 1 topology: "one annotated tag pointing at a commit on no branch"."""
+    """Topology: one annotated tag points at a commit on no branch."""
     result = _build(tmp_path, "repo")
     inv = build(GitRunner(result.repo, role="source"))
     tag_only = next(m for m in result.markers if m.plant.location_type == "tag_only")

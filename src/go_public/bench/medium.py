@@ -1,6 +1,6 @@
 """The `medium` fixture: a runtime-sized repository, finding-free filler only.
 
-Seed 100 targets the product spec's shape: about 3,000 commits, 4 branches, 30 tags,
+Seed 100 targets about 3,000 commits, 4 branches, 30 tags,
 about 12,000 unique blobs, about 200 MB of blob content, 40 binaries. Text blobs are
 assembled from fixed line pools (so 200 MB generates in seconds) with a per-blob header
 that keeps every blob unique. The pools avoid every word a secret rule keys on

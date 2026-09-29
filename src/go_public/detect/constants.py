@@ -1,11 +1,11 @@
 """Constants that must not be assembled at runtime: CIDR ranges, path prefixes,
 internal hostname suffixes and reserved email domains used by the path/network/pii
-detectors and their config defaults (product spec items 3 and 5; stage-3.md).
+detectors and their config defaults.
 
-conventions.md's "plant-shaped strings are assembled at runtime" rule is about test
-and fixture data, not ordinary source code; but several of these literals are shaped
+The rule that plant-shaped strings are assembled at runtime applies to test and
+fixture data, not ordinary source code; but several of these literals are shaped
 like the very things go-public flags (a `/Users/` prefix, a private-IP range), so
-conventions.md keeps them in exactly one file, allowlisted by path in the committed
+they live in exactly one file, allowlisted by path in the committed
 `.go-public.toml`, rather than scattered through every detector that needs one.
 """
 
@@ -14,7 +14,7 @@ from __future__ import annotations
 import ipaddress
 
 #: RFC 1918 (private-use), RFC 6598 (shared address space / carrier-grade NAT) and
-#: RFC 3927 (link-local) IPv4 ranges (product spec item 5). Loopback is checked and
+#: RFC 3927 (link-local) IPv4 ranges. Loopback is checked and
 #: allowed separately by `is_private_ip`.
 PRIVATE_IPV4_NETWORKS: tuple[ipaddress.IPv4Network, ...] = tuple(
     ipaddress.IPv4Network(cidr)
@@ -30,10 +30,10 @@ PRIVATE_IPV4_NETWORKS: tuple[ipaddress.IPv4Network, ...] = tuple(
 #: RFC 4193 unique local addresses (IPv6 ULA).
 PRIVATE_IPV6_NETWORKS: tuple[ipaddress.IPv6Network, ...] = (ipaddress.IPv6Network("fc00::/7"),)
 
-#: Absolute path prefixes that reveal a local username (product spec item 5).
+#: Absolute path prefixes that reveal a local username.
 USER_PATH_PREFIXES: tuple[str, ...] = ("/Users/", "/home/")
 #: A Windows user path may appear with a single backslash, a doubled ("JSON-escaped")
-#: backslash, or forward slashes (stage-3.md).
+#: backslash, or forward slashes.
 WINDOWS_USER_PATH_PREFIX = "C:\\Users\\"
 WINDOWS_USER_PATH_FSLASH_PREFIX = "C:/Users/"
 #: macOS per-process temp directory: always machine-specific, no username needed.
@@ -60,7 +60,7 @@ DEFAULT_INTERNAL_SUFFIXES: tuple[str, ...] = (
     ".ts.net",
 )
 
-#: Reserved-for-documentation email domains/suffixes (product spec item 3); an email
+#: Reserved-for-documentation email domains/suffixes; an email
 #: at one of these can never be a real public address, so it is never personal data.
 RESERVED_EMAIL_DOMAINS: tuple[str, ...] = ("example.com", "example.org", "example.net")
 RESERVED_EMAIL_SUFFIXES: tuple[str, ...] = (".test", ".example", ".invalid", ".localhost")

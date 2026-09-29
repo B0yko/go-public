@@ -1,8 +1,7 @@
 """Static source checks: no `push`, and no `subprocess` outside the allowed modules.
 
-These are the tests architecture.md calls for under "Git runner": nothing in the
-package may invoke git with `push`, and nothing outside the git runner (plus, in
-later stages, `export/history.py` and `bench/`) may shell out at all.
+Nothing in the package may invoke git with `push`, and nothing outside the git
+runner (plus `export/` and `bench/`) may shell out at all.
 """
 
 from __future__ import annotations
@@ -17,9 +16,9 @@ SRC = Path(__file__).resolve().parents[2] / "src" / "go_public"
 _PUSH_ALLOWED_FILES = {"git/runner.py"}
 _PUSH_RE = re.compile(r"""["']push["']""")
 
-# Modules allowed to shell out. Only `git/runner.py` exists in stage 1a; later
-# stages add `export/history.py` (git-filter-repo child process) and `bench/`
-# (the clone-only runner for `--real-world-dir`).
+# Modules allowed to shell out: `git/runner.py`, `export/` (the git-filter-repo
+# child process in `export/history.py`) and `bench/` (the clone-only runner for
+# `--real-world-dir`).
 _SUBPROCESS_ALLOWED_FILES = {"git/runner.py"}
 _SUBPROCESS_ALLOWED_DIRS = ("export/", "bench/")
 _SUBPROCESS_CALL_RE = re.compile(r"subprocess\.(run|Popen|call|check_call|check_output)\(")
@@ -51,7 +50,7 @@ def test_subprocess_only_used_in_allowed_modules() -> None:
     assert offenders == []
 
 
-# stage-2.md: "python re must not be used for rule patterns" — the gitleaks config
+# Python `re` must not be used for rule patterns: the gitleaks config
 # loader and the secrets engine compile every rule/allowlist/path pattern with
 # `re2` (linear-time, and the same semantics as gitleaks's Go engine); `re` is not
 # imported by either module at all.

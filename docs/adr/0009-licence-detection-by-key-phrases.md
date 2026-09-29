@@ -2,8 +2,8 @@
 
 ## Context
 
-Product spec item 7 asks for licence history: every commit that changes a licence
-file or a manifest's `license` field, proprietary/confidential notices anywhere in
+Licence history is one of the things go-public reports: every commit that changes a
+licence file or a manifest's `license` field, proprietary/confidential notices anywhere in
 history, copyright holders that differ from the configured owner, and whether HEAD
 has a licence at all. None of this is a legal opinion — the README says so — it is a
 small set of facts a maintainer needs before publishing: did the licence change, does
@@ -44,9 +44,9 @@ different fact from "the project's licence changed", and conflating the two woul
 turn every vendored file with its own SPDX header into a spurious transition.
 
 `detect_notice` (the proprietary/confidential check) runs over blob content only,
-never commit/tag message text (stage-4.md: a notice is a fact about a file in
-history, not about prose in a commit message — the initial stage-3b version ran over
-any text and over-reached). It requires the flagged word to *open* a line, so
+never commit/tag message text: a notice is a fact about a file in history, not about
+prose in a commit message, and running over any text over-reaches. It requires the
+flagged word to *open* a line, so
 `_PROPRIETARY_KEYWORDS`'s own definition and this file's docstring do not self-flag
 on go-public's self-scan, and so a sentence that discusses the concept in passing
 ("...explains proprietary licences...") is not confused with an actual banner. Where
@@ -62,8 +62,8 @@ line-anchored check, scoped to the same text `detect_notice` actually reads (the
 whole file when licence-relevant, else just the header block).
 
 Copyright-holder extraction is a single regex (`Copyright ... <holder>`) run only
-against paths `is_licence_file_path` recognises, matching product spec item 7's
-narrower "copyright holders that differ from the configured owner" (a licence-file
+against paths `is_licence_file_path` recognises, matching the narrower goal of
+finding copyright holders that differ from the configured owner (a licence-file
 concern, not a general document scan).
 
 ## Consequences
@@ -76,17 +76,15 @@ concern, not a general document scan).
 - A repository with no `LICENSE*`/`LICENCE*`/`COPYING*` file and no recognised
   manifest `license` field legitimately reports `licence-missing-at-head` (info) —
   including `go-public fixture`'s own synthetic repositories, which is why
-  `bench/fixture.py` now commits a neutral MIT `LICENSE` regardless of `--no-plants`
-  (STATUS.md): the Data section's "`--no-plants` scans to zero findings" contract
-  would otherwise never hold for any fixture, since no filler template names a
-  licence file.
+  `bench/fixture.py` now commits a neutral MIT `LICENSE` regardless of `--no-plants`:
+  the "`--no-plants` scans to zero findings" contract would otherwise never hold for
+  any fixture, since no filler template names a licence file.
 - The proprietary-notice check intentionally trades some recall (a notice that never
   opens a line, e.g. buried mid-paragraph, or one past line 30 of an unrelated file)
-  for precision (no false hits on this very file's own vocabulary, on the Data
-  section's committed prose about the feature, or — since stage 4 — on any commit
-  message discussing the feature; before that fix, this repository's own history
-  self-flagged two commit messages that merely used the word "proprietary" in prose,
-  recorded as a stage-3 deviation in STATUS.md and now resolved).
+  for precision (no false hits on this very file's own vocabulary, on the
+  committed prose about the feature, or on any commit message discussing the
+  feature: a check that also ran over messages would flag commits that merely used
+  the word "proprietary" in prose).
 - `bench/plants/licence.py`'s Apache-2.0 -> proprietary transition plant's "to" text
   is both `licence-transition`-classified and, since it sits in a `LICENSE`-relevant
   file and its "All rights reserved..." sentence opens its own line, a genuine

@@ -54,8 +54,7 @@ for this port (all at
 intentionally *stricter* than gitleaks: viper's `Unmarshal` silently ignores a key
 that doesn't match a known struct field, while go-public's loader treats any
 unrecognised key, at any level (top-level, `[extend]`, a rule, an allowlist, a
-`required` entry), as a `ConfigError` (exit 2) — the product spec asks for this
-explicitly ("Unknown keys exit 2"), and it catches a typo'd `--gitleaks-config`
+`required` entry), as a `ConfigError` (exit 2), the documented behaviour ("Unknown keys exit 2"), and it catches a typo'd `--gitleaks-config`
 instead of quietly running fewer checks than the user intended. A pattern that fails
 to compile is the one place go-public is *more* lenient at load time: it is recorded
 in `compile_failures` (that rule or allowlist entry then matches nothing) rather than
@@ -74,7 +73,7 @@ Deliberately **not** ported (documented, not silently dropped):
 
 ## Consequences
 
-- Every rule, allowlist, and (later, stage 3+) go-public's own pattern-based
+- Every rule, allowlist, and go-public's own pattern-based
   detectors compile through the same `re2` engine; a future detector reaching for
   Python's `re` for anything rule-shaped is a bug, not a style choice.
 - The port is a moving target only in the sense that gitleaks itself moves; pinning

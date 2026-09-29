@@ -26,8 +26,8 @@ every path/commit-dependent decision (including the global and per-rule allowlis
 which need the concrete `(path, commit)` pair) to one occurrence's candidates,
 without re-running any regex. A blob attributed to several (path, commit) pairs
 therefore has its content matched exactly once, no matter how many occurrences the
-scan pipeline (`scan.py`) evaluates it for (stage-3a fix for a stage-2b deviation:
-see STATUS.md and `docs/adr/0001-blob-level-scanning.md`). `detect()` remains as a
+scan pipeline (`scan.py`) evaluates it for (see
+`docs/adr/0001-blob-level-scanning.md`). `detect()` remains as a
 convenience that runs both phases for one text/occurrence in a single call, for
 callers (and tests) that only ever see one occurrence at a time.
 
@@ -52,9 +52,9 @@ import re2
 from go_public.detect.base import Detection, UnitCtx
 from go_public.detect.gitleaks_config import Allowlist, GitleaksConfig, Required, Rule
 
-#: go-public's own lockfile skip for the generic-entropy detector (product spec
-#: item 2). Vendor rules are unaffected; the bundled gitleaks allowlist already
-#: excludes most of these by path pattern for its own rules.
+#: go-public's own lockfile skip for the generic-entropy detector. Vendor rules are
+#: unaffected; the bundled gitleaks allowlist already excludes most of these by path
+#: pattern for its own rules.
 _LOCKFILE_NAMES = frozenset(
     {
         "package-lock.json",
@@ -75,10 +75,10 @@ _MAX_GENERIC_LINE_CHARS = 1000
 
 #: `key|secret|token|passw(or)?d|pwd|credential|auth`, then an assignment operator,
 #: then a token of at least 16 characters from a typical secret-value alphabet.
-#: go-public's own pattern (not from gitleaks.toml); see product spec item 2 and
-#: stage-2.md. Deliberately narrower than the vendored `generic-api-key` rule: this
-#: one exists to catch what that rule's own allowlist filters out, tuned by
-#: `[secrets] generic_entropy` rather than a fixed entropy cutoff.
+#: go-public's own pattern (not from gitleaks.toml). Deliberately narrower than the
+#: vendored `generic-api-key` rule: this one exists to catch what that rule's own
+#: allowlist filters out, tuned by `[secrets] generic_entropy` rather than a fixed
+#: entropy cutoff.
 _GENERIC_ASSIGNMENT_RE = re2.compile(
     r"(?i)[\w.-]{0,50}?(?:key|secret|token|passw(?:or)?d|pwd|credential|auth)"
     r"[\w.-]{0,20}\s*(?:=|:|=>)\s*['\"]?([A-Za-z0-9_+/=.-]{16,200})['\"]?"

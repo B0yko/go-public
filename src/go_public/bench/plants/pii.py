@@ -1,12 +1,10 @@
-"""PII plants: emails, phone numbers and a flagged name (product spec item 3;
-stage-3.md).
+"""PII plants: emails, phone numbers and a flagged name.
 
 Email plants use `.internal` domains (ICANN-reserved for private use: detected as
 emails, never a real public address) and each also expects the secondary
-`network`/`internal-host` finding for the same hostname, on the same line (Data
-section: "Their truth entries also list the secondary network finding for the
-hostname."). Phone plants use NANP 555-0100..0199 and the GB Ofcom drama ranges
-verified against `phonenumbers` in stage-3.md.
+`network`/`internal-host` finding for the same hostname, on the same line (their
+truth entries also list the secondary network finding for the hostname). Phone plants
+use NANP 555-0100..0199 and the GB Ofcom drama ranges, verified against `phonenumbers`.
 """
 
 from __future__ import annotations
@@ -28,19 +26,19 @@ _CONTENT_LOCATIONS: tuple[LocationType, ...] = (
     "unreachable",
 )
 
-#: `size` -> (email count, phone count, name count), matching the product spec's
-#: "Plants per small seed" table (6 emails, 6 phones, 3 names).
+#: `size` -> (email count, phone count, name count); the small seed
+#: has 6 emails, 6 phones and 3 names.
 _COUNTS: dict[str, tuple[int, int, int]] = {"tiny": (2, 2, 1), "small": (6, 6, 3)}
 
 _INTERNAL_DOMAIN_WORDS = ("build", "deploy", "release", "staging", "metrics", "infra")
 _LOCAL_PARTS = ("jordan", "morgan", "sam", "alex", "devteam", "oncall")
 
 #: NANP 555 numbers reserved for fiction (any 0100-0199 range is documented fictional
-#: per the NANPA); verified VALID at `phonenumbers` `Leniency.VALID` in stage-3.md.
+#: per the NANPA); verified VALID at `phonenumbers` `Leniency.VALID`.
 _NANP_LINES = tuple(f"555-01{n:02d}" for n in range(0, 100))
 _NANP_AREA_CODES = ("202", "415", "312", "646")
 #: GB Ofcom drama ranges (020 7946 0xxx, 0113 496 0xxx, 0161 496 0xxx); the mobile
-#: drama range 07700 900xxx is deliberately NOT used (stage-3.md: not VALID).
+#: drama range 07700 900xxx is deliberately NOT used (not VALID).
 _GB_NUMBERS = tuple(f"020 7946 0{n:03d}" for n in range(100, 200)) + tuple(
     f"0113 496 0{n:03d}" for n in range(100, 200)
 )
@@ -103,7 +101,7 @@ def _name_plant(index: int, location_type: LocationType) -> Plant:
 
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
     """Build every pii plant for `size`. `ctx` is accepted for signature parity with
-    other plant modules (fixture-api.md); unused here."""
+    other plant modules; unused here."""
     del ctx
     email_count, phone_count, name_count = _COUNTS[size]
     plants: list[Plant] = []

@@ -1,7 +1,7 @@
 """Shared fixtures: environment isolation, and helpers to build scenario repos.
 
 Tests build repos with plain `subprocess` git calls (never through `GitRunner`,
-which is what is under test); package code may not do this — see conventions.md.
+which is what is under test); package code may not do this.
 """
 
 from __future__ import annotations

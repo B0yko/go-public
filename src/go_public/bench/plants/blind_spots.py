@@ -1,4 +1,4 @@
-"""Blind-spot plants (product spec Data section): things a static, offline scanner is
+"""Blind-spot plants: things a static, offline scanner is
 not expected to catch. They are reported separately (`truth.blind.jsonl`, measured by
 `go-public bench --blind-spots`) and never counted in the main table.
 

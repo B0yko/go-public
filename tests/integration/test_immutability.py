@@ -1,9 +1,9 @@
 """The source repository is never modified by a go-public command.
 
-Product spec item 17: fingerprint every ref, `count-objects -v`, a hash of
-`.git/config`, `HEAD`, the index, and `git --no-optional-locks status --porcelain`,
-before and after running a command, and assert it is unchanged. Covers `scan`, `show`
-and both exports, on a working-tree repository and on a bare one.
+Each test fingerprints every ref, `count-objects -v`, a hash of `.git/config`,
+`HEAD`, the index, and `git --no-optional-locks status --porcelain`, before and after
+running a command, and asserts it is unchanged. Covers `scan`, `show` and both
+exports, on a working-tree repository and on a bare one.
 """
 
 from __future__ import annotations

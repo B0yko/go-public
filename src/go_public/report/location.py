@@ -1,8 +1,7 @@
-"""Where reports are written (architecture.md "Report location"; product spec item
-11): outside the scanned working tree, by default under `$XDG_STATE_HOME/go-public/
-<repo-name>/<UTC timestamp>/`, with a `latest` symlink kept pointing at the newest
-one. `go-public allow --rotated` (`config_write.py`) reads that symlink back to find
-"the latest report for the repo".
+"""Where reports are written: outside the scanned working tree, by default under
+`$XDG_STATE_HOME/go-public/<repo-name>/<UTC timestamp>/`, with a `latest` symlink
+kept pointing at the newest one. `go-public allow --rotated` (`config_write.py`)
+reads that symlink back to find "the latest report for the repo".
 """
 
 from __future__ import annotations
@@ -40,8 +39,8 @@ def resolve_report_dir(
 ) -> Path:
     """The directory this scan's reports go in. Refused (exit 2, via `UsageError`)
     when it would land inside the scanned repository (working tree or bare repo
-    directory alike) — product spec item 11: "written outside the scanned working
-    tree". `protected` adds further directories that count as the repository (its work
+    directory alike), since reports are written outside the scanned working
+    tree. `protected` adds further directories that count as the repository (its work
     tree top level, git directories)."""
     target = (
         override.resolve()
@@ -59,13 +58,13 @@ def _refuse_inside_scanned_repo(target: Path, scanned_repo: Path) -> None:
 
 
 def prepare_report_dir(path: Path) -> None:
-    """Create `path` (and parents) at mode 0700, per product spec item 11."""
+    """Create `path` (and parents) at mode 0700."""
     path.mkdir(parents=True, exist_ok=True)
     path.chmod(0o700)
 
 
 def secure_report_file(path: Path) -> None:
-    """Mode 0600, per product spec item 11."""
+    """Mode 0600."""
     path.chmod(0o600)
 
 

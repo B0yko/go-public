@@ -1,5 +1,5 @@
-"""The export pre-check (product spec item 14 step 1; stage-5.md): decide whether
-findings at the export ref block a squash export.
+"""The export pre-check: decide whether findings at the export ref block a squash
+export.
 
 A finding never blocks when it is resolved by the export process itself:
 
@@ -50,8 +50,8 @@ _AUTO_EXCLUDED_CATEGORIES = frozenset({"sensitive-file", "internal-notes"})
 class PrecheckOutcome:
     """`findings`/`suppressed` are the full (post-suppression) scan result at the
     export ref's repository, reused by `export/squash.py` so it never re-scans the
-    source repository twice; `blocking` is the subset item 14 step 1 actually cares
-    about."""
+    source repository twice; `blocking` is the subset that actually blocks the
+    export."""
 
     inventory: Inventory
     findings: list[Finding]

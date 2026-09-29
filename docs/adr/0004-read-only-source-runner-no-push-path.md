@@ -33,8 +33,8 @@ a hash of `.git/config`, `HEAD`, the index, and `git --no-optional-locks status
 command runs, and a static test greps `src/go_public/` for the literal `"push"` /
 `'push'` outside `git/runner.py` (where the forbidden-command set itself must name
 it) and for `subprocess.run/Popen/call/check_call/check_output(` outside
-`git/runner.py` (later stages add `export/history.py`, for the `git-filter-repo`
-child process, and `bench/`, for the real-world clone-only runner).
+`git/runner.py` (`export/` also shells out, for the `git-filter-repo` child process,
+and `bench/`, for the real-world clone-only runner).
 
 ## Consequences
 

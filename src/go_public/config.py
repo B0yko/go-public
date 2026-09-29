@@ -1,10 +1,9 @@
-"""The pydantic `Config` model (architecture.md "Config"), `extra="forbid"` at every
-level so an unknown key is a `ConfigError` (exit 2).
+"""The pydantic `Config` model, `extra="forbid"` at every level so an unknown key is
+a `ConfigError` (exit 2).
 
-Stage 2b ships every table the architecture names, with its defaults, and only the
-minimal discovery the stage-2 brief asks for: an explicit `--config` path, or the
-built-in defaults. `$GO_PUBLIC_CONFIG`, the XDG file and the tracked `.go-public.toml`
-(read from the export ref's tree) are stage 4's `config.py` completion.
+`load_config` reads an explicit `--config` path or returns the built-in defaults.
+`discover_config` adds `$GO_PUBLIC_CONFIG`, the XDG file and the tracked
+`.go-public.toml` (read from the export ref's tree).
 """
 
 from __future__ import annotations
@@ -166,7 +165,7 @@ def load_config(path: str | Path | None = None) -> Config:
     """Load `path` (a TOML file) or return the defaults when `path is None`.
 
     Discovery beyond an explicit path (`$GO_PUBLIC_CONFIG`, the XDG file, the tracked
-    `.go-public.toml`) is stage 4's job; the CLI passes `--config` straight through.
+    `.go-public.toml`) lives in `discover_config`.
     """
     if path is None:
         return Config()
@@ -183,7 +182,7 @@ def load_config(path: str | Path | None = None) -> Config:
         raise ConfigError(f"invalid config {text_path}: {exc}") from exc
 
 
-# -- discovery (stage 4): --config > $GO_PUBLIC_CONFIG > XDG file > tracked -------
+# -- discovery: --config > $GO_PUBLIC_CONFIG > XDG file > tracked --------------------
 
 
 def xdg_config_path(repo: Path) -> Path:
@@ -197,7 +196,7 @@ def xdg_config_path(repo: Path) -> Path:
 def _read_tracked_config_text(runner: GitRunner, ref: str) -> str | None:
     """`.go-public.toml` at `ref`'s tree, or `None` when the repo has none there.
     Uses `cat-file -p <ref>:<path>`, a single read-only call any `source`-role runner
-    already allows (architecture.md "Git runner")."""
+    already allows."""
     try:
         content = runner.run(["cat-file", "-p", f"{ref}:.go-public.toml"])
     except GitError:
@@ -207,8 +206,8 @@ def _read_tracked_config_text(runner: GitRunner, ref: str) -> str | None:
 
 def _tracked_allowlist_config(text: str) -> Config:
     """Only `[allowlist]` and `[identity].allow` are read from a *tracked* config
-    (architecture.md "Config" discovery order: "tracked `.go-public.toml`... (allowlists
-    only)"; the identity allowlist only removes findings, so it counts); every other
+    (the discovery order allows a tracked `.go-public.toml` for allowlists only; the
+    identity allowlist only removes findings, so it counts); every other
     table a committed file might carry is ignored here (`detect/files.py`'s
     `check_tracked_config`/`scan.py`'s `_scan_tracked_config` separately flag a
     non-empty `[deny]` table there as a critical finding, so this never silently lets
@@ -251,12 +250,12 @@ def discover_config(
     runner: GitRunner | None = None,
     export_ref: str = "HEAD",
 ) -> ConfigDiscovery:
-    """Resolve go-public's config the way architecture.md's "Config" fixes it:
-    `--config` (`explicit`) wins outright; else `$GO_PUBLIC_CONFIG`; else the XDG
-    file (ignored with a warning when its own `[repo] path` names a different
-    repository); else a tracked `.go-public.toml` at `export_ref` (allowlists only,
-    read through `runner` when given); else the built-in defaults. `source` is a
-    short description for `Report.scan.options.config_source`."""
+    """Resolve go-public's config: `--config` (`explicit`) wins outright; else
+    `$GO_PUBLIC_CONFIG`; else the XDG file (ignored with a warning when its own
+    `[repo] path` names a different repository); else a tracked `.go-public.toml` at
+    `export_ref` (allowlists only, read through `runner` when given); else the
+    built-in defaults. `source` is a short description for
+    `Report.scan.options.config_source`."""
     if explicit is not None:
         return ConfigDiscovery(config=load_config(explicit), source=str(explicit))
 

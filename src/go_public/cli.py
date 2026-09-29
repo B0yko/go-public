@@ -1,6 +1,4 @@
-"""The `go-public` command line. See architecture.md "CLI surface" for the full plan;
-later stages add the remaining commands and options.
-"""
+"""The `go-public` command line."""
 
 from __future__ import annotations
 

@@ -1,6 +1,5 @@
 """Build a complete inventory of a repository: every ref, commit, tag and blob.
 
-See architecture.md "Git runner" and "Objects & inventory" for the exact commands.
 Everything here reads through a `source`-role :class:`GitRunner`; nothing writes.
 """
 
@@ -35,7 +34,7 @@ class BlobOccurrence:
     mode: str
     commit: str
     #: The blob this path held at `commit`'s parent side of the diff, or `""` for an
-    #: addition (stage-3.md "3b": `detect/licence.py`'s transition tracking needs both
+    #: addition (`detect/licence.py`'s transition tracking needs both
     #: sides of a diff entry to compare old vs. new licence identification, without a
     #: second full-history `git log` pass).
     old_blob: str = ""
@@ -259,8 +258,8 @@ def _parse_raw_log(data: bytes) -> list[tuple[str, list[tuple[str, str, str, str
 
     `old_blob` (the diff's `:old_mode new_mode old_sha new_sha status` field 3) is
     kept alongside the new blob so a detector can compare a path's before/after
-    content for one diff entry without a second history pass (stage-3.md 3b:
-    `detect/licence.py`'s transition tracking).
+    content for one diff entry without a second history pass
+    (`detect/licence.py`'s transition tracking).
     """
     toks = data.split(b"\x00")
     i = 0

@@ -1,4 +1,4 @@
-"""`go-public show` and `go-public redact` (product spec item 20).
+"""`go-public show` and `go-public redact`.
 
 `show` prints a file as it is at a ref, read through the read-only source runner, with
 every secret span masked by the report's redaction. `redact` replaces exactly one

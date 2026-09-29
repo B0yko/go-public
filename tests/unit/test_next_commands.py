@@ -1,5 +1,5 @@
-"""`plan.py`'s `next_commands` (product spec item 12; stage-4.md): every line is an
-exact `go-public` invocation whose subcommand and flags exist in the CLI.
+"""`plan.py`'s `next_commands`: every line is an exact
+`go-public` invocation whose subcommand and flags exist in the CLI.
 
 `next_commands` holds `allow --rotated`, `strip` and the two `export` lines.
 """

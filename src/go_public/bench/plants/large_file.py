@@ -1,4 +1,4 @@
-"""Large-file / LFS-pointer plants (product spec item 8; stage-3.md 3b): one blob
+"""Large-file / LFS-pointer plants: one blob
 each for the `large-file-warn` and `large-file-high` tiers (`bench/fixture.py`'s
 generated config lowers `warn_mb`/`high_mb` to 1/5 so these stay small), plus one
 Git LFS pointer blob.
@@ -6,7 +6,7 @@ Git LFS pointer blob.
 The real GitHub 100 MB tier (`large-file-github-limit`) is not planted: it is a
 fixed, non-configurable threshold (`scan.py`'s own `_GITHUB_LIMIT_BYTES`), and a
 literal 100+ MB blob in every fixture build would make `tiny`/`small` far too slow
-for CI; `tests/unit/test_scan.py` covers that tier directly instead (STATUS.md).
+for CI; `tests/unit/test_scan.py` covers that tier directly instead.
 
 Every plant's content carries a leading NUL byte so `detect/base.py`'s routing
 classifies it as binary and no text detector ever runs over multiple megabytes of
@@ -88,7 +88,7 @@ def _lfs_pointer_plant(rng: random.Random, plant_id: str) -> Plant:
 
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
     """Build every large-file plant for `size`. `ctx` is accepted for signature
-    parity (fixture-api.md); unused here."""
+    parity; unused here."""
     del ctx
     total = _COUNTS[size]
     plants = [

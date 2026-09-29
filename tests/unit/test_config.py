@@ -13,7 +13,7 @@ from go_public.git.runner import GitRunner
 from ..conftest import commit_file, init_repo
 
 
-def test_defaults_match_architecture() -> None:
+def test_defaults_match_documented_values() -> None:
     config = Config()
     assert config.scan.fail_on == "high"
     assert config.scan.max_scan_mb == 10
@@ -75,7 +75,7 @@ def test_allowlist_and_rotated_fingerprints_round_trip(tmp_path: Path) -> None:
     assert config.allowlist.fingerprints[0].reason == "public test vector"
 
 
-# -- discovery (stage 4) -------------------------------------------------------------
+# -- discovery ---------------------------------------------------------------------
 
 
 def test_xdg_config_path_uses_repo_dir_name(

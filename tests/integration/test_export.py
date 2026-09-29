@@ -1,4 +1,4 @@
-"""Squash export end to end (product spec item 14; stage-5.md test list)."""
+"""Squash export end to end."""
 
 from __future__ import annotations
 

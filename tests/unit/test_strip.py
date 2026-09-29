@@ -1,6 +1,4 @@
-"""`export/strip.py`: lossless metadata stripping for JPEG/PNG/WebP/PDF/OOXML
-(product spec item 16; stage-5.md).
-"""
+"""`export/strip.py`: lossless metadata stripping for JPEG/PNG/WebP/PDF/OOXML."""
 
 from __future__ import annotations
 

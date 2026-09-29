@@ -1,4 +1,4 @@
-"""Stage 5r: adversarial inputs for `export/strip.py` (lossy or leaky strips)."""
+"""Adversarial inputs for `export/strip.py` (lossy or leaky strips)."""
 
 from __future__ import annotations
 

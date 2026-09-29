@@ -2,7 +2,7 @@
   "$defs": {
     "Finding": {
       "additionalProperties": false,
-      "description": "One detection, attributed to its commits/refs and ready for the report and\nfix plan (architecture.md \"Finding model\").",
+      "description": "One detection, attributed to its commits/refs and ready for the report and\nfix plan.",
       "properties": {
         "fingerprint": {
           "title": "Fingerprint",
@@ -190,7 +190,7 @@
     },
     "Location": {
       "additionalProperties": false,
-      "description": "Where a finding was found. Only the fields relevant to `kind` are set; the\nrest stay `None`/empty, per architecture.md.",
+      "description": "Where a finding was found. Only the fields relevant to `kind` are set; the\nrest stay `None`/empty.",
       "properties": {
         "kind": {
           "title": "Kind",
@@ -308,7 +308,7 @@
     },
     "PlanDecideItem": {
       "additionalProperties": false,
-      "description": "`plan.py` group D: one row per category (licence, large-file) at the export\nref (architecture.md: \"licence category + large-file findings at the export\nref\").",
+      "description": "`plan.py` group D: one row per category (licence, large-file) at the export\nref.",
       "properties": {
         "category": {
           "title": "Category",
@@ -330,7 +330,7 @@
     },
     "PlanEntryA": {
       "additionalProperties": false,
-      "description": "`plan.py` group A: one row per secret `group_id` (architecture.md \"Fix plan\").",
+      "description": "`plan.py` group A: one row per secret `group_id`.",
       "properties": {
         "secret_id": {
           "title": "Secret Id",
@@ -417,7 +417,7 @@
     },
     "PlanFileGroup": {
       "additionalProperties": false,
-      "description": "`plan.py` groups B/C: one row per file path, or (`is_path=False`) per location\nkind for non-file items (architecture.md: \"grouped per file path (non-file items\ngrouped under their kind)\").",
+      "description": "`plan.py` groups B/C: one row per file path, or (`is_path=False`) per location\nkind for non-file items (grouped under their kind).",
       "properties": {
         "key": {
           "title": "Key",
@@ -461,7 +461,7 @@
     },
     "PlanModel": {
       "additionalProperties": false,
-      "description": "architecture.md \"Fix plan\": `plan{A[], B[], C[], D[], next_commands[]}`.\n`identity_notes` is a stage-4 addition beyond that literal shape (recorded as a\ndeviation in STATUS.md): product spec item 12 group D also carries \"names if you\nkeep history\", a plain FYI list of identity strings rather than findings, which\ndoes not fit `PlanDecideItem`'s per-category/fingerprint shape.",
+      "description": "The fix plan: `plan{A[], B[], C[], D[], next_commands[]}`.\n`identity_notes` sits beside those groups: group D also carries \"names if you\nkeep history\", a plain FYI list of identity strings rather than findings, which\ndoes not fit `PlanDecideItem`'s per-category/fingerprint shape.",
       "properties": {
         "A": {
           "items": {

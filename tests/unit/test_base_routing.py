@@ -1,8 +1,8 @@
 """`detect/base.py` routing: magic bytes, NUL/UTF-16 check, `max_scan_mb` gate.
 
-Stage 2b brief: "a PDF with no NUL in its first 8 KB reaches the PDF extractor" and
-architecture.md's routing rules. No real image/PDF/OOXML bytes are needed to test
-*routing* (only the magic bytes / zip manifest matter); real extraction is stage 3b.
+A PDF with no NUL in its first 8 KB reaches the PDF extractor. No real
+image/PDF/OOXML bytes are needed to test *routing* (only the magic bytes / zip
+manifest matter); real extraction is covered by the `detect/binary_meta.py` tests.
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ def test_oversized_text_blob_routes_to_large_instead_of_text() -> None:
 
 
 def test_extract_binary_fields_is_empty_for_unparseable_content_of_every_binary_kind() -> None:
-    """`extract_binary_fields` delegates to `detect/binary_meta.py` (stage 3b); real
+    """`extract_binary_fields` delegates to `detect/binary_meta.py`; real
     extraction from valid content is that module's own tests. Here: garbage bytes
     never crash routing and never fabricate a field."""
     for kind in BINARY_KINDS:

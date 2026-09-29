@@ -1,10 +1,10 @@
 """Runtime-assembled synthetic secret tokens for the secrets-engine tests.
 
-conventions.md: "Plant-shaped strings are assembled at runtime." None of these
+Plant-shaped strings are assembled at runtime. None of these
 provider prefixes ever appears next to its generated suffix as one source-file
 literal; every suffix comes from `_chars`, called at import/test time, never typed
 out. Formats are the providers' own documented shapes, not sampled from the
-gitleaks regex itself (stage-2.md).
+gitleaks regex itself.
 """
 
 from __future__ import annotations

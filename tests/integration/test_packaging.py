@@ -1,6 +1,5 @@
-"""The built wheel carries the vendored gitleaks rule set and its licence
-(product spec item 2 / stage-2.md 2a): `uv build` into a throwaway directory, then
-check the wheel's own file listing.
+"""The built wheel carries the vendored gitleaks rule set and its licence: `uv build`
+into a throwaway directory, then check the wheel's own file listing.
 """
 
 from __future__ import annotations

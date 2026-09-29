@@ -1,5 +1,5 @@
-"""Local paths and network identifiers (product spec item 5; stage-3.md): absolute
-paths that reveal a username, macOS temp paths, private IPs, internal hostnames and
+"""Local paths and network identifiers: absolute paths
+that reveal a username, macOS temp paths, private IPs, internal hostnames and
 `.gitmodules` URLs to private hosts.
 
 Content-only (no `path`/`commit` dependence beyond the `.gitmodules` special case,
@@ -33,8 +33,8 @@ def _windows_prefix_pattern(prefix: str) -> str:
 
 #: `/Users/<user>/`, `/home/<user>/`, `C:\Users\<user>\` (also a doubled backslash,
 #: as it appears JSON-escaped, and the forward-slash spelling some tools use for
-#: Windows paths) — every prefix comes from `detect/constants.py`, per
-#: conventions.md ("only constants.py may hold ... path prefixes").
+#: Windows paths) — every prefix comes from `detect/constants.py`, since
+#: only `constants.py` may hold path prefixes.
 _USER_PATH_RE = re2.compile(
     "(?:"
     + "|".join(re2.escape(p) for p in USER_PATH_PREFIXES)

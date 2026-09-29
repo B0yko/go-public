@@ -2,7 +2,7 @@
 
 Repos here are built with plain `subprocess` git calls (conftest.py's `git`/
 `init_repo`/`commit_file`), never through `GitRunner` (package code may not use
-`subprocess` directly — conventions.md).
+`subprocess` directly).
 """
 
 from __future__ import annotations
@@ -222,8 +222,7 @@ def test_regex_matched_exactly_once_per_blob_with_several_occurrences(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A blob present at several (path, commit) occurrences still has its content
-    matched by `scan_content` exactly once (stage-3a fix for the stage-2b deviation
-    that re-ran the regexes once per occurrence)."""
+    matched by `scan_content` exactly once, not once per occurrence."""
     from go_public.detect.secrets import SecretsEngine
 
     repo = init_repo(tmp_path / "repo")
@@ -292,7 +291,7 @@ def test_head_only_scan_finds_secrets_at_the_export_tree(tmp_path: Path) -> None
     assert finding.present_at_export_ref is True
 
 
-# -- stage 3a: pii/deny/paths_network/files/commit_meta units --------------------
+# -- pii/deny/paths_network/files/commit_meta units --------------------------------
 
 
 def _only(findings: list[Finding], rule_id: str) -> Finding:
@@ -439,7 +438,7 @@ def test_tracked_config_with_deny_terms_is_critical(tmp_path: Path) -> None:
     assert finding.present_at_export_ref is True
 
 
-# -- stage 3b: binary metadata / archives --------------------------------------------
+# -- binary metadata / archives ----------------------------------------------------
 
 
 def test_jpeg_artist_field_is_reported_as_exif_person_and_scanned_as_text(
@@ -478,7 +477,7 @@ def test_plain_zip_is_reported_as_archive_not_scanned(tmp_path: Path) -> None:
     assert finding.location.paths == ["bundle.zip"]
 
 
-# -- stage 3b: large files / gitlinks / LFS pointers / licence history --------------
+# -- large files / gitlinks / LFS pointers / licence history -----------------------
 
 _MIT_TEXT = (
     "MIT License\n\n"
@@ -564,7 +563,7 @@ def test_licence_transition_is_reported_with_from_to_and_commit(tmp_path: Path) 
 
 
 def test_proprietary_word_in_a_commit_message_is_never_flagged(tmp_path: Path) -> None:
-    """stage-4.md's notice-detector fix: `licence-proprietary` is a fact about blob
+    """`licence-proprietary` is a fact about blob
     content, never about a commit message discussing the word."""
     repo = init_repo(tmp_path / "repo")
     commit_file(repo, "a.txt", "hello\n", "feat: a")

@@ -1,17 +1,17 @@
-"""Licence identification by key phrases (product spec item 7; stage-3.md 3b;
+"""Licence identification by key phrases (see
 `docs/adr/0009-licence-detection-by-key-phrases.md`). No legal analysis: text is
 matched against known phrasing for common licences, nothing more, and the README
 says so.
 
 Scope: transition and missing-at-head tracking cover the canonical licence-file
 family (`LICENSE*`/`LICENCE*`/`COPYING*`) and the three manifest `license` fields
-product spec item 7 names (`pyproject.toml`, `package.json`, `Cargo.toml`) — a small,
+(`pyproject.toml`, `package.json`, `Cargo.toml`) — a small,
 path-identifiable set that needs reading only the blobs that are actually relevant,
 rather than every blob's content in history. An `SPDX-License-Identifier` header in
 an arbitrary source file is still identified where it appears (`identify_spdx_header`,
 used by the proprietary/confidential notice scan below, which already reads every
 blob's text once as part of the normal pipeline) but does not feed transition
-tracking; see STATUS.md.
+tracking.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ _PERMISSION_GRANT_PHRASES = (
     "free software",
 )
 
-#: SPDX identifiers product spec item 7 names, mapped to the same canonical labels
+#: Supported SPDX identifiers, mapped to the same canonical labels
 #: `identify_licence_text` returns (so a transition can compare across both sources).
 _SPDX_TO_LABEL: dict[str, str] = {
     "MIT": "MIT",
@@ -182,8 +182,8 @@ def extract_copyright_holder(text: str) -> str | None:
 
 
 #: Comment markers `detect_notice` recognises when a line isn't in a licence-relevant
-#: file (stage-4.md's fix: a notice there must look like an actual header banner, not
-#: prose). Checked longest-alternative-safe since none is a prefix of another.
+#: file (a notice there must look like an actual header banner, not prose).
+#: Checked longest-alternative-safe since none is a prefix of another.
 _COMMENT_PREFIXES: tuple[str, ...] = ("#", "//", "/*", "*", "--", "<!--", ";")
 
 #: The flagged word/phrase must *open* the (already marker-stripped) line, the shape
@@ -194,8 +194,7 @@ _COMMENT_PREFIXES: tuple[str, ...] = ("#", "//", "/*", "*", "--", "<!--", ";")
 _KEYWORD_AT_LINE_START_RE = re2.compile(r"(?i)^(Confidential|Proprietary)\b")
 _ALL_RIGHTS_AT_LINE_START_RE = re2.compile(r"(?i)^all rights reserved\b")
 
-#: Only the first N lines of a non-licence-relevant file count as its "header block"
-#: (stage-4.md).
+#: Only the first N lines of a non-licence-relevant file count as its "header block".
 _HEADER_LINES = 30
 
 
@@ -218,9 +217,8 @@ def _line_prefix(line: str) -> tuple[int, bool]:
 def detect_notice(text: str, *, licence_relevant: bool = False) -> Detection | None:
     """A proprietary/confidential notice, or a grant-less "all rights reserved"
     notice (same semantics as `identify_licence_text`'s proprietary heuristic), in
-    *blob* content. `scan.py` never calls this on commit/tag message text: product
-    spec item 7 means a notice found in history's files, not prose about one in a
-    commit message.
+    *blob* content. `scan.py` never calls this on commit/tag message text: a notice
+    is a fact about a file in history, not prose about one in a commit message.
 
     `licence_relevant` (a `LICENSE*`/`LICENCE*`/`COPYING*` file, or one of the three
     manifests — `is_licence_relevant_path`) is read anywhere in the file, since the
@@ -228,8 +226,7 @@ def detect_notice(text: str, *, licence_relevant: bool = False) -> Detection | N
     (the first `_HEADER_LINES` lines) and only on a comment line (or an SPDX-style
     header, which is one), so an ordinary prose line — a Markdown paragraph, a
     docstring discussing the concept — never matches merely because it opens with the
-    word (stage-4.md: fixes a stage-3 over-reach that flagged any text, including
-    commit messages, anywhere in the file).
+    word.
     """
     lines = text.splitlines()
     scanned = lines if licence_relevant else lines[:_HEADER_LINES]

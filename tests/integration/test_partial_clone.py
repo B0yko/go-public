@@ -1,8 +1,8 @@
 """A partial clone whose promisor remote has vanished: no fetch, just a warning.
 
-Stage 1 brief (1b): "partial clone whose promisor remote was deleted: scan finishes
-with a missing-object warning and no fetch attempt ... by making the promisor path
-unreachable". The source runner's `GIT_NO_LAZY_FETCH=1` (ADR 3) is what makes this
+A partial clone whose promisor remote was deleted: the scan finishes with a
+missing-object warning and no fetch attempt, with the promisor path made
+unreachable. The source runner's `GIT_NO_LAZY_FETCH=1` (ADR 3) is what makes this
 safe; this test is the regression check for it.
 """
 

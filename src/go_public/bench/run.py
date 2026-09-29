@@ -54,7 +54,7 @@ from go_public.model import Finding, Report, severity_rank
 from go_public.plan import STRIP_EXCLUDED_RULE_IDS
 from go_public.scan import ScanOptions
 
-#: The evaluated classes, in table order (architecture.md "Fixture & truth").
+#: The evaluated classes, in table order.
 EVAL_CLASSES: tuple[str, ...] = (
     "secret-vendor",
     "secret-generic",
@@ -73,7 +73,7 @@ EVAL_CLASSES: tuple[str, ...] = (
     "trailer",
 )
 
-#: Gate thresholds (product spec, "Evaluation" item 1).
+#: Per-class recall and precision gates: the loose classes use the lower one.
 DETERMINISTIC_GATE = 0.95
 LOOSE_GATE = 0.85
 LOOSE_CLASSES = frozenset({"secret-generic", "pii-phone"})
@@ -730,7 +730,7 @@ def run_blind_spots(workspace: Workspace) -> tuple[dict[str, Any], str]:
 
 
 def repo_fingerprint(repo: Path) -> dict[str, object]:
-    """Everything a read-only run must leave untouched (product spec item 17): refs,
+    """Everything a read-only run must leave untouched: refs,
     object counts, config/HEAD/packed-refs hashes, hook names and the object listing."""
     runner = GitRunner(repo, role="source")
     git_dir = repo / ".git" if (repo / ".git").exists() else repo

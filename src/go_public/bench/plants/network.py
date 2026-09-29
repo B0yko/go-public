@@ -1,5 +1,5 @@
 """Network plants: private IPs, internal hostnames and a `.gitmodules` URL to a
-private host (product spec item 5; stage-3.md).
+private host.
 """
 
 from __future__ import annotations
@@ -93,8 +93,8 @@ def _gitmodules_plant(index: int) -> Plant:
 
 
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
-    """Build every network plant for `size`. `ctx` is accepted for signature parity
-    (fixture-api.md); unused here."""
+    """Build every network plant for `size`. `ctx` is accepted for signature parity;
+    unused here."""
     del ctx
     total = _COUNTS[size]
     plants: list[Plant] = [_gitmodules_plant(0)]

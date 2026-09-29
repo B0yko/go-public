@@ -1,6 +1,5 @@
 """Org-identifier plants: deny-list terms (with variants and the boundary rule),
-domains, raw regexes and ticket keys (product spec item 4; stage-3.md). Covers the
-`ref_name` and `path_name` location types, as stage-3.md calls for.
+domains, raw regexes and ticket keys. Covers the `ref_name` and `path_name` location types.
 """
 
 from __future__ import annotations
@@ -28,8 +27,8 @@ _CONTENT_LOCATIONS: tuple[LocationType, ...] = (
 )
 
 #: `"Acme Corp"` -> `"acme-corp"`, `"acme_corp"`, `"acmecorp"`, and the term written
-#: out plainly; `_CAMEL_CASE_FORM` is the boundary-pass example from product spec
-#: item 4 ("AcmeCorpClient matches").
+#: out plainly; `_CAMEL_CASE_FORM` is the boundary-pass example
+#: ("AcmeCorpClient matches").
 _VARIANT_FORMS: tuple[str, ...] = (
     ORG_TERM.replace(" ", "-"),
     ORG_TERM.replace(" ", "_"),
@@ -59,9 +58,8 @@ def _domain_plant(index: int, location_type: LocationType) -> Plant:
     content = f'homepage = "https://{ORG_DOMAIN}/docs"\n'.encode()
     # `ORG_DOMAIN` is also configured as `[network] internal_suffixes`... no: it is
     # itself one of `[deny] domains`, and `detect/paths_network.py`'s internal-host
-    # check independently flags "any host under a deny-list domain" (product spec
-    # item 5) — so this same span is a real secondary network finding, not a false
-    # positive.
+    # check independently flags "any host under a deny-list domain" — so this same
+    # span is a real secondary network finding, not a false positive.
     secondary_kind = "unreachable_blob" if location_type == "unreachable" else "blob"
     blob = blob_id(content)
     return Plant(
@@ -141,7 +139,7 @@ _BUILDERS = (_term_plant, _term_plant, _domain_plant, _regex_plant, _ticket_plan
 
 def generate(rng: random.Random, ctx: FixtureContext, *, size: str) -> list[Plant]:
     """Build every org-identifier plant for `size`. `rng`/`ctx` are accepted for
-    signature parity (fixture-api.md); every string here is fixed (assembled from
+    signature parity; every string here is fixed (assembled from
     parts, never RNG-sampled), so both are unused."""
     del rng, ctx
     total = _COUNTS[size]

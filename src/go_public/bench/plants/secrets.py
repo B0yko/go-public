@@ -1,19 +1,17 @@
-"""Secret plants for the fixture generator (product spec item 2 / "Plant formats";
-stage-2.md 2b).
+"""Secret plants for the fixture generator.
 
 Every token follows its provider's own documented format (prefix, character set,
 length) — the doc URL is in a comment next to each generator — and is assembled at
-runtime from parts, never typed out as one literal (conventions.md: "Plant-shaped
-strings are assembled at runtime"). No token is sampled from the vendored rule's own
-regex, and no AI-vendor key format is used, per stage-2.md.
+runtime from parts, never typed out as one literal (plant-shaped
+strings are assembled at runtime). No token is sampled from the vendored rule's own
+regex, and no AI-vendor key format is used.
 
 `generate()` only builds and returns `Plant` objects; `bench/fixture.py` is the one
 that calls `ctx.place()` for each, exactly as it already does for marker plants.
-`ctx` is accepted (fixture-api.md's `generate(rng, ctx) -> list[Plant]`) for parity
-with future plant modules that need it (e.g. to assign a specific identity); this
-module does not use it. The `size` keyword is this module's own extension of that
-signature — fixture-api.md predates size-dependent plant counts (stage-2.md's
-"Provide counts for size small too").
+`ctx` is accepted (every plant module has the signature `generate(rng, ctx, *, size)
+-> list[Plant]`) for parity with modules that need it (e.g. to assign a specific
+identity); this module does not use it. The `size` keyword selects the plant counts
+(`tiny` or `small`).
 """
 
 from __future__ import annotations
@@ -37,9 +35,9 @@ _HEX = "0123456789abcdef"
 #: excludes `original` from its own marker placement for exactly this reason.
 _SINGLETON_LOCATION: LocationType = "original"
 
-#: The other 11 location types stage-2.md names for secret plants (path_name/
-#: binary_field/ref_name are left to the categories that will actually use them:
-#: org-identifier and binary-metadata, stage 3), cycled for indices after 0.
+#: The other 11 location types used for secret plants (path_name/
+#: binary_field/ref_name are left to the categories that use them: org-identifier
+#: and binary-metadata), cycled for indices after 0.
 _REPEATABLE_LOCATIONS: tuple[LocationType, ...] = (
     "head",
     "history_only",
@@ -172,7 +170,7 @@ def generic_secret_value(rng: random.Random, n: int = 32) -> str:
 
 
 #: (rule_id, generator, assignment-style template) for every vendor family. Values
-#: matter, not the surrounding template: each has been verified (stage 2a's own
+#: matter, not the surrounding template: each has been verified (in
 #: `tests/unit/test_secrets_engine.py`) to fire with exactly this `rule_id`.
 _VENDOR_FAMILIES: tuple[tuple[str, Callable[[random.Random], str], str], ...] = (
     ("aws-access-token", aws_access_key, 'access_key = "{}"\n'),
@@ -194,10 +192,9 @@ _VENDOR_FAMILIES: tuple[tuple[str, Callable[[random.Random], str], str], ...] = 
 
 _GENERIC_TEMPLATE = 'credential = "{}"\n'
 
-#: `size` -> (vendor plant count, generic plant count), per the product spec's
-#: "Plants per `small` seed" table (secret: 20 across >= 10 families, plus 4
-#: generic-entropy) and stage-2.md's tiny guidance (one per location type, >= 10
-#: families).
+#: `size` -> (vendor plant count, generic plant count): `small` has 20
+#: vendor plants across >= 10 families plus 4 generic-entropy, `tiny` has one per
+#: location type across >= 10 families.
 _COUNTS: dict[str, tuple[int, int]] = {"tiny": (10, 2), "small": (20, 4)}
 
 
