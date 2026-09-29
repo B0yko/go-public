@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 70" width="360" height="70" role="img" aria-label="go-public">
+  <title>go-public</title>
+  <g transform="translate(0 -20)">
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path stroke="#e6edf3" stroke-width="6" d="M50 44v-2a11 11 0 0 0-11-11H17A11 11 0 0 0 6 42v26a11 11 0 0 0 11 11h22a11 11 0 0 0 11-11v-2"/>
+      <g stroke="#7d8590" stroke-width="4.5">
+        <circle cx="25" cy="55" r="5.5"/>
+        <path d="M30.5 55H56"/>
+      </g>
+      <g stroke="#e6edf3" stroke-width="6">
+        <circle cx="107" cy="55" r="12"/>
+        <path d="M119 43v29a12 12 0 0 1-21 8"/>
+        <circle cx="144" cy="55" r="12"/>
+        <circle cx="204" cy="55" r="12"/>
+        <path d="M192 43v40"/>
+        <path d="M229 43v12a12 12 0 0 0 24 0M253 43v24"/>
+        <circle cx="278" cy="55" r="12"/>
+        <path d="M266 27v40M304 27v40M318 43v24"/>
+        <path d="M352.03 46.08A12 12 0 1 0 352.03 63.92"/>
+      </g>
+      <path stroke="#3fb950" stroke-width="6" d="M168 55h12"/>
+    </g>
+    <circle cx="64" cy="55" r="7.5" fill="#3fb950"/>
+    <circle cx="318" cy="29" r="3.4" fill="#e6edf3"/>
+  </g>
+</svg>
