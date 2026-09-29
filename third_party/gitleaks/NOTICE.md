@@ -17,5 +17,11 @@ generic-vs-specific overlap filter) — no gitleaks Go source or binary is redis
 beyond the two files named above. See `docs/adr/0002-re2-and-ported-gitleaks-semantics.md`
 for the cited source files and the ported-versus-not-ported behaviour.
 
+GitHub secret scanning reports the vendored `gitleaks.toml` as holding Google API keys.
+They are the 16 public keys that upstream lists in the allowlist of its `gcp-api-key`
+rule, as known false positives, so a scan does not flag them. The file is kept
+byte-for-byte as upstream ships it, and these alerts on this repository are closed as
+false positives.
+
 gitleaks is Copyright (c) 2019 Zachary Rice, licensed under the MIT License (see
 `LICENSE` in this directory).

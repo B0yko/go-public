@@ -725,7 +725,7 @@ Not in v0.1, and not promised for any date:
 
 ## Data and licences
 
-- **Vendored rules.** The secret rules are the default configuration of gitleaks v8.30.1 (MIT), in `src/go_public/rules/gitleaks.toml`, with its licence text in `src/go_public/rules/LICENSE.gitleaks` and a notice copy in `third_party/gitleaks/`. A test asserts that the built wheel contains both.
+- **Vendored rules.** The secret rules are the default configuration of gitleaks v8.30.1 (MIT), in `src/go_public/rules/gitleaks.toml`, with its licence text in `src/go_public/rules/LICENSE.gitleaks` and a notice copy in `third_party/gitleaks/`. A test asserts that the built wheel contains both. GitHub secret scanning flags that file for 16 Google API keys: they are the public keys that upstream allowlists as known false positives in its `gcp-api-key` rule, not credentials (see `third_party/gitleaks/NOTICE.md`).
 - **Synthetic fixtures** are built at run time by `go-public fixture` from a seed. Names, coordinates and domains are fictional, and plant-shaped strings are assembled from parts in the code, so the repository holds no real credential, email address or phone number.
 - **Two public repositories** are used only by `go-public bench --real-world-dir`, cloned at bench time and never vendored: [psf/requests](https://github.com/psf/requests) (Apache-2.0) and [pallets/flask](https://github.com/pallets/flask) (BSD-3-Clause). No matched value from either is stored here.
 - **Documentation** uses placeholders such as `/Users/<user>/`, documentation addresses (RFC 5737 and RFC 3849) and `.example` domains, and names private ranges by their RFCs (RFC 1918, RFC 6598, RFC 3927, RFC 4193).
