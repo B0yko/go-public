@@ -120,3 +120,30 @@ def test_phone_next_to_ordinary_punctuation_is_still_detected() -> None:
         "pii-phone",
     ]
     assert _rule_ids("Tel: " + _GB_DRAMA + ";", phone_regions=("GB",)) == ["pii-phone"]
+
+
+# -- URL credentials and scp-style remotes are not mailboxes ---------------------------------
+
+
+def test_url_credentials_are_not_emails() -> None:
+    assert _rule_ids('url = "http://user:pa' + '***REMOVED***"') == []
+    assert _rule_ids("proxy_headers('http://user:pass@httpbin.org')") == []
+    assert _rule_ids("remote = ssh://git@code-host.org/team/app.git") == []
+
+
+def test_scp_style_remotes_are_not_emails() -> None:
+    assert _rule_ids("git clone git@code-host.org:team/app.git") == []
+
+
+def test_a_real_looking_email_near_a_url_is_still_flagged() -> None:
+    assert _rule_ids("write to jo" + "***REMOVED*** or see https://code-host.org/team") == [
+        "pii-email"
+    ]
+    assert _rule_ids("mailto:jo" + "***REMOVED***: thanks") == ["pii-email"]
+    assert _rule_ids("https://code-host.org/contact?to=jo" + "***REMOVED***") == ["pii-email"]
+
+
+def test_short_bare_constants_and_numeric_dates_are_not_phone_numbers() -> None:
+    assert _rule_ids("mCount = 030304", phone_regions=("GB", "DE")) == []
+    assert _rule_ids("2.10.0 (04-29-2016)", phone_regions=("US", "GB")) == []
+    assert _rule_ids("released 2016-04-29 and 29-04-2016", phone_regions=("US", "GB")) == []

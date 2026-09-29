@@ -5,8 +5,8 @@ Phone trade-off: a national-format candidate (no leading `+`) must carry a
 separator (space, `-`, `.`, parentheses) or a trunk prefix (a leading `0`, or a
 leading `1` on an 11-digit run), because `phonenumbers` accepts plenty of bare digit
 runs (lockfile sizes, ids, counters) as valid national numbers. The price is that a
-bare, unseparated 10-digit national number without a trunk prefix is missed; numbers
-written with `+` are always detected. Lockfiles are skipped for phones altogether
+bare, unseparated national number without a trunk prefix, or one shorter than ten digits,
+is missed; numbers written with `+` are always detected. Lockfiles are skipped for phones altogether
 (`scan.py`, same file list as the generic-entropy detector).
 
 Numeric data is not a phone number either (found by scanning real repositories: SVG path
@@ -14,9 +14,13 @@ data, coordinate and probability tables, ZIP+4 codes). A national candidate is d
 it is glued to more digits or to a decimal/list separator (`.`, `,`, `-` next to a digit),
 when it mixes `.` and `-`, when a dotted one has fewer than two dots or a group of fewer
 than three digits after the first, when a later group is a single digit, or when it is
-shaped like a US ZIP+4 code. Numbers written with `+` skip the group rules but not the
-"glued to more digits" check. The cost: a national number written `555.12.34` or with
-one-digit groups is missed.
+shaped like a US ZIP+4 code or a numeric date. Numbers written with `+` skip the group
+rules but not the "glued to more digits" check. The cost: a national number written
+`555.12.34` or with one-digit groups is missed.
+
+Emails: a match inside URL credentials (`scheme://user:secret@host`, `scheme://user@host`) or
+followed by an scp-style path (`git@host:owner/repo.git`) is a remote or a credential, not
+a mailbox, and is skipped.
 
 Every check here is content-only (no `path`/`commit` dependence), so a `PiiDetector`
 can be built once per scan and its `detect()` called once per blob/message/field,
@@ -64,12 +68,26 @@ _DOTTED_QUAD_RE = re2.compile(r"\d{1,3}(?:\.\d{1,3}){3,}")
 
 
 _SEPARATORS = frozenset(" -.()")
+#: Still inside the authority part of a URL: `://`, then no `/`, `@` or space yet.
+_URL_AUTHORITY_BEFORE_RE = re2.compile(r"://[^\s/@]*$")
+_SCP_PATH_AFTER_RE = re2.compile(r"^:[\w.~-]+/")
+#: A bare (unseparated) national candidate needs at least this many digits (a leading `0`
+#: on a six-digit constant is not a trunk prefix).
+_MIN_BARE_DIGITS = 10
+_DATE_RE = re2.compile(r"\(?(?:\d{1,2}-\d{1,2}-\d{4}|\d{4}-\d{1,2}-\d{1,2})\)?")
 _ZIP_PLUS4_RE = re2.compile(r"\d{5}-\d{4}")
 _LIST_SEPARATORS = ".,-"
 
 
 def _digit_groups(raw: str) -> list[str]:
     return [g for g in re2.split(r"\D+", raw) if g]
+
+
+def _is_url_credential_or_scp_remote(text: str, start: int, end: int) -> bool:
+    line_start = text.rfind("\n", 0, start) + 1
+    if _URL_AUTHORITY_BEFORE_RE.search(text[line_start:start]):
+        return True
+    return bool(_SCP_PATH_AFTER_RE.match(text[end : end + 60]))
 
 
 def _is_numeric_data(text: str, start: int, end: int, raw: str) -> bool:
@@ -89,7 +107,7 @@ def _is_numeric_data(text: str, start: int, end: int, raw: str) -> bool:
             return True
     if raw.startswith("+"):
         return False
-    if _ZIP_PLUS4_RE.fullmatch(raw):
+    if _ZIP_PLUS4_RE.fullmatch(raw) or _DATE_RE.fullmatch(raw):
         return True
     groups = _digit_groups(raw)
     if any(len(g) == 1 for g in groups[1:]):
@@ -107,6 +125,8 @@ def _has_phone_shape(raw: str) -> bool:
     prefix (see the module docstring)."""
     if raw.startswith("+") or any(ch in _SEPARATORS for ch in raw):
         return True
+    if len(raw) < _MIN_BARE_DIGITS:
+        return False
     return raw.startswith("0") or (raw.startswith("1") and len(raw) == 11)
 
 
@@ -168,6 +188,8 @@ class PiiDetector:
             if value.lower() in self._allowed_emails:
                 continue
             start, end = m.start(), m.end()
+            if _is_url_credential_or_scp_remote(text, start, end):
+                continue
             line, col = _line_col(text, start)
             out.append(
                 Detection(
