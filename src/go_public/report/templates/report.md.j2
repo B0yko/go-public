@@ -3,7 +3,7 @@
 These are facts to review, not legal conclusions.
 
 Schema: `{{ report.schema_version }}` · Tool: {{ report.tool.name }} {{ report.tool.version }}
-Scanned: {{ report.scan.started_at }} → {{ report.scan.finished_at }} ({{ "%.2f"|format(report.scan.duration_s) }}s) · git {{ report.scan.git_version }}
+Scanned: {{ report.scan.started_at }} → {{ report.scan.finished_at }} ({{ "%.2f"|format(report.scan.duration_s) }}s) · {{ report.scan.git_version }}
 Export ref: `{{ report.repo.export_ref }}`{% if report.repo.export_commit %} (`{{ report.repo.export_commit }}`){% endif %} · config: `{{ report.scan.options.config_source }}`
 
 inventory: {{ report.inventory.refs }} refs, {{ report.inventory.commits }} commits, {{ report.inventory.tags }} tags, {{ report.inventory.unique_blobs }} unique blobs, {{ report.inventory.total_bytes }} bytes{% if report.inventory.unreachable_blobs %}, {{ report.inventory.unreachable_blobs }} unreachable blobs{% endif %}

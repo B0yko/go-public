@@ -122,3 +122,15 @@ def test_secrets_stay_redacted_in_every_report_format(tmp_path: Path) -> None:
             # the raw fingerprint/preview appear; the full unredacted secret value never would
             # (there is nothing left in `finding` that holds it — preview is already masked).
             assert finding.fingerprint in text
+
+
+def test_git_version_is_printed_once(tmp_path: Path) -> None:
+    report, _repo = _build_report(tmp_path)
+    for text in (render_markdown(report), render_html(report)):
+        assert "git version 2.45.0" in text
+        assert "git git" not in text
+
+
+def test_html_findings_section_has_an_anchor(tmp_path: Path) -> None:
+    report, _repo = _build_report(tmp_path)
+    assert '<h2 id="findings">' in render_html(report)

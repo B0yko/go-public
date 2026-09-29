@@ -76,7 +76,7 @@ footer { margin-top: 32px; color: var(--muted); font-size: 0.85em; }
   Schema <code>{{ report.schema_version }}</code> ·
   {{ report.tool.name }} {{ report.tool.version }} ·
   scanned {{ report.scan.started_at }} → {{ report.scan.finished_at }}
-  ({{ "%.2f"|format(report.scan.duration_s) }}s) · git {{ report.scan.git_version }}<br>
+  ({{ "%.2f"|format(report.scan.duration_s) }}s) · {{ report.scan.git_version }}<br>
   Export ref <code>{{ report.repo.export_ref }}</code>{% if report.repo.export_commit %} (<code>{{ report.repo.export_commit }}</code>){% endif %}
   · config <code>{{ report.scan.options.config_source }}</code>
 </p>
@@ -177,7 +177,7 @@ identity) if you choose <code>--keep-history</code> instead of a squash export:<
 <p class="muted">None — nothing left to act on.</p>
 {% endif %}
 
-<h2>Findings ({{ report.findings|length }})</h2>
+<h2 id="findings">Findings ({{ report.findings|length }})</h2>
 {% if report.findings %}
 <div class="controls">
   <fieldset>
