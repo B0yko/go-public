@@ -2,11 +2,11 @@
   "schema": "go-public-bench-gitleaks-v1",
   "meta": {
     "mode": "gitleaks",
-    "date_utc": "2026-09-29T01:38:26Z",
+    "date_utc": "2026-09-29T02:02:11Z",
     "hardware": "Mac Studio M4 Max, 128 GB",
     "git_version": "2.50.1",
     "go_public_version": "0.1.0",
-    "detector_commit": "unknown",
+    "detector_commit": "a07fcb42037e028c60e5d29a520d80d09325a92d",
     "seeds": [
       0,
       1
@@ -273,23 +273,23 @@
   },
   "timing": {
     "git": {
-      "wall_s_median_per_fixture": 0.267,
-      "wall_s_total_median": 0.534,
+      "wall_s_median_per_fixture": 0.266,
+      "wall_s_total_median": 0.532,
       "runs_per_fixture": 3
     },
     "git_no_replace": {
-      "wall_s_median_per_fixture": 0.269,
-      "wall_s_total_median": 0.537,
+      "wall_s_median_per_fixture": 0.267,
+      "wall_s_total_median": 0.533,
       "runs_per_fixture": 3
     },
     "dir": {
-      "wall_s_median_per_fixture": 0.222,
-      "wall_s_total_median": 0.443,
+      "wall_s_median_per_fixture": 0.225,
+      "wall_s_total_median": 0.45,
       "runs_per_fixture": 3
     },
     "go_public": {
-      "wall_s_median_per_fixture": 1.862,
-      "wall_s_total_median": 3.724,
+      "wall_s_median_per_fixture": 1.842,
+      "wall_s_total_median": 3.684,
       "runs_per_fixture": 3
     }
   },

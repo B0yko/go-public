@@ -2,11 +2,11 @@
   "schema": "go-public-bench-real-world-v1",
   "meta": {
     "mode": "real-world",
-    "date_utc": "2026-09-29T01:26:58Z",
+    "date_utc": "2026-09-29T02:01:42Z",
     "hardware": "Mac Studio M4 Max, 128 GB",
     "git_version": "2.50.1",
     "go_public_version": "0.1.0",
-    "detector_commit": "unknown",
+    "detector_commit": "a07fcb42037e028c60e5d29a520d80d09325a92d",
     "command": "go-public bench --real-world-dir <dir> --labels bench/labels/real-world.jsonl"
   },
   "repos": [
@@ -29,7 +29,7 @@
         "total_blob_bytes": 111800193,
         "unreachable_blobs": 0
       },
-      "scan_duration_s": 29.228224,
+      "scan_duration_s": 28.826731,
       "noise": {
         "identity_findings": 836,
         "findings_excluding_identity": 26169,
@@ -106,7 +106,7 @@
         "total_blob_bytes": 158795151,
         "unreachable_blobs": 0
       },
-      "scan_duration_s": 16.549495,
+      "scan_duration_s": 16.874605,
       "noise": {
         "identity_findings": 905,
         "findings_excluding_identity": 12063,

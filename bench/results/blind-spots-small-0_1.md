@@ -1,10 +1,10 @@
 # Blind spots: measured recall
 
-- Date (UTC): 2026-09-29T01:38:29Z
+- Date (UTC): 2026-09-29T02:01:45Z
 - Hardware: Mac Studio M4 Max, 128 GB
 - git: 2.50.1
 - go-public: 0.1.0
-- Detector commit: unknown
+- Detector commit: a07fcb42037e028c60e5d29a520d80d09325a92d
 - Size: small; seeds: 0, 1
 - Command: `go-public bench --seeds 0,1 --size small --blind-spots`
 

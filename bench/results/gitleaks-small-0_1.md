@@ -1,10 +1,10 @@
 # Secrets baseline: go-public against gitleaks
 
-- Date (UTC): 2026-09-29T01:38:26Z
+- Date (UTC): 2026-09-29T02:02:11Z
 - Hardware: Mac Studio M4 Max, 128 GB
 - git: 2.50.1
 - go-public: 0.1.0
-- Detector commit: unknown
+- Detector commit: a07fcb42037e028c60e5d29a520d80d09325a92d
 - Size: small; seeds: 0, 1
 - Command: `go-public bench --seeds 0,1 --size small --gitleaks <gitleaks-binary>`
 - gitleaks: 8.30.1 (official darwin_arm64 release, default config)
@@ -71,10 +71,10 @@ By class:
 
 | Tool | Total over fixtures, s | Median per fixture, s |
 |---|---|---|
-| go-public scan (CLI, default jobs) | 3.72 | 1.86 |
+| go-public scan (CLI, default jobs) | 3.68 | 1.84 |
 | gitleaks git (all refs) | 0.53 | 0.27 |
-| gitleaks git (replace refs ignored) | 0.54 | 0.27 |
-| gitleaks dir (checkout of HEAD) | 0.44 | 0.22 |
+| gitleaks git (replace refs ignored) | 0.53 | 0.27 |
+| gitleaks dir (checkout of HEAD) | 0.45 | 0.23 |
 
 Median of 3 runs per fixture; go-public's time includes interpreter start-up and report writing, which dominate on fixtures this small.
 

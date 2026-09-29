@@ -1,10 +1,10 @@
 # Real-world noise
 
-- Date (UTC): 2026-09-29T01:26:58Z
+- Date (UTC): 2026-09-29T02:01:42Z
 - Hardware: Mac Studio M4 Max, 128 GB
 - git: 2.50.1
 - go-public: 0.1.0
-- Detector commit: unknown
+- Detector commit: a07fcb42037e028c60e5d29a520d80d09325a92d
 - Command: `go-public bench --real-world-dir <dir> --labels bench/labels/real-world.jsonl`
 
 Two public repositories, each a full-history clone of one release tag, scanned with `--include-unreachable` and the default configuration. The results hold counts, rule ids, tags, SHAs and sizes only; no matched value from either repository is written anywhere in this repository.
@@ -13,8 +13,8 @@ Two public repositories, each a full-history clone of one release tag, scanned w
 
 | Repository | Tag | Tag commit | Clone size | Licence | Commits | Unique blobs | Blob content | Scan |
 |---|---|---|---|---|---|---|---|---|
-| psf/requests | v2.34.2 | `6e83187b8feb` | 14.7 MB | Apache-2.0 | 6,466 | 7,700 | 112 MB | 29.2 s |
-| pallets/flask | 3.1.3 | `22d924701a6a` | 12.7 MB | BSD-3-Clause | 5,463 | 9,021 | 159 MB | 16.5 s |
+| psf/requests | v2.34.2 | `6e83187b8feb` | 14.7 MB | Apache-2.0 | 6,466 | 7,700 | 112 MB | 28.8 s |
+| pallets/flask | 3.1.3 | `22d924701a6a` | 12.7 MB | BSD-3-Clause | 5,463 | 9,021 | 159 MB | 16.9 s |
 
 ## Findings per 1,000 unique blobs
 

@@ -1,10 +1,10 @@
 {
   "mode": "runtime",
-  "date_utc": "2026-09-29T01:34:46Z",
+  "date_utc": "2026-09-29T02:00:33Z",
   "hardware": "Mac Studio M4 Max, 128 GB",
   "git_version": "2.50.1",
   "go_public_version": "0.1.0",
-  "detector_commit": "unknown",
+  "detector_commit": "a07fcb42037e028c60e5d29a520d80d09325a92d",
   "seeds": [
     100
   ],
@@ -18,29 +18,29 @@
       "label": "Synthetic medium fixture, seed 100",
       "gated": true,
       "scan_default_jobs": {
-        "wall_s_median": 5.26,
+        "wall_s_median": 5.15,
         "wall_s_runs": [
-          5.16,
-          5.26,
-          5.35
+          5.1,
+          5.29,
+          5.15
         ],
-        "peak_rss_mb_median": 183.6,
+        "peak_rss_mb_median": 183.7,
         "peak_rss_mb_runs": [
-          183.8,
-          183.6,
-          183.0
+          183.7,
+          183.7,
+          183.9
         ],
         "load_avg_start": [
-          11.1,
-          10.85,
-          10.62
+          9.86,
+          11.95,
+          11.71
         ],
         "load_avg_end": [
-          10.85,
-          10.62,
-          10.14
+          11.95,
+          11.71,
+          11.34
         ],
-        "blobs_per_s": 2290.7,
+        "blobs_per_s": 2339.6,
         "jobs": "default",
         "inventory": {
           "commits": 3017,
@@ -50,34 +50,34 @@
           "unique_blobs": 12049,
           "total_blob_bytes": 196646607,
           "unreachable_blobs": 0,
-          "scan_duration_s": 5.063908,
+          "scan_duration_s": 4.862663,
           "findings": 0
         }
       },
       "scan_jobs_1": {
-        "wall_s_median": 34.81,
+        "wall_s_median": 34.96,
         "wall_s_runs": [
-          34.81,
-          34.97,
-          34.77
+          34.82,
+          35.0,
+          34.96
         ],
-        "peak_rss_mb_median": 191.0,
+        "peak_rss_mb_median": 191.2,
         "peak_rss_mb_runs": [
-          191.2,
+          191.3,
           191.0,
-          191.0
+          191.2
         ],
         "load_avg_start": [
-          10.14,
-          9.58,
-          10.11
+          11.34,
+          10.08,
+          9.08
         ],
         "load_avg_end": [
-          9.58,
-          10.11,
-          9.5
+          10.08,
+          9.08,
+          8.66
         ],
-        "blobs_per_s": 346.1,
+        "blobs_per_s": 344.7,
         "jobs": 1,
         "inventory": {
           "commits": 3017,
@@ -87,32 +87,32 @@
           "unique_blobs": 12049,
           "total_blob_bytes": 196646607,
           "unreachable_blobs": 0,
-          "scan_duration_s": 34.484876,
+          "scan_duration_s": 34.672746,
           "findings": 0
         }
       },
       "squash_export": {
-        "wall_s_median": 18.21,
+        "wall_s_median": 17.98,
         "wall_s_runs": [
           17.98,
-          18.4,
-          18.21
+          18.16,
+          17.76
         ],
-        "peak_rss_mb_median": 166.8,
+        "peak_rss_mb_median": 167.0,
         "peak_rss_mb_runs": [
-          166.3,
-          166.8,
-          167.4
+          167.0,
+          165.8,
+          167.2
         ],
         "load_avg_start": [
-          9.5,
-          9.7,
-          11.33
+          8.66,
+          10.77,
+          12.66
         ],
         "load_avg_end": [
-          9.7,
-          11.33,
-          11.15
+          10.77,
+          12.66,
+          12.21
         ]
       }
     },
@@ -123,29 +123,29 @@
       "tag_commit": "22d924701a6a",
       "clone_size_mb": 12.7,
       "scan_default_jobs": {
-        "wall_s_median": 16.27,
+        "wall_s_median": 15.99,
         "wall_s_runs": [
-          16.59,
-          16.09,
-          16.27
+          15.99,
+          16.17,
+          15.66
         ],
-        "peak_rss_mb_median": 412.7,
+        "peak_rss_mb_median": 414.7,
         "peak_rss_mb_runs": [
-          412.3,
-          412.7,
-          413.4
+          412.6,
+          414.7,
+          415.9
         ],
         "load_avg_start": [
-          11.15,
-          11.43,
-          12.03
+          12.21,
+          14.75,
+          14.76
         ],
         "load_avg_end": [
-          11.43,
-          12.03,
-          12.42
+          14.75,
+          14.76,
+          14.83
         ],
-        "blobs_per_s": 554.5,
+        "blobs_per_s": 564.2,
         "jobs": "default",
         "inventory": {
           "commits": 5463,
@@ -155,34 +155,34 @@
           "unique_blobs": 9021,
           "total_blob_bytes": 158795151,
           "unreachable_blobs": 0,
-          "scan_duration_s": 15.854839,
+          "scan_duration_s": 15.250689,
           "findings": 12968
         }
       },
       "scan_jobs_1": {
-        "wall_s_median": 74.73,
+        "wall_s_median": 73.9,
         "wall_s_runs": [
-          74.73,
-          74.81,
-          74.41
+          74.44,
+          73.9,
+          73.87
         ],
-        "peak_rss_mb_median": 421.3,
+        "peak_rss_mb_median": 418.4,
         "peak_rss_mb_runs": [
-          421.4,
-          418.9,
-          421.3
+          419.5,
+          418.4,
+          417.5
         ],
         "load_avg_start": [
-          12.42,
-          8.99,
-          8.26
+          14.83,
+          11.0,
+          8.92
         ],
         "load_avg_end": [
-          8.99,
-          8.26,
-          8.38
+          11.0,
+          8.92,
+          8.77
         ],
-        "blobs_per_s": 120.7,
+        "blobs_per_s": 122.1,
         "jobs": 1,
         "inventory": {
           "commits": 5463,
@@ -192,7 +192,7 @@
           "unique_blobs": 9021,
           "total_blob_bytes": 158795151,
           "unreachable_blobs": 0,
-          "scan_duration_s": 73.8318,
+          "scan_duration_s": 73.447721,
           "findings": 12968
         }
       }

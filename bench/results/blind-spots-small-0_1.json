@@ -2,11 +2,11 @@
   "schema": "go-public-bench-blind-spots-v1",
   "meta": {
     "mode": "blind-spots",
-    "date_utc": "2026-09-29T01:38:29Z",
+    "date_utc": "2026-09-29T02:01:45Z",
     "hardware": "Mac Studio M4 Max, 128 GB",
     "git_version": "2.50.1",
     "go_public_version": "0.1.0",
-    "detector_commit": "unknown",
+    "detector_commit": "a07fcb42037e028c60e5d29a520d80d09325a92d",
     "seeds": [
       0,
       1
