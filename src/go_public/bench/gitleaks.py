@@ -39,7 +39,7 @@ import subprocess
 import tempfile
 import time
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -53,24 +53,30 @@ if TYPE_CHECKING:
 
 EXPECTED_VERSION = "8.30.1"
 SECRET_CLASSES = frozenset({"secret-vendor", "secret-generic"})
-#: Location types in table order, with why a location is outside gitleaks's documented scope
-#: (None = inside it).
-LOCATIONS: tuple[tuple[str, str | None], ...] = (
-    ("head", None),
-    ("history_only", None),
-    ("side_branch", None),
-    ("tag_only", None),
-    ("notes", None),
-    ("stash", None),
-    ("remote_tracking", None),
-    ("replace", None),
-    ("original", None),
-    ("path_name", "file names are matched only by its path rules, not by content rules"),
-    ("commit_message", "commit messages are not part of the patches it scans"),
-    ("tag_message", "tag messages are not part of the patches it scans"),
-    ("unreachable", "objects no ref reaches are not in `git log`"),
+#: Location types in table order.
+LOCATIONS: tuple[str, ...] = (
+    "head",
+    "history_only",
+    "side_branch",
+    "tag_only",
+    "notes",
+    "stash",
+    "remote_tracking",
+    "replace",
+    "original",
+    "path_name",
+    "commit_message",
+    "tag_message",
+    "unreachable",
 )
-_OUTSIDE = {name: why for name, why in LOCATIONS if why}
+#: Kinds of expected finding that gitleaks's README does not claim to cover, and why. Scope
+#: is judged per expected finding by its kind, not by the plant's location type (a secret in
+#: a file name has a content finding too).
+OUTSIDE_SCOPE: dict[str, str] = {
+    "commit_message": "commit messages are not part of the patches it scans",
+    "tag_message": "tag messages are not part of the patches it scans",
+    "unreachable_blob": "objects no ref reaches are not in `git log`",
+}
 #: Kinds a gitleaks finding can never produce (no blob and line).
 _UNMAPPABLE_KINDS = frozenset({"commit_message", "tag_message", "path"})
 TIMING_REPEAT = 3
@@ -202,11 +208,12 @@ def _blobs_for(runner: GitRunner, specs: list[str]) -> dict[str, str]:
 
 
 def keys_from_git(runner: GitRunner, findings: list[dict[str, Any]]) -> set[tuple[str, int]]:
-    """`(blob, line)` keys of gitleaks git findings (path-only rules carry no line)."""
-    usable = [f for f in findings if f.get("StartLine") and "!" not in f["File"]]
+    """`(blob, line)` keys of gitleaks git findings; a path-only rule reports line 0, which
+    is the line the fixture's truth files use for key material with no text lines."""
+    usable = [f for f in findings if "!" not in f["File"]]
     blobs = _blobs_for(runner, [f"{f['Commit']}:{f['File']}" for f in usable])
     return {
-        (blobs[spec], f["StartLine"])
+        (blobs[spec], f.get("StartLine") or 0)
         for f in usable
         if (spec := f"{f['Commit']}:{f['File']}") in blobs
     }
@@ -217,27 +224,18 @@ def keys_from_dir(
 ) -> set[tuple[str, int]]:
     usable = []
     for f in findings:
-        if not f.get("StartLine") or "!" in f["File"]:
+        if "!" in f["File"]:
             continue
         try:
             rel = Path(f["File"]).resolve().relative_to(checkout.resolve()).as_posix()
         except ValueError:
             continue
-        usable.append((rel, f["StartLine"]))
+        usable.append((rel, f.get("StartLine") or 0))
     blobs = _blobs_for(runner, [f"HEAD:{rel}" for rel, _line in usable])
     return {(blobs[f"HEAD:{rel}"], line) for rel, line in usable if f"HEAD:{rel}" in blobs}
 
 
 # -- scoring -----------------------------------------------------------------------------
-
-
-@dataclass
-class Tally:
-    """Expected secret findings, by location type, for one tool."""
-
-    found: Counter[str] = field(default_factory=Counter)
-    found_by_class: Counter[str] = field(default_factory=Counter)
-    found_ids: set[tuple[int, str, str]] = field(default_factory=set)
 
 
 def _hit_key(seed: int, hit: ExpectedHit) -> tuple[int, str, str]:
@@ -286,10 +284,7 @@ def run_gitleaks_baseline(workspace: Workspace, binary: Path) -> tuple[dict[str,
     home = workspace.root / "gitleaks-home"
     home.mkdir()
 
-    tools: dict[str, Tally] = {name: Tally() for name in (*VARIANTS, "go_public")}
-    total: Counter[str] = Counter()
-    total_by_class: Counter[str] = Counter()
-    per_location_class: defaultdict[str, Counter[str]] = defaultdict(Counter)
+    tools: dict[str, set[tuple[int, str, str]]] = {name: set() for name in (*VARIANTS, "go_public")}
     walls: dict[str, list[float]] = {name: [] for name in (*VARIANTS, "go_public")}
     raw_counts: dict[str, int] = {name: 0 for name in VARIANTS}
     all_hits: dict[tuple[int, str, str], ExpectedHit] = {}
@@ -318,16 +313,13 @@ def run_gitleaks_baseline(workspace: Workspace, binary: Path) -> tuple[dict[str,
         for hit in hits:
             ident = _hit_key(seed, hit)
             all_hits[ident] = hit
-            total[hit.location_type] += 1
-            total_by_class[hit.eval_class] += 1
-            per_location_class[hit.location_type][hit.eval_class] += 1
             for name in VARIANTS:
                 if hit.kind in _UNMAPPABLE_KINDS:
                     continue
                 if tuple(hit.key) in found_keys[name]:
-                    _credit(tools[name], hit, ident)
+                    tools[name].add(ident)
             if hit.matched:
-                _credit(tools["go_public"], hit, ident)
+                tools["go_public"].add(ident)
         for name in VARIANTS:
             target = checkout if name == "dir" else fx.result.repo
             walls[name] += _time_gitleaks(binary, name, target, home, runs[name])
@@ -337,8 +329,6 @@ def run_gitleaks_baseline(workspace: Workspace, binary: Path) -> tuple[dict[str,
     data = _assemble(
         options,
         version=version,
-        total=total,
-        total_by_class=total_by_class,
         tools=tools,
         walls=walls,
         raw_counts=raw_counts,
@@ -346,12 +336,6 @@ def run_gitleaks_baseline(workspace: Workspace, binary: Path) -> tuple[dict[str,
         blind=blind,
     )
     return data, _markdown(data, bench_run._meta_block(data["meta"]))
-
-
-def _credit(tally: Tally, hit: ExpectedHit, ident: tuple[int, str, str]) -> None:
-    tally.found[hit.location_type] += 1
-    tally.found_by_class[hit.eval_class] += 1
-    tally.found_ids.add(ident)
 
 
 # -- blind-spot secrets ------------------------------------------------------------------
@@ -452,9 +436,7 @@ def _assemble(
     options: Any,
     *,
     version: str,
-    total: Counter[str],
-    total_by_class: Counter[str],
-    tools: dict[str, Tally],
+    tools: dict[str, set[tuple[int, str, str]]],
     walls: dict[str, list[float]],
     raw_counts: dict[str, int],
     all_hits: dict[tuple[int, str, str], ExpectedHit],
@@ -462,46 +444,66 @@ def _assemble(
 ) -> dict[str, Any]:
     meta = options.metadata("gitleaks", "--gitleaks <gitleaks-binary>")
     meta["gitleaks_version"] = version
+    idents = list(all_hits)
+
+    def in_scope(ident: tuple[int, str, str]) -> bool:
+        return all_hits[ident].kind not in OUTSIDE_SCOPE
+
+    def at_head(ident: tuple[int, str, str]) -> bool:
+        return in_scope(ident) and all_hits[ident].at_export_ref
+
     locations = []
-    for name, why in LOCATIONS:
+    for name in LOCATIONS:
+        here = [i for i in idents if all_hits[i].location_type == name]
         row: dict[str, Any] = {
             "location": name,
-            "expected": total[name],
-            "outside_gitleaks_scope": why,
-            "go_public": tools["go_public"].found[name],
+            "expected": len(here),
+            "outside_gitleaks_scope": sum(1 for i in here if not in_scope(i)),
+            "in_checkout": sum(1 for i in here if at_head(i)),
+            "go_public": sum(1 for i in here if i in tools["go_public"]),
         }
         for variant in VARIANTS:
-            row[variant] = tools[variant].found[name]
+            row[variant] = sum(1 for i in here if i in tools[variant])
         locations.append(row)
-    in_scope = sum(total[n] for n, why in LOCATIONS if why is None)
-    head_total = total["head"]
+    scope_ids = [i for i in idents if in_scope(i)]
+    head_ids = [i for i in idents if at_head(i)]
+    classes = sorted({h.eval_class for h in all_hits.values()})
     summary: dict[str, Any] = {
-        "expected": sum(total.values()),
-        "expected_in_gitleaks_git_scope": in_scope,
-        "expected_at_head": head_total,
-        "by_class": dict(total_by_class),
+        "expected": len(idents),
+        "expected_in_gitleaks_git_scope": len(scope_ids),
+        "expected_at_head": len(head_ids),
+        "outside_gitleaks_scope": {
+            kind: sum(1 for h in all_hits.values() if h.kind == kind) for kind in OUTSIDE_SCOPE
+        },
+        "by_class": {c: sum(1 for h in all_hits.values() if h.eval_class == c) for c in classes},
     }
     for name in ("go_public", *VARIANTS):
-        t = tools[name]
-        found_all = sum(t.found.values())
-        found_scope = sum(t.found[n] for n, why in LOCATIONS if why is None)
+        found = tools[name]
+        n_all = sum(1 for i in idents if i in found)
+        n_scope = sum(1 for i in scope_ids if i in found)
+        n_head = sum(1 for i in head_ids if i in found)
         summary[name] = {
-            "found": found_all,
-            "recall_all": _ratio(found_all, summary["expected"]),
-            "recall_in_git_scope": _ratio(found_scope, in_scope),
-            "recall_at_head": _ratio(t.found["head"], head_total),
+            "found": n_all,
+            "found_in_git_scope": n_scope,
+            "found_at_head": n_head,
+            "recall_all": _ratio(n_all, len(idents)),
+            "recall_in_git_scope": _ratio(n_scope, len(scope_ids)),
+            "recall_at_head": _ratio(n_head, len(head_ids)),
             "by_class": {
                 cls: {
-                    "found": t.found_by_class[cls],
-                    "expected": total_by_class[cls],
-                    "recall": _ratio(t.found_by_class[cls], total_by_class[cls]),
+                    "found": sum(1 for i in idents if all_hits[i].eval_class == cls and i in found),
+                    "expected": summary["by_class"][cls],
+                    "recall": _ratio(
+                        sum(1 for i in idents if all_hits[i].eval_class == cls and i in found),
+                        summary["by_class"][cls],
+                    ),
                 }
-                for cls in sorted(total_by_class)
+                for cls in classes
             },
         }
-    only_gitleaks = tools["git"].found_ids - tools["go_public"].found_ids
-    only_go_public = tools["go_public"].found_ids - tools["git"].found_ids
-    only_go_public_vs_nr = tools["go_public"].found_ids - tools["git_no_replace"].found_ids
+    only_gitleaks = tools["git"] - tools["go_public"]
+    only_go_public = tools["go_public"] - tools["git"]
+    only_go_public_vs_nr = tools["go_public"] - tools["git_no_replace"]
     timing = {}
     for name, w in walls.items():
         per_fixture = [_median(w[i : i + TIMING_REPEAT]) for i in range(0, len(w), TIMING_REPEAT)]
@@ -520,6 +522,7 @@ def _assemble(
             "gitleaks_dir_archives": command_line("dir", "--max-archive-depth", "2"),
             "go_public": "go-public scan <fixture> --include-unreachable --config <fixture-config>",
         },
+        "outside_scope_reasons": OUTSIDE_SCOPE,
         "locations": locations,
         "summary": summary,
         "gitleaks_only": _families(all_hits, only_gitleaks),
@@ -537,7 +540,7 @@ def _families(
     counts: Counter[str] = Counter()
     for ident in idents:
         hit = all_hits[ident]
-        counts[f"{hit.eval_class}:{hit.location_type}"] += 1
+        counts[f"{hit.eval_class}:{hit.location_type}:{hit.kind}"] += 1
     return dict(sorted(counts.items()))
 
 
@@ -572,28 +575,39 @@ def _markdown(data: dict[str, Any], meta_block: str) -> str:
         out.append(f"- {label.replace('_', ' ')}: `{cmd}`")
     out += [
         "",
-        "A location is *outside gitleaks's scope* when its README does not claim to cover it: "
-        "it scans `git log -p` patches and directories or files, so commit messages, tag "
-        "messages and unreachable objects are outside it. Those rows are not counted as "
-        "misses in the in-scope recall. `gitleaks dir` sees a checkout only, so only the "
-        "`head` row is in its scope.",
+        "An expected finding is *outside gitleaks's scope* when its README does not claim to "
+        "cover that kind of place: it scans `git log -p` patches and directories or files. "
+        "Those are not counted as misses in the in-scope recall. Reasons, with the number of "
+        "expected findings of each kind in this run:",
+        "",
+    ]
+    for kind, why in data["outside_scope_reasons"].items():
+        out.append(f"- `{kind}`: {why} ({s['outside_gitleaks_scope'][kind]})")
+    out += [
+        "",
+        "`gitleaks dir` sees a checkout only, so its scope is the expected findings that are in "
+        "the tree at `HEAD`.",
         "",
         "## Recall by location type",
+        "",
+        "go-public is shown against all expected findings of a row; gitleaks git against the "
+        "in-scope ones; gitleaks dir against those in the checkout.",
         "",
     ]
     rows = []
     for r in data["locations"]:
-        outside = " (outside scope)" if r["outside_gitleaks_scope"] else ""
-        checkout_note = "" if r["location"] == "head" else " (not in a checkout)"
         n = r["expected"]
+        scope = n - r["outside_gitleaks_scope"]
         rows.append(
             [
                 r["location"],
                 n,
+                r["outside_gitleaks_scope"],
+                r["in_checkout"],
                 f"{r['go_public']}/{n}",
-                f"{r['git']}/{n}{outside}",
-                f"{r['git_no_replace']}/{n}{outside}",
-                f"{r['dir']}/{n}{checkout_note}",
+                f"{r['git']}/{scope}",
+                f"{r['git_no_replace']}/{scope}",
+                f"{r['dir']}/{r['in_checkout']}",
             ]
         )
     out.append(
@@ -601,6 +615,8 @@ def _markdown(data: dict[str, Any], meta_block: str) -> str:
             [
                 "Location",
                 "Expected",
+                "Outside scope",
+                "In checkout",
                 "go-public",
                 VARIANT_TITLES["git"],
                 VARIANT_TITLES["git_no_replace"],
@@ -618,8 +634,9 @@ def _markdown(data: dict[str, Any], meta_block: str) -> str:
                 title,
                 f"{t['found']}/{s['expected']}",
                 _pct(t["recall_all"]),
-                _pct(t["recall_in_git_scope"]),
-                _pct(t["recall_at_head"]),
+                f"{t['found_in_git_scope']}/{s['expected_in_gitleaks_git_scope']} "
+                f"({_pct(t['recall_in_git_scope'])})",
+                f"{t['found_at_head']}/{s['expected_at_head']} ({_pct(t['recall_at_head'])})",
             ]
         )
     out.append(
@@ -628,8 +645,8 @@ def _markdown(data: dict[str, Any], meta_block: str) -> str:
                 "Tool",
                 "Found",
                 "Recall, all expected",
-                f"Recall, gitleaks git scope ({s['expected_in_gitleaks_git_scope']})",
-                f"Recall at HEAD ({s['expected_at_head']})",
+                "In gitleaks git's scope",
+                "In the checkout (at HEAD)",
             ],
             rows,
         )
@@ -647,6 +664,15 @@ def _markdown(data: dict[str, Any], meta_block: str) -> str:
         for name, title in (("go_public", "go-public"), *VARIANT_TITLES.items())
     ]
     out.append(_table(["Tool", *classes], rows))
+    gap = s["git_no_replace"]["found_in_git_scope"] - s["git"]["found_in_git_scope"]
+    out += [
+        "",
+        "`gitleaks git` reads history through `git log -p`, which follows `refs/replace/*`. "
+        "The fixtures carry replace refs, so history they cover is invisible to the plain "
+        f"run ({gap} in-scope expected findings here) and reappears when git is told to ignore "
+        "them. That is how the tool behaves on such a repository; a repository without "
+        "replace refs would not show this gap.",
+    ]
     out += ["", "## Wall time", ""]
     rows = [
         [

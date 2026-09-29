@@ -45,7 +45,7 @@ def test_command_lines_record_the_options_and_hide_paths() -> None:
 def test_every_location_type_of_a_secret_plant_has_a_row() -> None:
     from go_public.bench.plants import LOCATION_TYPES
 
-    named = {name for name, _why in gl.LOCATIONS}
+    named = set(gl.LOCATIONS)
     assert {"head", "history_only", "unreachable", "commit_message", "tag_message"} <= named
     assert named <= set(LOCATION_TYPES)
 
@@ -79,11 +79,11 @@ def test_keys_from_git_resolve_the_blob_at_the_reporting_commit(tmp_path: Path) 
     runner = GitRunner(repo, role="source")
     findings = [
         {"File": "a.txt", "StartLine": 2, "Commit": first},
-        {"File": "a.txt", "StartLine": 0, "Commit": first},  # path-only rule: no line
+        {"File": "a.txt", "StartLine": 0, "Commit": first},  # path-only rule: line 0
         {"File": "gone.txt", "StartLine": 1, "Commit": first},  # unresolvable
         {"File": "a.zip!inner.txt", "StartLine": 1, "Commit": first},  # archive member
     ]
-    assert gl.keys_from_git(runner, findings) == {(old_blob, 2)}
+    assert gl.keys_from_git(runner, findings) == {(old_blob, 2), (old_blob, 0)}
     assert gl.keys_from_git_any_line(runner, [findings[3], {"File": "a.txt", "Commit": first}]) == {
         (old_blob, 0)
     }
@@ -130,4 +130,4 @@ def test_baseline_on_the_tiny_fixture_with_the_real_binary(tmp_path: Path) -> No
     summary = data["summary"]
     assert summary["go_public"]["found"] == summary["expected"]
     assert summary["dir"]["found"] <= summary["git"]["found"] <= summary["expected"]
-    assert "outside scope" in md
+    assert "outside gitleaks's scope" in md
