@@ -1,6 +1,6 @@
 {
   "mode": "runtime",
-  "date_utc": "2026-09-28T21:52:32Z",
+  "date_utc": "2026-09-29T01:34:46Z",
   "hardware": "Mac Studio M4 Max, 128 GB",
   "git_version": "2.50.1",
   "go_public_version": "0.1.0",
@@ -18,29 +18,29 @@
       "label": "Synthetic medium fixture, seed 100",
       "gated": true,
       "scan_default_jobs": {
-        "wall_s_median": 5.2,
+        "wall_s_median": 5.26,
         "wall_s_runs": [
-          5.13,
-          5.2,
+          5.16,
+          5.26,
           5.35
         ],
-        "peak_rss_mb_median": 183.2,
+        "peak_rss_mb_median": 183.6,
         "peak_rss_mb_runs": [
-          183.7,
-          183.2,
-          183.1
+          183.8,
+          183.6,
+          183.0
         ],
         "load_avg_start": [
-          12.46,
-          14.34,
-          15.11
+          11.1,
+          10.85,
+          10.62
         ],
         "load_avg_end": [
-          14.34,
-          15.11,
-          15.91
+          10.85,
+          10.62,
+          10.14
         ],
-        "blobs_per_s": 2317.1,
+        "blobs_per_s": 2290.7,
         "jobs": "default",
         "inventory": {
           "commits": 3017,
@@ -50,34 +50,34 @@
           "unique_blobs": 12049,
           "total_blob_bytes": 196646607,
           "unreachable_blobs": 0,
-          "scan_duration_s": 5.05516,
+          "scan_duration_s": 5.063908,
           "findings": 0
         }
       },
       "scan_jobs_1": {
-        "wall_s_median": 34.84,
+        "wall_s_median": 34.81,
         "wall_s_runs": [
-          34.84,
-          34.73,
-          35.01
+          34.81,
+          34.97,
+          34.77
         ],
         "peak_rss_mb_median": 191.0,
         "peak_rss_mb_runs": [
+          191.2,
           191.0,
-          190.9,
-          192.3
+          191.0
         ],
         "load_avg_start": [
-          15.91,
-          12.56,
-          10.95
+          10.14,
+          9.58,
+          10.11
         ],
         "load_avg_end": [
-          12.56,
-          10.95,
-          9.91
+          9.58,
+          10.11,
+          9.5
         ],
-        "blobs_per_s": 345.8,
+        "blobs_per_s": 346.1,
         "jobs": 1,
         "inventory": {
           "commits": 3017,
@@ -87,33 +87,114 @@
           "unique_blobs": 12049,
           "total_blob_bytes": 196646607,
           "unreachable_blobs": 0,
-          "scan_duration_s": 34.738467,
+          "scan_duration_s": 34.484876,
           "findings": 0
         }
       },
       "squash_export": {
-        "wall_s_median": 24.43,
+        "wall_s_median": 18.21,
         "wall_s_runs": [
-          17.59,
-          24.43,
-          24.85
+          17.98,
+          18.4,
+          18.21
         ],
-        "peak_rss_mb_median": 167.4,
+        "peak_rss_mb_median": 166.8,
         "peak_rss_mb_runs": [
-          167.4,
-          167.2,
-          168.1
+          166.3,
+          166.8,
+          167.4
         ],
         "load_avg_start": [
-          9.91,
-          11.75,
-          11.81
+          9.5,
+          9.7,
+          11.33
         ],
         "load_avg_end": [
-          11.75,
-          11.81,
-          12.09
+          9.7,
+          11.33,
+          11.15
         ]
+      }
+    },
+    {
+      "label": "pallets/flask at 3.1.3 (real-world clone)",
+      "gated": false,
+      "tag": "3.1.3",
+      "tag_commit": "22d924701a6a",
+      "clone_size_mb": 12.7,
+      "scan_default_jobs": {
+        "wall_s_median": 16.27,
+        "wall_s_runs": [
+          16.59,
+          16.09,
+          16.27
+        ],
+        "peak_rss_mb_median": 412.7,
+        "peak_rss_mb_runs": [
+          412.3,
+          412.7,
+          413.4
+        ],
+        "load_avg_start": [
+          11.15,
+          11.43,
+          12.03
+        ],
+        "load_avg_end": [
+          11.43,
+          12.03,
+          12.42
+        ],
+        "blobs_per_s": 554.5,
+        "jobs": "default",
+        "inventory": {
+          "commits": 5463,
+          "branches": 0,
+          "tags": 63,
+          "annotated_tags": 35,
+          "unique_blobs": 9021,
+          "total_blob_bytes": 158795151,
+          "unreachable_blobs": 0,
+          "scan_duration_s": 15.854839,
+          "findings": 12968
+        }
+      },
+      "scan_jobs_1": {
+        "wall_s_median": 74.73,
+        "wall_s_runs": [
+          74.73,
+          74.81,
+          74.41
+        ],
+        "peak_rss_mb_median": 421.3,
+        "peak_rss_mb_runs": [
+          421.4,
+          418.9,
+          421.3
+        ],
+        "load_avg_start": [
+          12.42,
+          8.99,
+          8.26
+        ],
+        "load_avg_end": [
+          8.99,
+          8.26,
+          8.38
+        ],
+        "blobs_per_s": 120.7,
+        "jobs": 1,
+        "inventory": {
+          "commits": 5463,
+          "branches": 0,
+          "tags": 63,
+          "annotated_tags": 35,
+          "unique_blobs": 9021,
+          "total_blob_bytes": 158795151,
+          "unreachable_blobs": 0,
+          "scan_duration_s": 73.8318,
+          "findings": 12968
+        }
       }
     }
   ]

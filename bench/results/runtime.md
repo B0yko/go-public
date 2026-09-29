@@ -1,6 +1,6 @@
 # go-public runtime
 
-- Date (UTC): 2026-09-28T21:52:32Z
+- Date (UTC): 2026-09-29T01:34:46Z
 - Hardware: Mac Studio M4 Max, 128 GB
 - git: 2.50.1
 - go-public: 0.1.0
@@ -16,8 +16,17 @@ Median of 3 runs of the full command line under `/usr/bin/time -l`. Peak RSS is 
 
 | Command | Wall s | Peak RSS MB | Blobs/s | Load avg |
 |---|---|---|---|---|
-| scan, default | 5.20 | 183 | 2317 | 12.5, 14.3, 15.1 |
-| scan, `--jobs 1` | 34.84 | 191 | 346 | 15.9, 12.6, 10.9 |
-| squash export | 24.43 | 167 |  | 9.9, 11.8, 11.8 |
+| scan, default | 5.26 | 184 | 2291 | 11.1, 10.8, 10.6 |
+| scan, `--jobs 1` | 34.81 | 191 | 346 | 10.1, 9.6, 10.1 |
+| squash export | 18.21 | 167 |  | 9.5, 9.7, 11.3 |
 
-Full scan with the default `--jobs`: 5.20 s, which meets the 60 s target.
+Full scan with the default `--jobs`: 5.26 s, which meets the 60 s target.
+
+## pallets/flask at 3.1.3 (real-world clone)
+
+5,463 commits, 0 branches, 63 tags (35 annotated), 9,021 unique blobs, 159 MB of blob content, 0 unreachable blobs, 12968 findings (tag: 3.1.3, tag commit: 22d924701a6a, clone size mb: 12.7).
+
+| Command | Wall s | Peak RSS MB | Blobs/s | Load avg |
+|---|---|---|---|---|
+| scan, default | 16.27 | 413 | 554 | 11.2, 11.4, 12.0 |
+| scan, `--jobs 1` | 74.73 | 421 | 121 | 12.4, 9.0, 8.3 |
