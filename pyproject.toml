@@ -45,6 +45,8 @@ dev = [
   # Dev-only: stage-4.md "jsonschema is a dev dependency, not a runtime one" —
   # validates sample reports against schemas/go-public-report-v1.json in tests only.
   "jsonschema>=4.20",
+  # Dev-only: tests/test_docs.py parses the workflows and issue forms.
+  "pyyaml>=6",
 ]
 
 [tool.ruff]
