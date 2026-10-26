@@ -878,4 +878,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Report a security problem as described i
 
 Apache-2.0. See [LICENSE](LICENSE). Copyright 2026 Andrii Boiko.
 
-Built by [Andrii Boiko](https://boiko.ai/) · [Project overview](https://boiko.ai/work/go-public/).
+Built by [Andrii Boiko](https://boiko.ai/) · [LinkedIn](https://www.linkedin.com/in/andriyboyko/) · [Project overview](https://boiko.ai/work/go-public/).
