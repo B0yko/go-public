@@ -1,9 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/img/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/img/logo-light.svg">
-    <img alt="go-public" src="docs/img/logo-light.svg" width="360">
-  </picture>
+  <img src="docs/img/social-preview.png" alt="go-public: your git history remembers everything" width="880">
 </p>
 
 <h3 align="center">Audit a private git repository before you open-source it.</h3>
