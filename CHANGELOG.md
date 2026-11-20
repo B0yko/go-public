@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-11-20
+
+### Security
+
+- Upgraded Pillow to 13.0.0 and pypdf to 7.1.1 and raised their minimum versions: `uv audit` now reports no known vulnerabilities in the locked dependencies (80 advisories before, all in those two packages).
+
+### Fixed
+
+- The README report screenshot switches with GitHub's own light/dark theme instead of the operating-system setting.
+- A pypdf 7 deprecation in the PDF test helper (keyword arguments for `add_outline_item`).
+
+### Changed
+
+- CI can be run manually (`workflow_dispatch`); a dispatched run also runs the full self-scan.
+
 ## [0.1.0] - 2026-09-29
 
 First release.

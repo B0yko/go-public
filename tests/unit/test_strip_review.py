@@ -126,7 +126,7 @@ def _pdf_with_attachment_and_author() -> bytes:
     writer = PdfWriter()
     writer.add_blank_page(200, 200)
     writer.add_blank_page(200, 200)
-    writer.add_outline_item("Chapter", 1)
+    writer.add_outline_item(title="Chapter", page_number=1)
     writer.add_attachment("note.txt", b"attached payload")
     writer.add_metadata({"/Author": PERSON})
     out = io.BytesIO()
