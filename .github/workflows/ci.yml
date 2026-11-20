@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -74,7 +75,7 @@ jobs:
 
       # The committed .go-public.toml is picked up from the tree at HEAD.
       - name: Scan this repository, history included
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: uv run go-public scan . --include-unreachable --fail-on medium
 
       # A pull request brings its author's commits, and their identities are findings by
