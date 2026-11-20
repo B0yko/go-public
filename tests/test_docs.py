@@ -558,15 +558,13 @@ def test_the_readme_lists_every_flag_of_scan_and_export(command: str) -> None:
 # -- statements the README must make ------------------------------------------------
 
 
-def test_the_readme_opens_with_the_logo_in_both_themes() -> None:
+def test_the_readme_opens_with_the_cover() -> None:
     hero = _readme().partition("\n## ")[0]
     assert hero.startswith('<p align="center">')
-    assert 'alt="go-public"' in hero
-    for theme in ("light", "dark"):
-        path = f"docs/img/logo-{theme}.svg"
-        assert f'media="(prefers-color-scheme: {theme})" srcset="{path}"' in hero, theme
-        svg = (ROOT / path).read_text(encoding="utf-8")
-        assert svg.startswith("<svg ") and "<!--" not in svg and "<metadata" not in svg, path
+    assert 'src="docs/img/social-preview.png"' in hero
+    assert 'alt="go-public' in hero
+    cover = ROOT / "docs/img/social-preview.png"
+    assert cover.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
     assert "Audit a private git repository before you open-source it." in hero
 
 
@@ -669,11 +667,15 @@ def test_the_readme_names_and_links_the_alternatives() -> None:
 
 
 def test_the_screenshot_is_referenced_and_committed() -> None:
-    """The report screenshot comes in a light and a dark variant, picked by the reader's theme."""
-    shots = set(re.findall(r'(?:src|srcset)="(docs/img/report[^"]*)"', _readme()))
+    """The report screenshot comes in a light and a dark variant, picked by GitHub's own theme."""
+    text = _readme()
+    shots = set(re.findall(r'(?:src|srcset)="(docs/img/report[^"]*)"', text))
     assert shots == {"docs/img/report.png", "docs/img/report-dark.png"}
     for shot in shots:
         assert (ROOT / shot).is_file(), shot
+    assert 'href="docs/img/report.png#gh-light-mode-only"' in text
+    assert 'href="docs/img/report-dark.png#gh-dark-mode-only"' in text
+    assert "prefers-color-scheme" not in text
 
 
 def test_docs_hold_no_email_other_than_placeholders_and_no_user_paths() -> None:
@@ -737,7 +739,7 @@ def _uses(workflow: dict[str, Any]) -> list[str]:
 
 def test_ci_workflow() -> None:
     ci = _yaml(ROOT / ".github" / "workflows" / "ci.yml")
-    assert set(_triggers(ci)) == {"push", "pull_request"}
+    assert set(_triggers(ci)) == {"push", "pull_request", "workflow_dispatch"}
     assert ci["permissions"] == {"contents": "read"}
     test = ci["jobs"]["test"]
     assert test["strategy"]["matrix"]["os"] == ["ubuntu-latest", "macos-latest"]

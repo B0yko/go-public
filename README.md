@@ -42,10 +42,12 @@ Making a repository public publishes its whole history. A key that was deleted m
 
 </details>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/report-dark.png">
+<a href="docs/img/report.png#gh-light-mode-only">
   <img alt="The HTML report of go-public demo: title, warnings and the first rows of fix-plan group A" src="docs/img/report.png">
-</picture>
+</a>
+<a href="docs/img/report-dark.png#gh-dark-mode-only">
+  <img alt="The HTML report of go-public demo: title, warnings and the first rows of fix-plan group A" src="docs/img/report-dark.png">
+</a>
 
 <sub>The HTML report for `go-public demo`, a synthetic repository built at run time. One self-contained file with no network requests; below the fix plan it lists every finding, with severity and category filters, in a light or dark theme.</sub>
 
